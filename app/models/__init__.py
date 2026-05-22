@@ -1,3 +1,5 @@
+"""Modelos do SRA — centraliza imports para o SQLAlchemy."""
+
 from app.models.mixins import AuditoriaMixin
 from app.models.usuario import Usuario
 from app.models.dominio import (
@@ -17,3 +19,25 @@ from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.configuracao_numeracao import ConfiguracaoNumeracao
 from app.models.notificacao import Notificacao
 from app.models.registro_auditoria import RegistroAuditoria
+
+__all__ = [
+    'AuditoriaMixin',
+    'Usuario',
+    'Dominio',
+    'DomPerfilUsuario',
+    'DomStatusRelatorio',
+    'ModeloRelatorio',
+    'RelatorioProducao',
+    'RelatorioFinalizado',
+    'CapituloDocumento',
+    'ElementoConteudo',
+    'EnvioConteudo',
+    'PrevisualizacaoConteudo',
+    'Revisao',
+    'AcaoRevisao',
+    'Bloqueio',
+    'BibliotecaFormatacaoCanonica',
+    'ConfiguracaoNumeracao',
+    'Notificacao',
+    'RegistroAuditoria',
+]

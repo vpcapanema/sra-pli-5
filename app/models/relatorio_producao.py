@@ -2,6 +2,8 @@ from app import db
 
 
 class RelatorioProducao(db.Model):
+    """Relatório em produção (versão de trabalho) no fluxo SRA."""
+
     __tablename__ = 'relatorios_producao'
 
     id = db.Column(db.Integer, primary_key=True)

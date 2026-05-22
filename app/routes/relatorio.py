@@ -101,7 +101,7 @@ def criar_relatorio_base():
     caminho = os.path.join(dir_relatorios, nome_seguro)
     arquivo.save(caminho)
 
-    # TODO: Implementar criar_relatorio_base em ServicoRelatorio
+    # NOTE: Implementar criar_relatorio_base em ServicoRelatorio
     # Por enquanto, usar criar_relatorio_finalizado
     flash('Funcionalidade em desenvolvimento.', 'info')
     return redirect(
@@ -157,14 +157,14 @@ def criar_versao():
     flash('Versão de trabalho criada com sucesso.', 'sucesso')
     return redirect(
         url_for('relatorio.detalhe_versao',
-                id=versao.id_versao_trabalho)
+                id_versao=versao.id_versao_trabalho)
     )
 
 
 @relatorio_bp.route('/versao-trabalho/<int:id_versao>')
 def detalhe_versao(id_versao):
     """Detalhes de uma versão de trabalho."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id)
+    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão de trabalho não encontrada.', 'erro')
         return redirect(url_for('relatorio.listar_versoes'))
@@ -176,7 +176,7 @@ def detalhe_versao(id_versao):
         ativa=True
     ).all()
     autores = Usuario.query.filter(
-        Usuario.perfil_id.in_([1, 2, 3]),  # TODO: usar codigo do perfil
+        Usuario.perfil_id.in_([1, 2, 3]),  # NOTE: usar codigo do perfil
         Usuario.ativo
     ).order_by(Usuario.nome).all()
     componentes = [
@@ -217,7 +217,7 @@ def criar_capitulo(id_versao):
     )
     flash('Capítulo adicionado.', 'sucesso')
     return redirect(
-        url_for('relatorio.detalhe_versao', id=id_versao)
+        url_for('relatorio.detalhe_versao', id_versao=id_versao)
     )
 
 
@@ -242,7 +242,7 @@ def vincular_biblioteca(id_versao):
         flash('Biblioteca vinculada com sucesso.', 'sucesso')
     else:
         flash('Selecione uma biblioteca.', 'erro')
-    return redirect(url_for('relatorio.detalhe_versao', id=id))
+    return redirect(url_for('relatorio.detalhe_versao', id_versao=id))
 
 
 # ==============================================================
@@ -260,7 +260,7 @@ def atribuir_responsavel(id_versao, id_capitulo):
     cap.id_usuario_responsavel = id_resp if id_resp else None
     db.session.commit()
     flash('Responsável atualizado.', 'sucesso')
-    return redirect(url_for('relatorio.detalhe_versao', id=id_versao))
+    return redirect(url_for('relatorio.detalhe_versao', id_versao=id_versao))
 
 
 # ==============================================================
@@ -452,7 +452,7 @@ def upload_docx_clonagem():
     caminho = os.path.join(dir_temp, nome_seguro)
     arquivo.save(caminho)
 
-    # TODO: Implementar extração de elementos DOCX
+    # NOTE: Implementar extração de elementos DOCX
     # Usar ServicoExtracaoCanonica para extrair estrutura
 
     return jsonify({

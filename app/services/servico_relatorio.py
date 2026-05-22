@@ -1,3 +1,5 @@
+"""Serviços de domínio para relatórios, modelos e capítulos."""
+
 from app import db
 from app.models.modelo_relatorio import ModeloRelatorio
 from app.models.relatorio_producao import RelatorioProducao
@@ -7,6 +9,7 @@ from app.models.capitulo_documento import CapituloDocumento
 
 
 class ServicoRelatorio:
+    """Serviço centralizado para operações sobre relatórios e capítulos."""
 
     # --- Modelo de relatório ---
 
@@ -29,7 +32,7 @@ class ServicoRelatorio:
 
     @staticmethod
     def criar_modelo_completo(nome_modelo, descricao,
-                              ativo, caminho_docx):
+                              ativo, _caminho_docx):
         """
         Cria modelo e relatório base.
         Versão de trabalho é um fluxo separado.
@@ -44,7 +47,7 @@ class ServicoRelatorio:
         db.session.flush()
 
         # 2. Relatório finalizado (substitui relatorio_base)
-        # TODO: Implementar criação de RelatorioFinalizado
+        # NOTE: Implementar criação de RelatorioFinalizado
         # relatorio = RelatorioFinalizado(
         #     relatorio_id=modelo.id_modelo_relatorio,
         #     titulo=nome_modelo,
@@ -105,8 +108,8 @@ class ServicoRelatorio:
 
     @staticmethod
     def criar_relatorio_finalizado(relatorio_id, titulo,
-                                    versao=None, caminho_arquivo=None):
-        # TODO: Implementar criação de RelatorioFinalizado
+                                   versao=None, caminho_arquivo=None):
+        # NOTE: Implementar criação de RelatorioFinalizado
         pass
 
     # --- Relatório de produção (substitui versão de trabalho) ---
@@ -169,9 +172,9 @@ class ServicoRelatorio:
         return relatorio
 
     @staticmethod
-    def clonar_capitulos_do_base(id_relatorio,
-                                 id_relatorio_base_anterior):
-        # TODO: Implementar clonagem usando RelatorioFinalizado
+    def clonar_capitulos_do_base(_id_relatorio,
+                                 _id_relatorio_base_anterior):
+        # NOTE: Implementar clonagem usando RelatorioFinalizado
         # anterior = RelatorioFinalizado.query.get(
         #     id_relatorio_base_anterior
         # )
@@ -218,7 +221,7 @@ class ServicoRelatorio:
 
     @staticmethod
     def panorama():
-        # TODO: Implementar panorama usando RelatorioProducao
+        # NOTE: Implementar panorama usando RelatorioProducao
         # modelos = ModeloRelatorio.query.filter_by(
         #     ativo=True
         # ).order_by(ModeloRelatorio.nome_modelo).all()

@@ -9,7 +9,7 @@
 {% block conteudo %}
 <div class="ew">
     <header class="ew__header">
-        <a href="{{ url_for('relatorio.detalhe_versao', id=versao.id) }}" class="ew__back" title="Voltar">
+        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=versao.id) }}" class="ew__back" title="Voltar">
             <i class="ph ph-arrow-left"></i>
         </a>
         <div class="ew__header-text">
@@ -100,12 +100,20 @@
     </div>
 </div>
 
+<div id="editor-data"
+     data-id-versao="{{ versao.id }}"
+     data-id-usuario="{{ current_user.id }}"
+     data-api-base="/api"
+     hidden></div>
 <script>
-var EDITOR_DATA = {
-    idVersao: {{ versao.id }},
-    idUsuario: {{ current_user.id }},
-    apiBase: '/api'
-};
+(function() {
+    var el = document.getElementById('editor-data');
+    window.EDITOR_DATA = {
+        idVersao: Number(el.dataset.idVersao),
+        idUsuario: Number(el.dataset.idUsuario),
+        apiBase: el.dataset.apiBase
+    };
+})();
 </script>
 {% endblock %}
 

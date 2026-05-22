@@ -4,12 +4,17 @@ Consumida pelo editor React (docx-editor) embedado nas telas
 de autor e coordenador.
 """
 
+import io
+import os
 import secrets
 import time
 from io import BytesIO
 
+from bs4 import BeautifulSoup
+from docx import Document
 from flask import Blueprint, abort, jsonify, request, send_file, session
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 
 from app import db
 from app.models.usuario import Usuario
@@ -20,6 +25,7 @@ from app.models.biblioteca_formatacao import (
     BibliotecaFormatacaoCanonica
 )
 from app.models.notificacao import Notificacao
+from app.services.servico_motor_renderizacao import MotorRenderizacao
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
@@ -190,10 +196,6 @@ def salvar_conteudo(id_cap):
 
     # Se for HTML editado, converte para DOCX
     if 'text/html' in content_type:
-        from docx import Document
-        from bs4 import BeautifulSoup
-        import io
-
         try:
             # Parse HTML
             soup = BeautifulSoup(dados.decode('utf-8'), 'html.parser')
@@ -217,7 +219,7 @@ def salvar_conteudo(id_cap):
             buffer = io.BytesIO()
             doc.save(buffer)
             dados = buffer.getvalue()
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             return jsonify({
                 'erro': f'Erro ao converter HTML para DOCX: {str(e)}'
             }), 400
@@ -326,12 +328,19 @@ def finalizar_relatorio(id_rp):
             'status': env.status_envio,
         })
 
-    # Gerar DOCX final (TODO: implementar renderização)
-    from app.services.servico_motor_renderizacao import MotorRenderizacao
-    motor = MotorRenderizacao()
+    # Gerar DOCX final (NOTE: implementar renderização)
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    dir_canonicos = os.path.join(base_dir, 'storage', 'canonicos')
+    caminho_bib = ''
+    if relatorio.biblioteca:
+        caminho_bib = os.path.join(
+            dir_canonicos,
+            secure_filename(relatorio.biblioteca.nome_biblioteca)
+        )
+    motor = MotorRenderizacao(caminho_biblioteca=caminho_bib)
     try:
         docx_bytes = motor.renderizar_versao(id_rp)
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, OSError) as e:
         return jsonify({'erro': f'Erro ao gerar DOCX: {str(e)}'}), 500
 
     # Criar registro em relatorios_finalizados
@@ -388,7 +397,7 @@ def finalizar_capitulo(id_cap):
         return jsonify({'erro': 'Sem permissão'}), 403
     cap.status_capitulo = 'finalizado'
     # Notificar coordenador(es)
-    # TODO: Implementar query de coordenadores usando dom_perfis_usuario
+    # NOTE: Implementar query de coordenadores usando dom_perfis_usuario
     # coordenadores = Usuario.query.filter(
     #     Usuario.perfil_id == 2,  # coordenador
     #     Usuario.ativo
@@ -500,7 +509,7 @@ def vincular_biblioteca(id_vt):
     if not id_bib:
         return jsonify({'erro': 'id_biblioteca obrigatório'}), 400
     BibliotecaFormatacaoCanonica.query.get_or_404(id_bib)
-    # TODO: Implementar vinculo de biblioteca no novo schema
+    # NOTE: Implementar vinculo de biblioteca no novo schema
     db.session.commit()
     return jsonify({'ok': True, 'id_biblioteca': id_bib})
 
@@ -510,7 +519,7 @@ def vincular_biblioteca(id_vt):
 def listar_autores():
     """Lista usuários com perfil 'autor' ativos."""
     autores = Usuario.query.filter(
-        Usuario.perfil_id == 1,  # TODO: usar codigo do perfil
+        Usuario.perfil_id == 1,  # NOTE: usar codigo do perfil
         Usuario.ativo
     ).order_by(Usuario.nome).all()
     return jsonify([

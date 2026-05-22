@@ -1,3 +1,5 @@
+"""Rotas principais / dashboard do SRA."""
+
 import os
 from flask import Blueprint, session
 from flask_login import login_required

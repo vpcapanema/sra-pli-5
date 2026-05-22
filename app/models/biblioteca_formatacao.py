@@ -3,6 +3,8 @@ from app.models.mixins import AuditoriaMixin
 
 
 class BibliotecaFormatacaoCanonica(db.Model, AuditoriaMixin):
+    """Biblioteca de formatação canônica extraída de um DOCX modelo."""
+
     __tablename__ = 'bibliotecas_formatacao_canonica'
 
     id_biblioteca_formatacao_canonica = db.Column(
