@@ -1,7 +1,10 @@
+"""Modelo de relatórios finalizados do SRA."""
+
 from app import db
 
 
 class RelatorioFinalizado(db.Model):
+    """Representa um relatório finalizado e exportado."""
     __tablename__ = 'relatorios_finalizados'
 
     id = db.Column(db.Integer, primary_key=True)

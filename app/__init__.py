@@ -1,3 +1,5 @@
+"""Inicialização da aplicação Flask SRA."""
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -9,6 +11,7 @@ login_manager.login_view = 'auth.login'
 
 
 def create_app(config_class=Config):
+    """Cria e configura a aplicação Flask."""
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -21,6 +24,7 @@ def create_app(config_class=Config):
     from app.routes.relatorio import relatorio_bp
     from app.routes.configuracoes import configuracoes_bp
     from app.routes.api import api_bp
+    from app.models.usuario import Usuario
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(principal_bp)
@@ -29,10 +33,9 @@ def create_app(config_class=Config):
     app.register_blueprint(configuracoes_bp)
     app.register_blueprint(api_bp)
 
-    from app.models.usuario import Usuario
-
     @login_manager.user_loader
     def load_user(user_id):
+        """Carrega usuário pelo ID para Flask-Login."""
         return Usuario.query.get(int(user_id))
 
     return app

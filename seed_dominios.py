@@ -1,6 +1,7 @@
+"""Script de seed para dominios do sistema SRA."""
+
 from app import create_app, db
 from app.models.dominio import Dominio
-from app.models.relatorio_finalizado import RelatorioFinalizado
 
 DOMINIOS = {
     'status_relatorio': [
@@ -75,7 +76,7 @@ app = create_app()
 
 with app.app_context():
     db.create_all()
-    inseridos = 0
+    INSERIDOS = 0
     for tipo, valores in DOMINIOS.items():
         for valor, descricao in valores:
             existe = Dominio.query.filter_by(
@@ -87,7 +88,7 @@ with app.app_context():
                     valor=valor,
                     descricao=descricao
                 ))
-                inseridos += 1
+                INSERIDOS += 1
     db.session.commit()
     total = Dominio.query.count()
-    print(f'Seed concluído: {inseridos} novos, {total} total.')
+    print(f'Seed concluído: {INSERIDOS} novos, {total} total.')

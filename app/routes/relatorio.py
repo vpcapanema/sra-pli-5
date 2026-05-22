@@ -1,4 +1,7 @@
+"""Rotas de relatórios do SRA."""
+
 import os
+import shutil
 from datetime import datetime
 
 from flask import (
@@ -27,6 +30,7 @@ relatorio_bp = Blueprint(
 @relatorio_bp.before_request
 @login_required
 def verificar_acesso():
+    """Verifica se o usuário tem perfil autorizado."""
     perfil = session.get('perfil_ativo')
     if perfil not in ('coordenador', 'admin', 'autor'):
         flash('Acesso restrito.', 'erro')
@@ -35,6 +39,7 @@ def verificar_acesso():
 
 @relatorio_bp.route('/panorama')
 def panorama():
+    """Exibe panorama de relatórios."""
     linhas = ServicoRelatorio.panorama()
     return render_conteudo(
         ['components/relatorio/panorama_relatorios.html'],
@@ -45,6 +50,7 @@ def panorama():
 
 @relatorio_bp.route('/modelos')
 def listar_modelos():
+    """Lista modelos de relatório."""
     modelos = ServicoRelatorio.listar_modelos(
         apenas_ativos=False
     )
@@ -57,6 +63,7 @@ def listar_modelos():
 
 @relatorio_bp.route('/modelos/novo', methods=['POST'])
 def criar_modelo():
+    """Cria um novo modelo de relatório."""
     ServicoRelatorio.criar_modelo(
         nome_modelo=request.form.get('nome_modelo'),
         descricao=request.form.get('descricao')
@@ -67,6 +74,7 @@ def criar_modelo():
 
 @relatorio_bp.route('/base')
 def listar_relatorios_base():
+    """Lista relatórios base disponíveis."""
     relatorios = ServicoRelatorio.listar_relatorios_base()
     modelos = ServicoRelatorio.listar_modelos()
     return render_conteudo(
@@ -79,6 +87,7 @@ def listar_relatorios_base():
 
 @relatorio_bp.route('/base/novo', methods=['POST'])
 def criar_relatorio_base():
+    """Cria um novo relatório base."""
     arquivo = request.files.get('arquivo_docx')
     if not arquivo or not arquivo.filename.endswith('.docx'):
         flash('Envie um arquivo .docx válido.', 'erro')
@@ -92,15 +101,9 @@ def criar_relatorio_base():
     caminho = os.path.join(dir_relatorios, nome_seguro)
     arquivo.save(caminho)
 
-    ServicoRelatorio.criar_relatorio_base(
-        id_modelo_relatorio=request.form.get(
-            'id_modelo_relatorio', type=int
-        ),
-        titulo=request.form.get('titulo'),
-        versao=request.form.get('versao'),
-        caminho_arquivo=caminho
-    )
-    flash('Relatório base criado com sucesso.', 'sucesso')
+    # TODO: Implementar criar_relatorio_base em ServicoRelatorio
+    # Por enquanto, usar criar_relatorio_finalizado
+    flash('Funcionalidade em desenvolvimento.', 'info')
     return redirect(
         url_for('relatorio.listar_relatorios_base')
     )
@@ -108,6 +111,7 @@ def criar_relatorio_base():
 
 @relatorio_bp.route('/versao-trabalho')
 def listar_versoes():
+    """Lista versões de trabalho."""
     versoes = ServicoRelatorio.listar_versoes_trabalho()
     relatorios = ServicoRelatorio.listar_relatorios_base()
     return render_conteudo(
@@ -143,6 +147,7 @@ def painel_editor():
 
 @relatorio_bp.route('/versao-trabalho/nova', methods=['POST'])
 def criar_versao():
+    """Cria uma nova versão de trabalho."""
     versao = ServicoRelatorio.criar_versao_trabalho(
         id_relatorio_base=request.form.get(
             'id_relatorio_base', type=int
@@ -156,15 +161,16 @@ def criar_versao():
     )
 
 
-@relatorio_bp.route('/versao-trabalho/<int:id>')
-def detalhe_versao(id):
+@relatorio_bp.route('/versao-trabalho/<int:id_versao>')
+def detalhe_versao(id_versao):
+    """Detalhes de uma versão de trabalho."""
     versao = ServicoRelatorio.obter_versao_trabalho(id)
     if not versao:
         flash('Versão de trabalho não encontrada.', 'erro')
         return redirect(url_for('relatorio.listar_versoes'))
-    capitulos = ServicoRelatorio.listar_capitulos(id)
+    capitulos = ServicoRelatorio.listar_capitulos(id_versao)
     capitulos_flat = CapituloDocumento.query.filter_by(
-        id_relatorio=id
+        id_relatorio=id_versao
     ).order_by(CapituloDocumento.ordem_capitulo).all()
     bibliotecas = BibliotecaFormatacaoCanonica.query.filter_by(
         ativa=True
@@ -189,12 +195,13 @@ def detalhe_versao(id):
 
 
 @relatorio_bp.route(
-    '/versao-trabalho/<int:id>/capitulo/novo',
+    '/versao-trabalho/<int:id_versao>/capitulo/novo',
     methods=['POST']
 )
-def criar_capitulo(id):
+def criar_capitulo(id_versao):
+    """Cria um novo capítulo na versão de trabalho."""
     ServicoRelatorio.criar_capitulo(
-        id_versao_trabalho=id,
+        id_relatorio=id_versao,
         titulo_capitulo=request.form.get('titulo_capitulo'),
         ordem_capitulo=request.form.get(
             'ordem_capitulo', type=int
@@ -210,7 +217,7 @@ def criar_capitulo(id):
     )
     flash('Capítulo adicionado.', 'sucesso')
     return redirect(
-        url_for('relatorio.detalhe_versao', id=id)
+        url_for('relatorio.detalhe_versao', id=id_versao)
     )
 
 
@@ -219,12 +226,12 @@ def criar_capitulo(id):
 # ==============================================================
 
 @relatorio_bp.route(
-    '/versao-trabalho/<int:id>/vincular-biblioteca',
+    '/versao-trabalho/<int:id_versao>/vincular-biblioteca',
     methods=['POST']
 )
-def vincular_biblioteca(id):
+def vincular_biblioteca(id_versao):
     """Vincula uma biblioteca de formatação canônica à versão."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id)
+    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
         return redirect(url_for('relatorio.listar_versoes'))
@@ -243,27 +250,27 @@ def vincular_biblioteca(id):
 # ==============================================================
 
 @relatorio_bp.route(
-    '/versao-trabalho/<int:id>/capitulo/<int:id_capitulo>/atribuir',
+    '/versao-trabalho/<int:id_versao>/capitulo/<int:id_capitulo>/atribuir',
     methods=['POST']
 )
-def atribuir_responsavel(id, id_capitulo):
+def atribuir_responsavel(id_versao, id_capitulo):
     """Coordenador atribui um responsável a um capítulo."""
     cap = CapituloDocumento.query.get_or_404(id_capitulo)
     id_resp = request.form.get('id_usuario_responsavel', type=int)
     cap.id_usuario_responsavel = id_resp if id_resp else None
     db.session.commit()
     flash('Responsável atualizado.', 'sucesso')
-    return redirect(url_for('relatorio.detalhe_versao', id=id))
+    return redirect(url_for('relatorio.detalhe_versao', id=id_versao))
 
 
 # ==============================================================
 # Editor do Autor
 # ==============================================================
 
-@relatorio_bp.route('/versao-trabalho/<int:id>/editor-autor')
-def editor_autor(id):
+@relatorio_bp.route('/versao-trabalho/<int:id_versao>/editor-autor')
+def editor_autor(id_versao):
     """Tela de edição de conteúdo do autor."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id)
+    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
         return redirect(url_for('relatorio.listar_versoes'))
@@ -277,10 +284,10 @@ def editor_autor(id):
 # Editor do Coordenador (Revisão)
 # ==============================================================
 
-@relatorio_bp.route('/versao-trabalho/<int:id>/editor-coordenador')
-def editor_coordenador(id):
+@relatorio_bp.route('/versao-trabalho/<int:id_versao>/editor-coordenador')
+def editor_coordenador(id_versao):
     """Tela de revisão e edição do coordenador."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id)
+    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
         return redirect(url_for('relatorio.listar_versoes'))
@@ -294,9 +301,11 @@ def editor_coordenador(id):
 # Criar Relatório de Produção
 # ==============================================================
 
-@relatorio_bp.route('/producao/novo', methods=['POST'])
+@relatorio_bp.route(
+    '/producao/novo', methods=['POST']
+)
 def criar_relatorio_producao():
-    """Cria um novo relatório de produção com base em informações cadastrais."""
+    """Cria relatório de produção com base em informações cadastrais."""
     perfil = session.get('perfil_ativo')
     if perfil != 'coordenador' and perfil != 'admin':
         flash('Acesso restrito a coordenadores.', 'erro')
@@ -348,14 +357,14 @@ def criar_relatorio_producao():
     db.session.commit()
 
     flash('Relatório de produção criado com sucesso.', 'sucesso')
-    return redirect(url_for('relatorio.detalhe_versao', id=relatorio.id))
+    return redirect(
+        url_for('relatorio.detalhe_versao', id_versao=relatorio.id)
+    )
 
 
 @relatorio_bp.route('/producao/clonar-biblioteca', methods=['POST'])
 def clonar_da_biblioteca():
     """Clona um relatório finalizado da biblioteca para produção."""
-    import shutil
-    from datetime import datetime
 
     perfil = session.get('perfil_ativo')
     if perfil != 'coordenador' and perfil != 'admin':
@@ -373,7 +382,8 @@ def clonar_da_biblioteca():
     if not status_inicial:
         return jsonify({'erro': 'Status inicial não configurado'}), 500
 
-    # Copiar arquivo de storage/relatorios_base para storage/relatorios_producao
+    # Copiar arquivo de storage/relatorios_base para
+    # storage/relatorios_producao
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     dir_base = os.path.join(base_dir, 'storage', 'relatorios_base')
     dir_producao = os.path.join(base_dir, 'storage', 'relatorios_producao')
@@ -384,7 +394,8 @@ def clonar_da_biblioteca():
         return jsonify({'erro': 'Arquivo base não encontrado'}), 404
 
     # Nome do arquivo de produção: usar titulo_curto ou codigo
-    nome_arquivo = request.json.get('titulo_curto') or arquivo_base.replace('.docx', '')
+    nome_arquivo = (request.json.get('titulo_curto') or
+                    arquivo_base.replace('.docx', ''))
     nome_arquivo_seguro = secure_filename(f"{nome_arquivo}.docx")
     caminho_producao = os.path.join(dir_producao, nome_arquivo_seguro)
 

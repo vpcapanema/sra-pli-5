@@ -1,18 +1,25 @@
+"""Rotas de configuração do SRA."""
+
 import os
 import json
+import shutil
 from datetime import datetime
 
 from flask import (
     Blueprint, redirect, url_for, request, flash,
     render_template, send_file
 )
-from flask_login import login_required
+from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.modelo_relatorio import ModeloRelatorio
 from app.models.relatorio_base import RelatorioBase
+from app.models.relatorio_finalizado import RelatorioFinalizado
+from app.models.dominio import DomStatusRelatorio
+from app.models.relatorio_producao import RelatorioProducao
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_relatorio import ServicoRelatorio
 from app.utils.htmx import render_conteudo
@@ -30,6 +37,7 @@ configuracoes_bp = Blueprint(
 @configuracoes_bp.route('/biblioteca-formatacao')
 @login_required
 def biblioteca_formatacao():
+    """Lista bibliotecas de formatação canônica."""
     bibliotecas = BibliotecaFormatacaoCanonica.query.order_by(
         BibliotecaFormatacaoCanonica.id_biblioteca_formatacao_canonica
     ).all()
@@ -81,7 +89,7 @@ def criar_biblioteca_formatacao():
     # Executar extração canônica
     try:
         ServicoExtracaoCanonica.extrair(caminho_docx, dir_bib)
-    except Exception as e:
+    except (OSError, IOError, RuntimeError) as e:
         flash(f'Erro na extração: {e}', 'erro')
         db.session.rollback()
         return redirect(
@@ -149,14 +157,16 @@ def editar_biblioteca_formatacao(id_bib):
     """Edita uma biblioteca de formatação."""
     bib = BibliotecaFormatacaoCanonica.query.get_or_404(id_bib)
     if request.method == 'POST':
-        bib.nome_biblioteca = request.form.get('nome_biblioteca', bib.nome_biblioteca)
+        bib.nome_biblioteca = request.form.get(
+            'nome_biblioteca', bib.nome_biblioteca
+        )
         bib.descricao = request.form.get('descricao', bib.descricao)
         bib.ativa = 'ativa' in request.form
         try:
             db.session.commit()
             flash('Biblioteca atualizada com sucesso.', 'sucesso')
             return redirect(url_for('configuracoes.biblioteca_formatacao'))
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.session.rollback()
             flash(f'Erro ao atualizar biblioteca: {e}', 'erro')
     return render_template(
@@ -200,7 +210,6 @@ def excluir_biblioteca_formatacao(id_bib):
     nome = bib.nome_biblioteca
     try:
         if bib.caminho_arquivo and os.path.exists(bib.caminho_arquivo):
-            import shutil
             shutil.rmtree(bib.caminho_arquivo, ignore_errors=True)
         db.session.delete(bib)
         db.session.commit()
@@ -208,7 +217,7 @@ def excluir_biblioteca_formatacao(id_bib):
             f'Biblioteca "{nome}" excluída.',
             'sucesso'
         )
-    except Exception as e:
+    except (OSError, IOError) as e:
         db.session.rollback()
         flash(f'Erro ao excluir biblioteca: {e}', 'erro')
     return redirect(
@@ -223,7 +232,7 @@ def biblioteca_relatorios_base():
     try:
         relatorios_finalizados = \
             ServicoRelatorio.listar_relatorios_finalizados()
-    except Exception as e:
+    except SQLAlchemyError as e:
         flash(f'Erro ao carregar relatórios base: {str(e)}', 'erro')
         relatorios_finalizados = []
     return render_conteudo(
@@ -237,16 +246,14 @@ def biblioteca_relatorios_base():
 @login_required
 def criar_relatorio_base():
     """Cria relatório finalizado com upload DOCX para storage."""
-    from flask_login import current_user
-    from app.models.relatorio_finalizado import RelatorioFinalizado
-    from app.models.dominio import DomStatusRelatorio
-    from app.models.relatorio_producao import RelatorioProducao
 
     try:
         arquivo = request.files.get('arquivo_docx')
         if not arquivo or not arquivo.filename.endswith('.docx'):
             flash('Envie um arquivo .docx válido.', 'erro')
-            return redirect(url_for('configuracoes.biblioteca_relatorios_base'))
+            return redirect(
+                url_for('configuracoes.biblioteca_relatorios_base')
+            )
 
         # Salvar arquivo em storage/relatorios_base
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -327,7 +334,7 @@ def criar_relatorio_base():
 
         flash('Relatório base cadastrado com sucesso.', 'sucesso')
         return redirect(url_for('configuracoes.biblioteca_relatorios_base'))
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         flash(f'Erro ao cadastrar relatório: {str(e)}', 'erro')
         return redirect(url_for('configuracoes.biblioteca_relatorios_base'))
@@ -339,10 +346,12 @@ def criar_relatorio_base():
 @login_required
 def visualizar_relatorio_finalizado(id_relatorio):
     """Renderiza página de visualização do relatório finalizado."""
-    from app.models.relatorio_finalizado import RelatorioFinalizado
 
     relatorio = RelatorioFinalizado.query.get_or_404(id_relatorio)
-    return render_template('visualizador_relatorio_finalizado.html', relatorio=relatorio)
+    return render_template(
+        'visualizador_relatorio_finalizado.html',
+        relatorio=relatorio
+    )
 
 
 @configuracoes_bp.route(
@@ -351,7 +360,6 @@ def visualizar_relatorio_finalizado(id_relatorio):
 @login_required
 def arquivo_relatorio_finalizado(id_relatorio):
     """Serve o DOCX do relatório finalizado."""
-    from app.models.relatorio_finalizado import RelatorioFinalizado
 
     relatorio = RelatorioFinalizado.query.get_or_404(id_relatorio)
     if not relatorio.caminho_arquivo:
@@ -375,7 +383,6 @@ def arquivo_relatorio_finalizado(id_relatorio):
 @login_required
 def excluir_relatorio_finalizado(id_relatorio):
     """Exclui relatório finalizado e remove arquivo."""
-    from app.models.relatorio_finalizado import RelatorioFinalizado
 
     relatorio = RelatorioFinalizado.query.get_or_404(id_relatorio)
     titulo = relatorio.titulo or relatorio.codigo or 'Relatório'
@@ -387,7 +394,7 @@ def excluir_relatorio_finalizado(id_relatorio):
         db.session.delete(relatorio)
         db.session.commit()
         flash(f'Relatório "{titulo}" excluído.', 'sucesso')
-    except Exception as e:
+    except (OSError, IOError) as e:
         db.session.rollback()
         flash(f'Erro ao excluir relatório: {e}', 'erro')
     return redirect(url_for('configuracoes.biblioteca_relatorios_base'))
@@ -427,14 +434,16 @@ def editar_modelo(id_modelo):
     """Edita um modelo de relatório."""
     modelo = ModeloRelatorio.query.get_or_404(id_modelo)
     if request.method == 'POST':
-        modelo.nome_modelo = request.form.get('nome_modelo', modelo.nome_modelo)
+        modelo.nome_modelo = request.form.get(
+            'nome_modelo', modelo.nome_modelo
+        )
         modelo.descricao = request.form.get('descricao', modelo.descricao)
         modelo.ativo = 'ativo' in request.form
         try:
             db.session.commit()
             flash('Modelo atualizado com sucesso.', 'sucesso')
             return redirect(url_for('configuracoes.biblioteca_formatacao'))
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.session.rollback()
             flash(f'Erro ao atualizar modelo: {e}', 'erro')
     return render_conteudo(
@@ -461,7 +470,7 @@ def excluir_modelo(id_modelo):
         db.session.delete(modelo)
         db.session.commit()
         flash(f'Modelo "{nome}" excluído.', 'sucesso')
-    except Exception as e:
+    except (OSError, IOError) as e:
         db.session.rollback()
         flash(f'Erro ao excluir modelo: {e}', 'erro')
     return redirect(
@@ -493,8 +502,8 @@ def excluir_relatorio_base(id_relatorio):
     relatorio = RelatorioBase.query.get_or_404(id_relatorio)
     titulo = relatorio.titulo
     try:
-        if (relatorio.caminho_arquivo
-                and os.path.exists(relatorio.caminho_arquivo)):
+        if (relatorio.caminho_arquivo and
+                os.path.exists(relatorio.caminho_arquivo)):
             os.remove(relatorio.caminho_arquivo)
         db.session.delete(relatorio)
         db.session.commit()
@@ -502,7 +511,7 @@ def excluir_relatorio_base(id_relatorio):
             f'Relatório base "{titulo}" excluído.',
             'sucesso'
         )
-    except Exception as e:
+    except (OSError, IOError) as e:
         db.session.rollback()
         flash(f'Erro ao excluir relatório: {e}', 'erro')
     return redirect(

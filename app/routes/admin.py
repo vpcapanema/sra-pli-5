@@ -1,3 +1,5 @@
+"""Rotas de administração do SRA."""
+
 from flask import (
     Blueprint, redirect,
     url_for, flash, request, session, render_template
@@ -12,6 +14,7 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @admin_bp.before_request
 @login_required
 def verificar_perfil_admin():
+    """Verifica se o usuário tem perfil de admin ou coordenador."""
     if session.get('perfil_ativo') not in ('admin', 'coordenador'):
         flash('Acesso restrito a administradores e coordenadores.', 'erro')
         return redirect(url_for('principal.index'))
@@ -19,6 +22,7 @@ def verificar_perfil_admin():
 
 @admin_bp.route('/usuarios')
 def listar_usuarios():
+    """Lista todos os usuários do sistema."""
     usuarios = ServicoUsuario.listar_usuarios()
     return render_conteudo(
         ['components/configuracoes/gestao_usuarios.html'],
@@ -29,6 +33,7 @@ def listar_usuarios():
 
 @admin_bp.route('/usuarios/novo', methods=['POST'])
 def criar_usuario():
+    """Cria um novo usuário e envia convite por email."""
     usuario, link = ServicoUsuario.convidar_usuario(
         nome_completo=request.form.get('nome_completo'),
         email=request.form.get('email'),
@@ -43,11 +48,12 @@ def criar_usuario():
 
 
 @admin_bp.route(
-    '/usuarios/<int:id>/reenviar',
+    '/usuarios/<int:id_usuario>/reenviar',
     methods=['POST']
 )
-def reenviar_convite(id):
-    link = ServicoUsuario.reenviar_convite(id)
+def reenviar_convite(id_usuario):
+    """Reenvia o convite de cadastro para um usuário."""
+    link = ServicoUsuario.reenviar_convite(id_usuario)
     if link:
         flash(
             f'Convite reenviado. Link: {link}',
@@ -63,14 +69,15 @@ def reenviar_convite(id):
 
 
 @admin_bp.route(
-    '/usuarios/<int:id>/editar',
+    '/usuarios/<int:id_usuario>/editar',
     methods=['GET', 'POST']
 )
-def editar_usuario(id):
-    usuario = ServicoUsuario.obter_usuario(id)
+def editar_usuario(id_usuario):
+    """Edita os dados de um usuário."""
+    usuario = ServicoUsuario.obter_por_id(id_usuario)
     if request.method == 'POST':
         ServicoUsuario.atualizar_usuario(
-            id,
+            id_usuario,
             nome_completo=request.form.get('nome_completo'),
             email=request.form.get('email')
         )
@@ -83,10 +90,11 @@ def editar_usuario(id):
 
 
 @admin_bp.route(
-    '/usuarios/<int:id>/ativar',
+    '/usuarios/<int:id_usuario>/ativar',
     methods=['POST']
 )
-def alternar_ativo(id):
-    ServicoUsuario.alternar_ativo(id)
+def alternar_ativo(id_usuario):
+    """Alterna o status ativo/inativo de um usuário."""
+    ServicoUsuario.alternar_ativo(id_usuario)
     flash('Status do usuário alterado.', 'sucesso')
     return redirect(url_for('admin.listar_usuarios'))
