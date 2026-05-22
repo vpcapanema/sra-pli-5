@@ -11,7 +11,7 @@ class RelatorioFinalizado(db.Model):
     relatorio_id = db.Column(
         db.Integer,
         db.ForeignKey('relatorios_producao.id'),
-        nullable=False
+        nullable=True
     )
     modelo_id = db.Column(
         db.Integer,

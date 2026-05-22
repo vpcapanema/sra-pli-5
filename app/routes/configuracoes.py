@@ -19,7 +19,6 @@ from app.models.modelo_relatorio import ModeloRelatorio
 from app.models.relatorio_base import RelatorioBase
 from app.models.relatorio_finalizado import RelatorioFinalizado
 from app.models.dominio import DomStatusRelatorio
-from app.models.relatorio_producao import RelatorioProducao
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_relatorio import ServicoRelatorio
 from app.utils.htmx import render_conteudo
@@ -285,28 +284,10 @@ def criar_relatorio_base():
                 mes_ref_str = mes_ref_str.replace(pt, en)
             mes_ref = datetime.strptime(mes_ref_str, '%B de %Y')
 
-        # Criar RelatorioProducao primeiro
-        relatorio_producao = RelatorioProducao(
-            codigo_d20=request.form.get('codigo_pli'),
-            numero_medicao=request.form.get('numero_medicao', type=int),
-            mes_referencia=mes_ref,
-            periodo_inicio=datetime.strptime(
-                request.form.get('periodo_inicio'), '%Y-%m-%d'
-            ) if request.form.get('periodo_inicio') else None,
-            periodo_fim=datetime.strptime(
-                request.form.get('periodo_fim'), '%Y-%m-%d'
-            ) if request.form.get('periodo_fim') else None,
-            titulo_curto=request.form.get('titulo_curto'),
-            status_id=status.id if status else None,
-            criado_por=current_user.id,
-            ano_referencia=request.form.get('ano_referencia', type=int),
-        )
-        db.session.add(relatorio_producao)
-        db.session.flush()
-
-        # Criar RelatorioFinalizado vinculado ao RelatorioProducao
+        # Criar RelatorioFinalizado (apenas, sem RelatorioProducao)
+        # pois o arquivo está em storage/relatorios_base
         relatorio = RelatorioFinalizado(
-            relatorio_id=relatorio_producao.id,
+            relatorio_id=None,
             modelo_id=None,
             biblioteca_id=None,
             status_id=status.id if status else None,

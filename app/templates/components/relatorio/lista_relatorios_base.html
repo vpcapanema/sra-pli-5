@@ -1,8 +1,9 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
 
+{% macro lista_relatorios_base(relatorios_finalizados) %}
 <div class="sra-card">
     <div class="sra-card__header">
-        <h3 class="sra-card__title">1. Relatórios Finalizados (Biblioteca)</h3>
+        <h3 class="sra-card__title">Relatórios Finalizados (Biblioteca)</h3>
     </div>
     <div class="sra-card__content">
         {% set linhas = [] %}
@@ -36,3 +37,4 @@
         ) }}
     </div>
 </div>
+{% endmacro %}

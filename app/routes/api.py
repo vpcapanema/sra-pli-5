@@ -343,6 +343,16 @@ def finalizar_relatorio(id_rp):
     except (ValueError, TypeError, RuntimeError, OSError) as e:
         return jsonify({'erro': f'Erro ao gerar DOCX: {str(e)}'}), 500
 
+    # Salvar arquivo em storage/relatorios_base
+    nome_arquivo = f"relatorio_{relatorio.id}_R{relatorio.versao_atual}.docx"
+    dir_relatorios_base = os.path.join(
+        base_dir, 'storage', 'relatorios_base'
+    )
+    os.makedirs(dir_relatorios_base, exist_ok=True)
+    caminho_arquivo = os.path.join(dir_relatorios_base, nome_arquivo)
+    with open(caminho_arquivo, 'wb') as f:
+        f.write(docx_bytes)
+
     # Criar registro em relatorios_finalizados
     relatorio_finalizado = RelatorioFinalizado(
         relatorio_id=relatorio.id,
@@ -351,9 +361,8 @@ def finalizar_relatorio(id_rp):
         status_id=relatorio.status_id,
         snapshot_conteudo=snapshot,
         artefato_docx=docx_bytes,
-        nome_arquivo=(
-            f"relatorio_{relatorio.id}_R{relatorio.versao_atual}.docx"
-        ),
+        nome_arquivo=nome_arquivo,
+        caminho_arquivo=caminho_arquivo,
         finalizado_por=current_user.id,
         data_finalizacao=db.func.now(),
         codigo=relatorio.codigo_d20,

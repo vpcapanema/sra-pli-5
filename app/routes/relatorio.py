@@ -78,9 +78,9 @@ def listar_relatorios_base():
     relatorios = ServicoRelatorio.listar_relatorios_base()
     modelos = ServicoRelatorio.listar_modelos()
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_base.html'],
+        ['components/relatorio/lista_relatorios_base_wrapper.html'],
         perfil_ativo=session.get('perfil_ativo', ''),
-        relatorios_base=relatorios,
+        relatorios_finalizados=relatorios,
         modelos=modelos
     )
 
@@ -127,7 +127,7 @@ def painel_capitulos():
     """Lista de relatórios de produção - redireciona para detalhe."""
     relatorios = ServicoRelatorio.listar_relatorios_producao()
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_producao.html'],
+        ['components/relatorio/lista_relatorios_producao_wrapper.html'],
         perfil_ativo=session.get('perfil_ativo'),
         relatorios_producao=relatorios
     )
@@ -139,7 +139,7 @@ def painel_editor():
     relatorios = ServicoRelatorio.listar_relatorios_producao()
     perfil = session.get('perfil_ativo')
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_producao.html'],
+        ['components/relatorio/lista_relatorios_producao_wrapper.html'],
         perfil_ativo=perfil,
         relatorios_producao=relatorios
     )
@@ -324,11 +324,17 @@ def criar_relatorio_producao():
     caminho_template = None
     arquivo = request.files.get('arquivo_docx')
     if arquivo and arquivo.filename.endswith('.docx'):
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        dir_templates = os.path.join(base_dir, 'storage', 'templates_producao')
-        os.makedirs(dir_templates, exist_ok=True)
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(__file__))
+        )
+        dir_relatorios_producao = os.path.join(
+            base_dir, 'storage', 'relatorios_producao'
+        )
+        os.makedirs(dir_relatorios_producao, exist_ok=True)
         nome_seguro = secure_filename(arquivo.filename)
-        caminho_template = os.path.join(dir_templates, nome_seguro)
+        caminho_template = os.path.join(
+            dir_relatorios_producao, nome_seguro
+        )
         arquivo.save(caminho_template)
 
     # Criar relatório de produção
@@ -431,6 +437,39 @@ def clonar_da_biblioteca():
         'mensagem': 'Clonagem realizada com sucesso',
         'id_producao': relatorio_producao.id
     })
+
+
+@relatorio_bp.route(
+    '/producao/<int:id_relatorio>/excluir',
+    methods=['POST']
+)
+@login_required
+def excluir_relatorio_producao(id_relatorio):
+    """Exclui relatório de produção e remove arquivo do storage."""
+
+    perfil = session.get('perfil_ativo')
+    if perfil != 'coordenador' and perfil != 'admin':
+        flash('Acesso restrito a coordenadores.', 'erro')
+        return redirect(url_for('principal.index'))
+
+    relatorio = RelatorioProducao.query.get_or_404(id_relatorio)
+    titulo = relatorio.titulo_curto or relatorio.codigo_d20 or 'Relatório'
+
+    try:
+        # Remover arquivo do storage/relatorios_producao
+        if relatorio.caminho_template and os.path.exists(
+            relatorio.caminho_template
+        ):
+            os.remove(relatorio.caminho_template)
+
+        db.session.delete(relatorio)
+        db.session.commit()
+        flash(f'Relatório "{titulo}" excluído.', 'sucesso')
+    except (OSError, IOError) as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir relatório: {e}', 'erro')
+
+    return redirect(url_for('principal.index'))
 
 
 @relatorio_bp.route('/producao/upload-docx', methods=['POST'])
