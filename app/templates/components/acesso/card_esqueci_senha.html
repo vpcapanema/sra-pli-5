@@ -1,0 +1,16 @@
+<div class="sra-auth__card">
+    <div class="sra-auth__header">
+        <div class="sra-auth__logo">SRA · PLI-SP</div>
+        <p class="sra-auth__subtitle">Recuperação de senha</p>
+    </div>
+    <form class="sra-auth__form" method="POST" action="{{ url_for('auth.recuperar_senha') }}">
+        <div class="sra-input">
+            <label class="sra-input__label" for="email">E-mail cadastrado</label>
+            <input class="sra-input__field" type="email" id="email" name="email" required>
+        </div>
+        <button type="submit" class="sra-button sra-button--secondary sra-button--block">Enviar link de recuperação</button>
+    </form>
+    <div class="sra-auth__footer">
+        <a class="sra-link" href="{{ url_for('auth.login') }}">Voltar ao login</a>
+    </div>
+</div>

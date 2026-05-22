@@ -1,0 +1,38 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">1. Relatórios Finalizados (Biblioteca)</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set linhas = [] %}
+        {% for r in relatorios_finalizados %}
+            {% set acoes %}
+                <a href="{{ url_for('configuracoes.visualizar_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-btn-icon" title="Visualizar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('configuracoes.excluir_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-inline-form" onsubmit="return confirm('Excluir relatório &quot;{{ r.titulo }}&quot;?');">
+                    <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </form>
+            {% endset %}
+            {% set _ = linhas.append([
+                r.id,
+                r.codigo or '-',
+                r.titulo or '-',
+                r.versao,
+                r.numero_medicao,
+                r.mes_referencia.strftime('%m/%Y') if r.mes_referencia else '-',
+                r.ano_referencia or '-',
+                r.data_finalizacao.strftime('%d/%m/%Y') if r.data_finalizacao else '-',
+                acoes
+            ]) %}
+        {% endfor %}
+        {{ tabela(
+            colunas=['ID', 'Código', 'Título', 'Versão', 'Medição', 'Mês Referência', 'Ano', 'Finalizado em', 'Ações'],
+            linhas=linhas,
+            vazio='Nenhum relatório finalizado.'
+        ) }}
+    </div>
+</div>

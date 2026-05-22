@@ -1,0 +1,82 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">1. Gestão de Usuários</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set linhas_usuarios = [] %}
+        {% for u in usuarios %}
+            {% if u.ativo %}
+                {% set status = 'Ativo' %}
+            {% elif u.token_convite %}
+                {% set status = 'Pendente' %}
+            {% else %}
+                {% set status = 'Inativo' %}
+            {% endif %}
+            {% set acoes %}
+                <a href="{{ url_for('admin.editar_usuario', id=u.id) }}" class="sra-btn-icon" title="Visualizar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <a href="{{ url_for('admin.editar_usuario', id=u.id) }}" class="sra-btn-icon" title="Editar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                </a>
+                {% if not u.ativo and u.token_convite %}
+                <form method="POST" action="{{ url_for('admin.reenviar_convite', id=u.id) }}" class="sra-inline-form">
+                    <button type="submit" class="sra-btn-icon" title="Reenviar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin.alternar_ativo', id=u.id) }}" class="sra-inline-form">
+                    <button type="submit" class="sra-btn-icon {{ 'sra-btn-icon--danger' if u.ativo else '' }}" title="{{ 'Desativar' if u.ativo else 'Ativar' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                    </button>
+                </form>
+            {% endset %}
+            {% set _ = linhas_usuarios.append([
+                u.id,
+                u.nome,
+                u.email,
+                u.email_secundario or '-',
+                u.nome_de_usuario,
+                u.perfil.codigo if u.perfil else '-',
+                status,
+                acoes
+            ]) %}
+        {% endfor %}
+        {{ tabela(
+            colunas=['ID', 'Nome', 'E-mail', 'E-mail Secundário', 'Nome de Usuário', 'Perfil', 'Status', 'Ações'],
+            linhas=linhas_usuarios,
+            vazio='Nenhum usuário cadastrado.'
+        ) }}
+    </div>
+</div>
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Convidar Novo Usuário</h3>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('admin.criar_usuario') }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="nome_completo">Nome completo</label>
+                <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="email">E-mail</label>
+                <input class="sra-input__field" type="email" id="email" name="email" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="tipo_perfil">Tipo de perfil</label>
+                <select class="sra-input__field" id="tipo_perfil" name="tipo_perfil" required>
+                    <option value="">Selecione...</option>
+                    <option value="admin">Administrador</option>
+                    <option value="coordenador">Coordenador</option>
+                    <option value="autor">Autor</option>
+                </select>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary">Enviar convite</button>
+        </form>
+    </div>
+</div>

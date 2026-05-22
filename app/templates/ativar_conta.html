@@ -1,0 +1,28 @@
+{% extends "layouts/base.html" %}
+
+{% block conteudo %}
+<div class="sra-auth">
+    <div class="sra-auth__card">
+        <div class="sra-auth__header">
+            <div class="sra-auth__logo">SRA · PLI-SP</div>
+            <p class="sra-auth__subtitle">Ativar conta</p>
+        </div>
+        <p class="sra-text--center">
+            Olá <strong>{{ usuario.nome }}</strong>,
+            defina sua senha para ativar o acesso
+            como <strong>{{ usuario.perfil.codigo if usuario.perfil else 'usuario' | capitalize }}</strong>.
+        </p>
+        <form class="sra-auth__form" method="POST" action="{{ url_for('auth.ativar_conta', token=token) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="senha">Senha</label>
+                <input class="sra-input__field" type="password" id="senha" name="senha" minlength="6" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="confirmar_senha">Confirmar senha</label>
+                <input class="sra-input__field" type="password" id="confirmar_senha" name="confirmar_senha" minlength="6" required>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary sra-button--block">Ativar conta</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

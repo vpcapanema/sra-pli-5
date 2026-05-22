@@ -1,0 +1,66 @@
+{#
+    Visualizador geral de conteúdo — componente central de pré-visualização e edição inline.
+    Modos:
+      - leitura: apenas exibe o conteúdo renderizado (biblioteca canônica, prévia geral)
+      - edicao:  toolbar de edição inline + salvamento (autor, coordenador)
+
+    Variáveis esperadas:
+      - preview_modo:    'leitura' | 'edicao'
+      - preview_titulo:  título exibido no cabeçalho do visualizador
+      - preview_html:    conteúdo HTML renderizado a partir do DOCX/base canônica
+      - preview_id:      identificador do conteúdo (id_envio, id_capitulo, etc.)
+      - preview_save_url: URL POST para salvar alterações (modo edição)
+      - preview_capitulos: lista opcional de capítulos para navegação lateral
+#}
+
+{% set modo = preview_modo | default('leitura') %}
+
+<div class="sra-preview" data-modo="{{ modo }}" data-preview-id="{{ preview_id | default('') }}">
+    <div class="sra-preview__header">
+        <h3 class="sra-preview__title">{{ preview_titulo | default('Pré-visualização') }}</h3>
+        <div class="sra-preview__controls">
+            {% if modo == 'edicao' %}
+            <button type="button" class="sra-button sra-button--sm sra-preview__btn-salvar" data-url="{{ preview_save_url | default('') }}">
+                <svg class="sra-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Salvar
+            </button>
+            {% endif %}
+            <button type="button" class="sra-button sra-button--sm sra-button--outline sra-preview__btn-fullscreen">
+                <svg class="sra-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                Expandir
+            </button>
+        </div>
+    </div>
+
+    <div class="sra-preview__body">
+        {% if preview_capitulos %}
+        <nav class="sra-preview__nav">
+            <div class="sra-preview__nav-list">
+                {% for cap in preview_capitulos %}
+                <div class="sra-preview__nav-item">
+                    <a href="#cap-{{ cap.id_capitulo_documento }}" class="sra-preview__nav-link">
+                        {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </nav>
+        {% endif %}
+
+        <div class="sra-preview__content">
+            {% if modo == 'edicao' %}
+            <div class="sra-preview__toolbar" id="sra-preview-toolbar"></div>
+            <div class="sra-preview__editor" id="sra-preview-editor">{{ preview_html | default('') | safe }}</div>
+            {% else %}
+            <div class="sra-preview__document">{{ preview_html | default('<p class="sra-text--muted">Nenhum conteúdo para exibir.</p>') | safe }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if modo == 'edicao' %}
+    <div class="sra-preview__footer">
+        <span class="sra-preview__status">Pronto</span>
+        <span class="sra-preview__wordcount"></span>
+    </div>
+    {% endif %}
+</div>

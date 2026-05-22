@@ -1,0 +1,140 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visualizador_parametros.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+<div class="vp">
+    <header class="vp__header">
+        <a href="{{ url_for('configuracoes.biblioteca_formatacao') }}" class="vp__back" title="Voltar">
+            <i class="ph ph-arrow-left"></i>
+        </a>
+        <div class="vp__header-text">
+            <h1 class="vp__title">{{ bib.nome_biblioteca }}</h1>
+            <span class="vp__subtitle">Inspetor de Parâmetros Canônicos</span>
+        </div>
+    </header>
+
+    <div class="vp__body">
+        <!-- INSPETOR -->
+        <aside class="vp__inspector" id="vpInspector">
+
+            <!-- 1. MACRO -->
+            <section class="vp__section">
+                <button class="vp__section-toggle" type="button" data-section="macro">
+                    <i class="ph-bold ph-stack vp__section-icon"></i>
+                    <span>Estrutura Macro</span>
+                    <i class="ph ph-caret-down vp__caret"></i>
+                </button>
+                <div class="vp__section-body" id="section-macro">
+                    <div class="vp__macro-timeline" id="macroTimeline"></div>
+                </div>
+            </section>
+
+            <!-- 2. CAPÍTULOS -->
+            <section class="vp__section">
+                <button class="vp__section-toggle" type="button" data-section="capitulos">
+                    <i class="ph-bold ph-tree-structure vp__section-icon"></i>
+                    <span>Capítulos</span>
+                    <i class="ph ph-caret-down vp__caret"></i>
+                </button>
+                <div class="vp__section-body" id="section-capitulos">
+                    <div class="vp__tree" id="capTree"></div>
+                </div>
+            </section>
+
+            <!-- 3. FORMATAÇÃO -->
+            <section class="vp__section">
+                <button class="vp__section-toggle" type="button" data-section="formatacao">
+                    <i class="ph-bold ph-paint-brush vp__section-icon"></i>
+                    <span>Formatação</span>
+                    <i class="ph ph-caret-down vp__caret"></i>
+                </button>
+                <div class="vp__section-body" id="section-formatacao">
+
+                    <!-- Sub: Seções -->
+                    <div class="vp__sub" id="subSecoes">
+                        <button class="vp__sub-toggle" type="button">
+                            <span>Seções do Documento</span>
+                            <i class="ph ph-caret-down vp__caret"></i>
+                        </button>
+                        <div class="vp__sub-body" id="subSecoesBody"></div>
+                    </div>
+
+                    <!-- Sub: Estilos Parágrafo -->
+                    <div class="vp__sub" id="subEstilos">
+                        <button class="vp__sub-toggle" type="button">
+                            <span>Estilos de Parágrafo</span>
+                            <i class="ph ph-caret-down vp__caret"></i>
+                        </button>
+                        <div class="vp__sub-body" id="subEstilosBody"></div>
+                    </div>
+
+                    <!-- Sub: Estilos Caractere -->
+                    <div class="vp__sub" id="subCaractere">
+                        <button class="vp__sub-toggle" type="button">
+                            <span>Estilos de Caractere</span>
+                            <i class="ph ph-caret-down vp__caret"></i>
+                        </button>
+                        <div class="vp__sub-body" id="subCaractereBody"></div>
+                    </div>
+
+                    <!-- Sub: Numeração -->
+                    <div class="vp__sub" id="subNumeracao">
+                        <button class="vp__sub-toggle" type="button">
+                            <span>Numeração</span>
+                            <i class="ph ph-caret-down vp__caret"></i>
+                        </button>
+                        <div class="vp__sub-body" id="subNumeracaoBody"></div>
+                    </div>
+
+                    <!-- Sub: Propriedades -->
+                    <div class="vp__sub" id="subProps">
+                        <button class="vp__sub-toggle" type="button">
+                            <span>Propriedades do Documento</span>
+                            <i class="ph ph-caret-down vp__caret"></i>
+                        </button>
+                        <div class="vp__sub-body" id="subPropsBody"></div>
+                    </div>
+
+                </div>
+            </section>
+        </aside>
+
+        <!-- PREVIEW -->
+        <main class="vp__preview" id="vpPreview">
+            <nav class="vp__tabs">
+                <button class="vp__tab active" data-tab="documento" type="button">
+                    <i class="ph-bold ph-file-doc"></i> Documento
+                </button>
+                <button class="vp__tab" data-tab="macro" type="button">
+                    <i class="ph-bold ph-stack"></i> Estrutura Macro
+                </button>
+                <button class="vp__tab" data-tab="capitulos" type="button">
+                    <i class="ph-bold ph-tree-structure"></i> Capítulos
+                </button>
+            </nav>
+            <div class="vp__preview-scroll">
+                <div id="docxContainer" class="vp__docx-container"></div>
+                <div id="vpPages" class="vp__pages vp__pages--hidden"></div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script type="application/json" id="vpData">
+{
+    "macro": {{ canonico_macro | tojson | safe }},
+    "capitulos": {{ canonico_capitulos | tojson | safe }},
+    "formatacao": {{ canonico_formatacao | tojson | safe }},
+    "docxUrl": "{{ url_for('configuracoes.baixar_docx_biblioteca', id_bib=bib.id_biblioteca_formatacao_canonica) }}"
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/visualizador_parametros.js') }}"></script>
+{% endblock %}

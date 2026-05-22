@@ -1,0 +1,33 @@
+<div class="sra-auth__card">
+    <div class="sra-auth__header">
+        <div class="sra-auth__logo">SRA · PLI-SP</div>
+        <p class="sra-auth__subtitle">Criar nova conta</p>
+    </div>
+    <form class="sra-auth__form" method="POST" action="{{ url_for('auth.cadastro') }}">
+        <div class="sra-input">
+            <label class="sra-input__label" for="nome_completo">Nome completo</label>
+            <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" required>
+        </div>
+        <div class="sra-input">
+            <label class="sra-input__label" for="email">E-mail</label>
+            <input class="sra-input__field" type="email" id="email" name="email" required>
+        </div>
+        <div class="sra-input">
+            <label class="sra-input__label" for="senha">Senha</label>
+            <input class="sra-input__field" type="password" id="senha" name="senha" required>
+        </div>
+        <div class="sra-input">
+            <label class="sra-input__label" for="tipo_perfil">Tipo de perfil</label>
+            <select class="sra-input__field" id="tipo_perfil" name="tipo_perfil" required>
+                <option value="">Selecione...</option>
+                <option value="admin">Administrador</option>
+                <option value="coordenador">Coordenador</option>
+                <option value="autor">Autor</option>
+            </select>
+        </div>
+        <button type="submit" class="sra-button sra-button--secondary sra-button--block">Criar conta</button>
+    </form>
+    <div class="sra-auth__footer">
+        <a class="sra-link" href="{{ url_for('auth.login') }}">Já tenho conta</a>
+    </div>
+</div>

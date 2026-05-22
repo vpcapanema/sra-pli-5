@@ -1,0 +1,125 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<!-- Seção 1: Tabela de Relatórios Base (Relatórios Finalizados) -->
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">1. Relatórios Base</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set linhas = [] %}
+        {% for r in relatorios_finalizados %}
+            {% set acoes_rel %}
+                <a href="{{ url_for('configuracoes.visualizar_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-btn-icon" title="Visualizar DOCX">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('configuracoes.excluir_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-inline-form" onsubmit="return confirm('Excluir relatório &quot;{{ r.titulo }}&quot;?');">
+                    <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </form>
+            {% endset %}
+            {% set _ = linhas.append([
+                r.id,
+                r.codigo or '-',
+                r.titulo or '-',
+                r.versao,
+                r.numero_medicao or '-',
+                r.mes_referencia.strftime('%m/%Y') if r.mes_referencia else '-',
+                r.ano_referencia or '-',
+                r.data_finalizacao.strftime('%d/%m/%Y %H:%M') if r.data_finalizacao else '-',
+                acoes_rel
+            ]) %}
+        {% endfor %}
+        {{ tabela(
+            colunas=['ID', 'Código', 'Título', 'Versão', 'Medição', 'Mês Referência', 'Ano', 'Finalizado em', 'Ações'],
+            linhas=linhas,
+            vazio='Nenhum relatório base cadastrado.',
+            acoes_vazio='<a href="#" class="sra-btn-icon" title="Visualizar DOCX" onclick="alert(\'Nenhum relatório selecionado\'); return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a><button type="button" class="sra-btn-icon sra-btn-icon--danger" title="Excluir" onclick="alert(\'Nenhum relatório selecionado\'); return false;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>'
+        ) }}
+    </div>
+</div>
+
+<!-- Seção 2: Cadastrar Novo Relatório Base -->
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">2. Cadastrar Novo Relatório Base</h3>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('configuracoes.criar_relatorio_base') }}" enctype="multipart/form-data">
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="numero_medicao">Número da medição *</label>
+                    <input class="sra-input__field" type="number" id="numero_medicao" name="numero_medicao" required min="1">
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="codigo_pli">Código PLI do Relatório *</label>
+                    <input class="sra-input__field" type="text" id="codigo_pli" name="codigo_pli" placeholder="Ex: D20-16" required>
+                </div>
+            </div>
+
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="mes_referencia">Mês de referência *</label>
+                    <input class="sra-input__field" type="text" id="mes_referencia" name="mes_referencia" placeholder="Ex: maio de 2026" required>
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="ano_referencia">Ano de referência *</label>
+                    <input class="sra-input__field" type="number" id="ano_referencia" name="ano_referencia" required>
+                </div>
+            </div>
+
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="periodo_inicio">Início da medição *</label>
+                    <input class="sra-input__field" type="date" id="periodo_inicio" name="periodo_inicio" required>
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="periodo_fim">Fim da medição *</label>
+                    <input class="sra-input__field" type="date" id="periodo_fim" name="periodo_fim" required>
+                </div>
+            </div>
+
+            <div class="sra-input">
+                <label class="sra-input__label" for="titulo_curto">Título curto</label>
+                <input class="sra-input__field" type="text" id="titulo_curto" name="titulo_curto" placeholder="Título breve do relatório">
+            </div>
+
+            <div class="sra-input">
+                <label class="sra-input__label" for="arquivo_docx">Upload do Relatório Base (DOCX) *</label>
+                <input class="sra-input__field" type="file" id="arquivo_docx" name="arquivo_docx" accept=".docx" required>
+                <p class="sra-text--muted">Envie o arquivo DOCX do relatório base para a biblioteca</p>
+            </div>
+
+            <button type="submit" class="sra-button sra-button--primary">Cadastrar Relatório Base</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Lógica para cálculo automático do período (igual ao painel de criar relatório de produção)
+document.getElementById('numero_medicao').addEventListener('change', function() {
+    const numeroMedicao = parseInt(this.value);
+    if (numeroMedicao) {
+        // Lógica: medição 16 = maio 2026 = 11/05/2026 a 10/06/2026
+        const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+        const mesIndice = (numeroMedicao - 1) % 12;
+        const ano = 2026; // Seed fixo em 2026
+
+        const mesNome = meses[mesIndice];
+        document.getElementById('mes_referencia').value = `${mesNome} de ${ano}`;
+        document.getElementById('ano_referencia').value = ano;
+
+        // Período: 11/mês a 10/mês+1
+        const dataInicio = new Date(ano, mesIndice, 11);
+        const dataFim = new Date(ano, mesIndice + 1, 10);
+
+        document.getElementById('periodo_inicio').value = dataInicio.toISOString().split('T')[0];
+        document.getElementById('periodo_fim').value = dataFim.toISOString().split('T')[0];
+
+        // Atualizar código PLI automaticamente
+        document.getElementById('codigo_pli').value = `D20-${numeroMedicao}`;
+    }
+});
+</script>

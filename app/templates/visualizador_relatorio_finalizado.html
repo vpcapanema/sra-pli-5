@@ -1,0 +1,82 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_workspace.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="{{ url_for('static', filename='js/docx-editor-bundle.js') }}"></script>
+{% endblock %}
+
+{% block conteudo %}
+<div class="ew">
+    <header class="ew__header">
+        <a href="{{ url_for('configuracoes.biblioteca_relatorios_base') }}" class="ew__back" title="Voltar">
+            <i class="ph ph-arrow-left"></i>
+        </a>
+        <div class="ew__header-text">
+            <h1 class="ew__title">{{ relatorio.titulo or relatorio.codigo or 'Relatório' }}</h1>
+            <span class="ew__subtitle">Visualizador de Relatório Finalizado</span>
+        </div>
+    </header>
+
+    <div class="ew__body">
+        <main class="ew__main">
+            <div class="ew__section">
+                <div class="ew__editor-area" id="docxEditorContainer">
+                    <div class="ew__placeholder">
+                        <i class="ph ph-spinner"></i>
+                        <p>Carregando documento...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado, iniciando carregamento do DOCX');
+    const docxUrl = "{{ url_for('configuracoes.arquivo_relatorio_finalizado', id_relatorio=relatorio.id) }}";
+    console.log('URL do DOCX:', docxUrl);
+
+    // Verificar se docx-preview está carregado
+    if (typeof window.docx === 'undefined') {
+        console.error('docx-preview não está carregado');
+        document.getElementById('docxEditorContainer').innerHTML = '<p class="ew__placeholder">Erro: biblioteca docx-preview não carregada.</p>';
+        return;
+    }
+
+    // Carregar blob do DOCX
+    fetch(docxUrl)
+        .then(response => {
+            console.log('Status da resposta:', response.status);
+            if (!response.ok) throw new Error('Falha ao carregar arquivo: ' + response.status);
+            return response.blob();
+        })
+        .then(blob => {
+            console.log('Blob carregado, tamanho:', blob.size);
+            // Renderizar com docx-preview diretamente
+            const container = document.getElementById('docxEditorContainer');
+            container.innerHTML = '';
+
+            window.docx.renderAsync(blob, container, null, {
+                className: 'docx-preview-content',
+                inWrapper: true,
+                ignoreWidth: false,
+                ignoreHeight: true,
+            }).then(() => {
+                console.log('DOCX renderizado com sucesso');
+            }).catch(err => {
+                console.error('Erro ao renderizar DOCX:', err);
+                container.innerHTML = '<p class="ew__placeholder">Erro ao renderizar o documento: ' + err.message + '</p>';
+            });
+        })
+        .catch(err => {
+            console.error('Erro ao carregar arquivo:', err);
+            document.getElementById('docxEditorContainer').innerHTML = '<p class="ew__placeholder">Erro ao carregar o arquivo: ' + err.message + '</p>';
+        });
+});
+</script>
+{% endblock %}

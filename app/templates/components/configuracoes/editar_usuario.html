@@ -1,0 +1,29 @@
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Editar Usuário: {{ usuario.nome }}</h3>
+        <div class="sra-card__actions">
+            <a href="{{ url_for('admin.listar_usuarios') }}" class="sra-button sra-button--sm">Cancelar</a>
+        </div>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST">
+            <div class="sra-input">
+                <label class="sra-input__label" for="nome_completo">Nome completo</label>
+                <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" value="{{ usuario.nome }}" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="email">E-mail</label>
+                <input class="sra-input__field" type="email" id="email" name="email" value="{{ usuario.email }}" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label">Status</label>
+                <div class="sra-input__field sra-input__field--readonly">{{ 'Ativo' if usuario.ativo else 'Inativo' }}</div>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label">Perfil</label>
+                <div class="sra-input__field sra-input__field--readonly">{{ usuario.perfil.codigo if usuario.perfil else '—' }}</div>
+            </div>
+            <button type="submit" class="sra-button sra-button--primary">Salvar</button>
+        </form>
+    </div>
+</div>

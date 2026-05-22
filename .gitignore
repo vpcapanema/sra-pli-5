@@ -1,0 +1,11 @@
+.codebuddy
+credenciais.txt
+credenciais_render.txt
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+instance/
+*.db
+storage/

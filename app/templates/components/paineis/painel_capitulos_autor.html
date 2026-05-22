@@ -1,0 +1,43 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Painel de Edição — Autor</h3>
+    </div>
+    <div class="sra-card__content">
+        {% if capitulos_autor %}
+            {% set linhas_cap = [] %}
+            {% for c in capitulos_autor %}
+                {% set badge %}
+                    <span class="sra-badge sra-badge--{{ c.status | default('clonado') }}">{{ c.status | default('Clonado') | replace('_', ' ') | capitalize }}</span>
+                {% endset %}
+                {% set acoes %}
+                    <a href="{{ url_for('relatorio.meu_capitulo', id_versao=c.id_relatorio, id_capitulo=c.id_capitulo_documento) }}" class="sra-btn-icon" title="Visualizar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </a>
+                    <a href="{{ url_for('relatorio.meu_capitulo', id_versao=c.id_relatorio, id_capitulo=c.id_capitulo_documento) }}" class="sra-btn-icon" title="Editar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    </a>
+                {% endset %}
+                {% set _ = linhas_cap.append([
+                    c.id_capitulo_documento,
+                    c.indice_capitulo or '—',
+                    c.titulo_capitulo,
+                    badge,
+                    acoes
+                ]) %}
+            {% endfor %}
+            {{ tabela(
+                colunas=['ID', 'Índice', 'Título', 'Status', 'Ações'],
+                linhas=linhas_cap,
+                vazio='Nenhum capítulo atribuído.'
+            ) }}
+        {% else %}
+            <p class="sra-text--muted">Nenhum capítulo atribuído a você neste período.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if capitulo_ativo %}
+    {% include "components/capitulo/upload_docx.html" %}
+{% endif %}

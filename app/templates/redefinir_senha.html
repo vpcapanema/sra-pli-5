@@ -1,0 +1,26 @@
+{% extends "layouts/base.html" %}
+
+{% block conteudo %}
+<div class="sra-auth">
+    <div class="sra-auth__card">
+        <div class="sra-auth__header">
+            <div class="sra-auth__logo">SRA · PLI-SP</div>
+            <p class="sra-auth__subtitle">Redefinir senha</p>
+        </div>
+        <form class="sra-auth__form" method="POST" action="{{ url_for('auth.redefinir_senha', token=token) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="senha">Nova senha</label>
+                <input class="sra-input__field" type="password" id="senha" name="senha" minlength="6" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="confirmar_senha">Confirmar senha</label>
+                <input class="sra-input__field" type="password" id="confirmar_senha" name="confirmar_senha" minlength="6" required>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary sra-button--block">Redefinir senha</button>
+        </form>
+        <div class="sra-auth__footer">
+            <a class="sra-link" href="{{ url_for('auth.login') }}">Voltar ao login</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_workspace.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+<div class="ew">
+    <header class="ew__header">
+        <a href="{{ url_for('relatorio.detalhe_versao', id=versao.id) }}" class="ew__back" title="Voltar">
+            <i class="ph ph-arrow-left"></i>
+        </a>
+        <div class="ew__header-text">
+            <h1 class="ew__title">{{ versao.titulo }}</h1>
+            <span class="ew__subtitle">Revisão e Edição — Coordenador</span>
+        </div>
+        <div class="ew__header-actions">
+        </div>
+    </header>
+
+    <div class="ew__body">
+        <!-- Sidebar: capítulos com status -->
+        <aside class="ew__sidebar">
+            <h2 class="ew__sidebar-title">Capítulos</h2>
+            <div class="ew__cap-list" id="capList"></div>
+        </aside>
+
+        <!-- Main: preview/edit area -->
+        <main class="ew__main">
+            <!-- Seção: Visualizador de Conteúdo Completo -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Visualizador de Conteúdo</h3>
+                <div class="ew__toolbar">
+                    <span class="ew__cap-titulo" id="capTitulo">Documento Completo</span>
+                    <div class="ew__toolbar-actions">
+                        <button class="btn btn--sm btn--outline" id="btnPreviewFull" type="button">
+                            <i class="ph ph-eye"></i> Preview Completo
+                        </button>
+                        <button class="btn btn--sm btn--primary" id="btnExportar" type="button">
+                            <i class="ph ph-download"></i> Exportar DOCX
+                        </button>
+                    </div>
+                </div>
+                <div class="ew__editor-area" id="editorArea">
+                    <div class="ew__placeholder">
+                        <i class="ph ph-file-doc"></i>
+                        <p>Selecione um capítulo para revisar ou clique "Preview Completo" para ver o documento renderizado.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção: Ferramentas de Revisão -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Ferramentas de Revisão</h3>
+                <div class="ew__review-panel">
+                    <div class="ew__review-info">
+                        <h4>Capítulo em Revisão</h4>
+                        <p id="reviewCapituloInfo">Nenhum capítulo selecionado</p>
+                    </div>
+                    <div class="ew__review-actions">
+                        <button class="btn btn--sm btn--outline" id="btnEditarInline" type="button" disabled>
+                            <i class="ph ph-pencil-simple"></i> Editar Inline
+                        </button>
+                        <button class="btn btn--sm btn--outline" id="btnVerHistorico" type="button" disabled>
+                            <i class="ph ph-clock-counter-clockwise"></i> Ver Histórico
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção: Aprovação/Reprovação -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Decisão de Revisão</h3>
+                <div class="ew__review-bar ew__hidden" id="reviewBar">
+                    <div class="ew__review-obs-group">
+                        <label class="ew__label" for="obsInput">Observação (obrigatório para reprovação)</label>
+                        <textarea class="ew__review-obs" id="obsInput" placeholder="Descreva o motivo da reprovação ou sugestões de correção..."></textarea>
+                    </div>
+                    <div class="ew__review-buttons">
+                        <button class="btn btn--sm btn--success" id="btnAprovar" type="button" disabled>
+                            <i class="ph ph-check"></i> Aprovar Capítulo
+                        </button>
+                        <button class="btn btn--sm btn--danger" id="btnReprovar" type="button" disabled>
+                            <i class="ph ph-x"></i> Reprovar com Feedback
+                        </button>
+                    </div>
+                </div>
+                <div class="ew__finalizar-area">
+                    <button class="btn btn--success" id="btnFinalizarRelatorio" type="button" disabled>
+                        <i class="ph ph-check-circle"></i> Finalizar Relatório Completo
+                    </button>
+                </div>
+            </div>
+
+            <!-- React editor mount point -->
+            <div id="reactEditorMount"></div>
+        </main>
+    </div>
+</div>
+
+<script>
+var EDITOR_DATA = {
+    idVersao: {{ versao.id }},
+    idUsuario: {{ current_user.id }},
+    apiBase: '/api'
+};
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/docx-editor-bundle.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor_coordenador.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Panorama de Relatórios</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set linhas_panorama = [] %}
+        {% for r in panorama %}
+            {% set badge %}
+                <span class="sra-badge sra-badge--{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span>
+            {% endset %}
+            {% set acoes %}
+                {% if r.id_relatorio %}
+                <a href="{{ url_for('relatorio.detalhe_versao', id=r.id_relatorio) }}" class="sra-btn-icon" title="Visualizar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <a href="{{ url_for('relatorio.detalhe_versao', id=r.id_relatorio) }}" class="sra-btn-icon" title="Editar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                </a>
+                {% endif %}
+            {% endset %}
+            {% set _ = linhas_panorama.append([
+                r.tipo,
+                r.titulo,
+                r.versao,
+                badge,
+                acoes
+            ]) %}
+        {% endfor %}
+        {{ tabela(
+            colunas=['Tipo', 'Título', 'Versão', 'Status', 'Ações'],
+            linhas=linhas_panorama,
+            vazio='Nenhum relatório cadastrado.'
+        ) }}
+    </div>
+</div>

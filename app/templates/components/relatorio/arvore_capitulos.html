@@ -1,0 +1,166 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">{{ versao_trabalho.titulo }} — Capítulos</h3>
+        <div class="sra-card__actions">
+            {% if perfil_ativo in ('autor', 'admin') %}
+            <a href="{{ url_for('relatorio.editor_autor', id=versao_trabalho.id) }}" class="sra-button sra-button--sm sra-button--primary">
+                <i class="ph ph-pencil-line"></i> Editor do Autor
+            </a>
+            {% endif %}
+            {% if perfil_ativo in ('coordenador', 'admin') %}
+            <a href="{{ url_for('relatorio.editor_coordenador', id=versao_trabalho.id) }}" class="sra-button sra-button--sm sra-button--secondary">
+                <i class="ph ph-eye"></i> Revisão (Coordenador)
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="sra-card__content">
+        <p class="sra-text--muted">
+            Status: {{ versao_trabalho.status.codigo if versao_trabalho.status else '-' }}
+            &middot; Bloqueado: {{ 'Sim' if versao_trabalho.bloqueio_edicao else 'Não' }}
+            &middot; <span class="sra-text--warning">Biblioteca não vinculada (TODO)</span>
+        </p>
+    </div>
+</div>
+
+{% if perfil_ativo in ('coordenador', 'admin') %}
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Biblioteca de Formatação Canônica</h3>
+    </div>
+    <div class="sra-card__content">
+        <p class="sra-text--muted">Funcionalidade em desenvolvimento para o novo schema.</p>
+        <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.vincular_biblioteca', id=versao_trabalho.id) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="id_biblioteca">Selecionar biblioteca</label>
+                <select class="sra-input__field" id="id_biblioteca" name="id_biblioteca" required>
+                    <option value="">Selecione...</option>
+                    {% for bib in bibliotecas_disponiveis %}
+                    <option value="{{ bib.id_biblioteca_formatacao_canonica }}" {{ 'selected' if versao_trabalho.id_biblioteca_formatacao_canonica == bib.id_biblioteca_formatacao_canonica else '' }}>{{ bib.nome_biblioteca }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary">
+                <i class="ph ph-link"></i> Vincular Biblioteca
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Estrutura de Capítulos</h3>
+    </div>
+    <div class="sra-card__content">
+        {% macro render_capitulos(items) %}
+        {% for cap in items %}
+        <div class="sra-tree__item">
+            <span class="sra-tree__label">
+                {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }}
+                <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                {% if cap.responsavel %}
+                <small class="sra-text--muted">({{ cap.responsavel.nome }})</small>
+                {% endif %}
+            </span>
+            {% if cap.subcapitulos %}
+            <div class="sra-tree">{{ render_capitulos(cap.subcapitulos) }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endmacro %}
+        {% if capitulos %}
+        <div class="sra-tree">{{ render_capitulos(capitulos) }}</div>
+        {% else %}
+        <p class="sra-text--muted">Nenhum capítulo cadastrado nesta versão.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Adicionar Capítulo</h3>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_capitulo', id=versao_trabalho.id) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="titulo_capitulo">Título do capítulo</label>
+                <input class="sra-input__field" type="text" id="titulo_capitulo" name="titulo_capitulo" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="indice_capitulo">Índice</label>
+                <input class="sra-input__field" type="text" id="indice_capitulo" name="indice_capitulo" placeholder="ex: 1, 1.1, 2">
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="ordem_capitulo">Ordem</label>
+                <input class="sra-input__field" type="number" id="ordem_capitulo" name="ordem_capitulo" value="1" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="nivel_capitulo">Nível</label>
+                <select class="sra-input__field" id="nivel_capitulo" name="nivel_capitulo">
+                    <option value="1">1 — Capítulo</option>
+                    <option value="2">2 — Subcapítulo</option>
+                    <option value="3">3 — Subseção</option>
+                </select>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="id_capitulo_pai">Capítulo pai (opcional)</label>
+                <select class="sra-input__field" id="id_capitulo_pai" name="id_capitulo_pai">
+                    <option value="">Nenhum (raiz)</option>
+                    {% for cap in capitulos %}
+                    <option value="{{ cap.id_capitulo_documento }}">{{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary">Adicionar capítulo</button>
+        </form>
+    </div>
+</div>
+
+{% if perfil_ativo in ('coordenador', 'admin') and capitulos %}
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Atribuição de Responsáveis</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set linhas_atribuicao = [] %}
+        {% macro flat_capitulos(items) %}
+            {% for cap in items %}
+                {% set badge_status %}
+                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                {% endset %}
+                {% set acoes %}
+                    <form method="POST" action="{{ url_for('relatorio.atribuir_responsavel', id=versao_trabalho.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
+                        <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
+                            <option value="">Sem responsável</option>
+                            {% for u in autores_disponiveis %}
+                            <option value="{{ u.id }}" {{ 'selected' if cap.id_usuario_responsavel == u.id else '' }}>{{ u.nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="sra-btn-icon" title="Salvar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        </button>
+                    </form>
+                {% endset %}
+                {% set _ = linhas_atribuicao.append([
+                    cap.id_capitulo_documento,
+                    cap.indice_capitulo or '—',
+                    cap.titulo_capitulo,
+                    badge_status,
+                    cap.responsavel.nome if cap.responsavel else '—',
+                    acoes
+                ]) %}
+                {% if cap.subcapitulos %}{{ flat_capitulos(cap.subcapitulos) }}{% endif %}
+            {% endfor %}
+        {% endmacro %}
+        {{ flat_capitulos(capitulos) }}
+        {{ tabela(
+            colunas=['ID', 'Índice', 'Título', 'Status', 'Responsável', 'Ações'],
+            linhas=linhas_atribuicao,
+            vazio='Nenhum capítulo cadastrado.'
+        ) }}
+    </div>
+</div>
+{% endif %}

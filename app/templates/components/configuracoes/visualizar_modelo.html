@@ -1,0 +1,24 @@
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Visualizar Modelo: {{ modelo.nome_modelo }}</h3>
+        <div class="sra-card__actions">
+            <a href="{{ url_for('configuracoes.biblioteca_formatacao') }}" class="sra-button sra-button--sm">Voltar</a>
+        </div>
+    </div>
+    <div class="sra-card__content">
+        <div class="sra-grid sra-grid--2">
+            <div class="sra-input">
+                <label class="sra-input__label">Nome</label>
+                <div class="sra-input__field sra-input__field--readonly">{{ modelo.nome_modelo }}</div>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label">Status</label>
+                <div class="sra-input__field sra-input__field--readonly">{{ 'Ativo' if modelo.ativo else 'Inativo' }}</div>
+            </div>
+        </div>
+        <div class="sra-input">
+            <label class="sra-input__label">Descrição</label>
+            <div class="sra-input__field sra-input__field--readonly">{{ modelo.descricao or '—' }}</div>
+        </div>
+    </div>
+</div>

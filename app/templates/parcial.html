@@ -1,0 +1,9 @@
+{% for componente in componentes %}
+    {% include componente %}
+{% endfor %}
+
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+    <script type="application/json" id="sra-flash-data">{{ mensagens | tojson }}</script>
+    {% endif %}
+{% endwith %}

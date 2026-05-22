@@ -1,0 +1,109 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_workspace.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+<div class="ew">
+    <header class="ew__header">
+        <a href="{{ url_for('relatorio.detalhe_versao', id=versao.id) }}" class="ew__back" title="Voltar">
+            <i class="ph ph-arrow-left"></i>
+        </a>
+        <div class="ew__header-text">
+            <h1 class="ew__title">{{ versao.titulo }}</h1>
+            <span class="ew__subtitle">Edição de Conteúdo — Autor</span>
+        </div>
+    </header>
+
+    <div class="ew__body">
+        <!-- Sidebar: lista de capítulos -->
+        <aside class="ew__sidebar">
+            <h2 class="ew__sidebar-title">Meus Capítulos</h2>
+            <div class="ew__cap-list" id="capList"></div>
+            <div class="ew__sidebar-actions">
+                <button class="btn btn--sm btn--outline" id="btnFinalizar" type="button">
+                    <i class="ph ph-check-circle"></i> Finalizar Capítulo
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main: editor area -->
+        <main class="ew__main">
+            <!-- Seção 1: Seleção de Capítulo e Responsável -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Seção 1: Capítulo/Subcapítulo</h3>
+                <div class="ew__form-row">
+                    <div class="ew__form-group">
+                        <label class="ew__label">Capítulo/Subcapítulo</label>
+                        <select class="ew__select" id="capituloSelect" title="Selecione o capítulo ou subcapítulo a ser editado">
+                            <option value="">Selecione um capítulo...</option>
+                        </select>
+                    </div>
+                    <div class="ew__form-group">
+                        <label class="ew__label">Responsável</label>
+                        <select class="ew__select" id="responsavelSelect" title="Selecione o responsável pelo capítulo" {% if session.get('perfil_ativo') == 'autor' %}disabled{% endif %}>
+                            <option value="">Selecione o responsável...</option>
+                        </select>
+                        {% if session.get('perfil_ativo') == 'autor' %}
+                        <small class="ew__hint">Como autor, você só pode selecionar a si mesmo.</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção 2: Upload de Conteúdo -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Seção 2: Upload de Conteúdo</h3>
+                <div class="ew__upload-area">
+                    <label class="ew__upload-label" for="fileUpload">
+                        <i class="ph ph-upload-simple"></i>
+                        <span>Arraste o arquivo DOCX aqui ou clique para selecionar</span>
+                    </label>
+                    <input type="file" id="fileUpload" accept=".docx" hidden>
+                    <div class="ew__upload-info" id="uploadInfo"></div>
+                </div>
+            </div>
+
+            <!-- Seção 3: Visualizador de Edição Inline -->
+            <div class="ew__section">
+                <h3 class="ew__section-title">Seção 3: Edição Inline</h3>
+                <div class="ew__toolbar">
+                    <span class="ew__cap-titulo" id="capTitulo">Selecione um capítulo</span>
+                    <div class="ew__toolbar-actions">
+                        <button class="btn btn--sm btn--outline" id="btnReprocessar" type="button" disabled>
+                            <i class="ph ph-arrows-clockwise"></i> Reprocessar
+                        </button>
+                        <button class="btn btn--sm btn--primary" id="btnSalvar" type="button" disabled>
+                            <i class="ph ph-floppy-disk"></i> Salvar
+                        </button>
+                    </div>
+                </div>
+                <div class="ew__editor-area" id="editorArea">
+                    <div class="ew__placeholder">
+                        <i class="ph ph-file-doc"></i>
+                        <p>Selecione um capítulo e faça upload do conteúdo para começar a editar.</p>
+                    </div>
+                </div>
+                <div class="ew__finalizar-area">
+                    <button class="btn btn--success" id="btnFinalizarCapitulo" type="button" disabled>
+                        <i class="ph ph-check-circle"></i> Finalizar e Enviar para Revisão
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="editorData"
+     data-id-versao="{{ versao.id }}"
+     data-id-usuario="{{ current_user.id }}"
+     data-api-base="/api"
+     class="ew__data-hidden"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/editor_autor.js') }}"></script>
+{% endblock %}

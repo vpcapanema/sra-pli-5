@@ -1,0 +1,58 @@
+{#
+    Revisão de conteúdo pelo coordenador.
+    Inclui: visualizador em modo edição, ações de aprovação/reprovação.
+
+    Variáveis esperadas:
+      - versao_trabalho: VersaoTrabalho
+      - capitulo: CapituloDocumento em revisão
+      - preview_html: HTML renderizado do conteúdo do capítulo
+      - capitulos_nav: lista de capítulos para navegação lateral
+      - revisao: Revisao atual (se existir)
+#}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">1. Revisão — {{ capitulo.indice_capitulo or '' }} {{ capitulo.titulo_capitulo }}</h3>
+    </div>
+    <div class="sra-card__content">
+        <p class="sra-text--muted">
+            Versão de trabalho: {{ versao_trabalho.titulo }}
+            &middot; Status:
+            <span class="sra-badge sra-badge--{{ revisao.status_revisao | default('pendente') }}">
+                {{ revisao.status_revisao | default('Pendente') | replace('_', ' ') | capitalize }}
+            </span>
+        </p>
+    </div>
+</div>
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">2. Conteúdo do Capítulo</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set preview_modo = 'edicao' %}
+        {% set preview_titulo = 'Revisão — ' ~ (capitulo.indice_capitulo or '') ~ ' ' ~ capitulo.titulo_capitulo %}
+        {% set preview_id = capitulo.id_capitulo_documento | string %}
+        {% set preview_save_url = url_for('relatorio.salvar_conteudo_coordenador', id_capitulo=capitulo.id_capitulo_documento) %}
+        {% set preview_capitulos = capitulos_nav | default([]) %}
+        {% include "components/compartilhados/visualizador_geral.html" %}
+    </div>
+</div>
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">3. Decisão</h3>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.acao_revisao', id_capitulo=capitulo.id_capitulo_documento) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="observacao">Observação</label>
+                <textarea class="sra-input__field" id="observacao" name="observacao" rows="3" placeholder="Comentário opcional sobre a revisão..."></textarea>
+            </div>
+            <div class="sra-actions-row">
+                <button type="submit" name="decisao" value="aprovar" class="sra-button sra-button--secondary">Aprovar</button>
+                <button type="submit" name="decisao" value="reprovar" class="sra-button sra-button--sm">Reprovar e devolver</button>
+            </div>
+        </form>
+    </div>
+</div>

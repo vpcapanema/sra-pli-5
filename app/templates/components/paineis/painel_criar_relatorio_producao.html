@@ -1,0 +1,143 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+<!-- Card 1: Informações Cadastrais -->
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Informações Cadastrais</h3>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_relatorio_producao') }}" id="form-criar-relatorio" enctype="multipart/form-data">
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="numero_medicao">Número da medição</label>
+                    <input class="sra-input__field" type="number" id="numero_medicao" name="numero_medicao" required min="1">
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="codigo_pli">Código PLI do Relatório</label>
+                    <input class="sra-input__field" type="text" id="codigo_pli" name="codigo_pli" placeholder="Ex: D20-16" required>
+                </div>
+            </div>
+
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="mes_referencia">Mês de referência</label>
+                    <input class="sra-input__field" type="text" id="mes_referencia" name="mes_referencia" placeholder="Ex: maio de 2026" required>
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="ano_referencia">Ano de referência</label>
+                    <input class="sra-input__field" type="number" id="ano_referencia" name="ano_referencia" required>
+                </div>
+            </div>
+
+            <div class="sra-grid sra-grid--2">
+                <div class="sra-input">
+                    <label class="sra-input__label" for="periodo_inicio">Início da medição</label>
+                    <input class="sra-input__field" type="date" id="periodo_inicio" name="periodo_inicio" required>
+                </div>
+                <div class="sra-input">
+                    <label class="sra-input__label" for="periodo_fim">Fim da medição</label>
+                    <input class="sra-input__field" type="date" id="periodo_fim" name="periodo_fim" required>
+                </div>
+            </div>
+
+            <div class="sra-input">
+                <label class="sra-input__label" for="titulo_curto">Título curto (opcional)</label>
+                <input class="sra-input__field" type="text" id="titulo_curto" name="titulo_curto" placeholder="Título breve do relatório">
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Card 2: Base de Clonagem -->
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Base de Clonagem</h3>
+    </div>
+    <div class="sra-card__content">
+        <div class="sra-input">
+            <label class="sra-input__label" for="relatorio_base_arquivo">Relatório da biblioteca</label>
+            <select class="sra-input__field" id="relatorio_base_arquivo" name="relatorio_base_arquivo">
+                <option value="">Selecione um relatório...</option>
+                {% for arquivo in arquivos_relatorios_base %}
+                <option value="{{ arquivo }}">{{ arquivo }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" class="sra-button sra-button--primary" onclick="clonarDaBiblioteca()">Criar Relatório de Produção</button>
+    </div>
+</div>
+
+<script>
+// Lógica para cálculo automático do período
+document.getElementById('numero_medicao').addEventListener('change', function() {
+    const numeroMedicao = parseInt(this.value);
+    if (numeroMedicao) {
+        // Lógica: medição 16 = maio 2026 = 11/05/2026 a 10/06/2026
+        const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+        const mesIndice = (numeroMedicao - 1) % 12;
+        const ano = 2026; // Seed fixo em 2026
+
+        const mesNome = meses[mesIndice];
+        document.getElementById('mes_referencia').value = `${mesNome} de ${ano}`;
+        document.getElementById('ano_referencia').value = ano;
+
+        // Período: 11/mês a 10/mês+1
+        const dataInicio = new Date(ano, mesIndice, 11);
+        const dataFim = new Date(ano, mesIndice + 1, 10);
+
+        document.getElementById('periodo_inicio').value = dataInicio.toISOString().split('T')[0];
+        document.getElementById('periodo_fim').value = dataFim.toISOString().split('T')[0];
+
+        // Atualizar código PLI automaticamente
+        document.getElementById('codigo_pli').value = `D20-${numeroMedicao}`;
+    }
+});
+
+// Função de clonagem da biblioteca
+function clonarDaBiblioteca() {
+    const arquivo = document.getElementById('relatorio_base_arquivo').value;
+    if (!arquivo) {
+        alert('Selecione um relatório da biblioteca');
+        return;
+    }
+
+    if (!confirm(`Clonar relatório "${arquivo}"?`)) {
+        return;
+    }
+
+    // Fazer requisição para clonar
+    fetch(`/relatorio/producao/clonar-biblioteca`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            arquivo_base: arquivo,
+            titulo_curto: document.getElementById('titulo_curto').value,
+            numero_medicao: document.getElementById('numero_medicao').value,
+            codigo_pli: document.getElementById('codigo_pli').value,
+            mes_referencia: document.getElementById('mes_referencia').value,
+            ano_referencia: document.getElementById('ano_referencia').value,
+            periodo_inicio: document.getElementById('periodo_inicio').value,
+            periodo_fim: document.getElementById('periodo_fim').value,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.erro) {
+            alert('Erro: ' + data.erro);
+        } else {
+            alert('Relatório clonado com sucesso!');
+            // Redirecionar para o relatório criado
+            if (data.id_producao) {
+                window.location.href = `/relatorio/versao-trabalho/${data.id_producao}`;
+            }
+        }
+    })
+    .catch(error => {
+        alert('Erro ao clonar: ' + error);
+    });
+}
+</script>

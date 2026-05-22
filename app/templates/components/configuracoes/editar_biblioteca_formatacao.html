@@ -1,0 +1,27 @@
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">Editar Biblioteca: {{ bib.nome_biblioteca }}</h3>
+        <div class="sra-card__actions">
+            <a href="{{ url_for('configuracoes.biblioteca_formatacao') }}" class="sra-button sra-button--sm">Cancelar</a>
+        </div>
+    </div>
+    <div class="sra-card__content">
+        <form class="sra-auth__form" method="POST">
+            <div class="sra-input">
+                <label class="sra-input__label" for="nome_biblioteca">Nome da biblioteca</label>
+                <input class="sra-input__field" type="text" id="nome_biblioteca" name="nome_biblioteca" value="{{ bib.nome_biblioteca }}" required>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="descricao">Descrição</label>
+                <input class="sra-input__field" type="text" id="descricao" name="descricao" value="{{ bib.descricao or '' }}">
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label">
+                    <input type="checkbox" name="ativa" {{ 'checked' if bib.ativa else '' }}>
+                    Ativa
+                </label>
+            </div>
+            <button type="submit" class="sra-button sra-button--primary">Salvar</button>
+        </form>
+    </div>
+</div>

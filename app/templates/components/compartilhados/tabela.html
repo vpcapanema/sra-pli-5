@@ -1,0 +1,48 @@
+{% macro tabela(colunas, linhas, vazio="Nenhum registro encontrado.", acoes_lote=[], id_tabela="", acoes_vazio="") %}
+{% set tid = id_tabela or ("sra-tbl-" ~ range(10000)|random) %}
+<div class="sra-table-container" data-table-id="{{ tid }}">
+    <div class="sra-table__bulk-actions" hidden>
+        <span class="sra-table__bulk-count">0 selecionados</span>
+        {% for al in acoes_lote %}
+        <button type="button" class="sra-button sra-button--sm sra-bulk-btn" data-action="{{ al.action }}" data-url="{{ al.url|default('') }}">{{ al.label }}</button>
+        {% endfor %}
+    </div>
+    <table class="sra-table">
+        <thead>
+            <tr>
+                <th class="sra-table__header sra-table__header--select">
+                    <input type="checkbox" class="sra-table__select-all" title="Selecionar todos">
+                </th>
+                {% for col in colunas %}
+                <th class="sra-table__header{% if loop.last %} sra-table__header--actions{% endif %}">{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if linhas %}
+                {% for linha in linhas %}
+                <tr data-row-id="{{ linha[0] }}">
+                    <td class="sra-table__cell sra-table__cell--select">
+                        <input type="checkbox" class="sra-table__row-select" value="{{ linha[0] }}" title="Selecionar linha">
+                    </td>
+                    {% for celula in linha %}
+                    <td class="sra-table__cell{% if loop.last %} sra-table__cell--actions{% endif %}">{{ celula|safe }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr data-row-id="">
+                    <td class="sra-table__cell sra-table__cell--select">
+                        <input type="checkbox" class="sra-table__row-select" value="" disabled title="Seleção desabilitada">
+                    </td>
+                    {% for col in colunas %}
+                    <td class="sra-table__cell{% if loop.last %} sra-table__cell--actions{% endif %}">
+                        {% if loop.first %}{{ vazio }}{% elif loop.last %}{{ acoes_vazio|safe if acoes_vazio else '' }}{% else %}&nbsp;{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}

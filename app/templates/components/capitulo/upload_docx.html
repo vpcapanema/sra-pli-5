@@ -1,0 +1,72 @@
+{#
+    Upload de conteúdo pelo autor.
+    Fluxo: upload DOCX → prévia → importar/rejeitar → edição inline
+
+    Variáveis esperadas:
+      - versao_trabalho: VersaoTrabalho
+      - capitulo: CapituloDocumento atribuído ao autor
+      - envio: EnvioConteudo (se já houver upload pendente)
+      - preview_html: HTML renderizado do conteúdo extraído (após upload)
+      - capitulos_nav: lista de capítulos para navegação lateral
+#}
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">1. Upload de Conteúdo — {{ capitulo.titulo_capitulo }}</h3>
+    </div>
+    <div class="sra-card__content">
+        <p class="sra-text--muted">
+            Versão de trabalho: {{ versao_trabalho.titulo }}
+            &middot; Capítulo: {{ capitulo.indice_capitulo or '' }} {{ capitulo.titulo_capitulo }}
+        </p>
+
+        {% if not envio %}
+        <form class="sra-auth__form" method="POST" enctype="multipart/form-data"
+              action="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=capitulo.id_capitulo_documento) }}">
+            <div class="sra-input">
+                <label class="sra-input__label" for="arquivo_docx">Arquivo DOCX</label>
+                <input class="sra-input__field" type="file" id="arquivo_docx" name="arquivo_docx" accept=".docx" required>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary">Enviar arquivo</button>
+        </form>
+        {% else %}
+        <p class="sra-text--muted">
+            Arquivo enviado: <strong>{{ envio.nome_arquivo }}</strong>
+            &middot; Status: <span class="sra-badge sra-badge--{{ envio.status_envio }}">{{ envio.status_envio | replace('_', ' ') | capitalize }}</span>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+{% if preview_html %}
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">2. Pré-visualização do Conteúdo Enviado</h3>
+    </div>
+    <div class="sra-card__content">
+        {% set preview_modo = 'edicao' %}
+        {% set preview_titulo = capitulo.indice_capitulo ~ ' ' ~ capitulo.titulo_capitulo %}
+        {% set preview_id = envio.id_envio_conteudo | string %}
+        {% set preview_save_url = url_for('relatorio.salvar_conteudo_autor', id_envio=envio.id_envio_conteudo) %}
+        {% set preview_capitulos = capitulos_nav | default([]) %}
+        {% include "components/compartilhados/visualizador_geral.html" %}
+    </div>
+</div>
+
+<div class="sra-card">
+    <div class="sra-card__header">
+        <h3 class="sra-card__title">3. Confirmar Conteúdo</h3>
+    </div>
+    <div class="sra-card__content">
+        <p class="sra-text--muted">Após revisar a pré-visualização, escolha uma ação:</p>
+        <div class="sra-actions-row">
+            <form method="POST" action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='importar') }}">
+                <button type="submit" class="sra-button sra-button--secondary">Importar conteúdo</button>
+            </form>
+            <form method="POST" action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='rejeitar') }}">
+                <button type="submit" class="sra-button sra-button--sm">Rejeitar e reenviar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}

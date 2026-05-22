@@ -1,0 +1,10 @@
+Você é o agente de implementação do SRA. O documento conceitual foi atualizado para adotar a hierarquia editorial formal: relatório -> capítulos -> subcapítulos -> elementos.
+
+Tarefas pendentes:
+1. Revisar o documento conceitual e alinhar toda ocorrência de "seção" ao contexto técnico do DOCX, mantendo "capítulo" e "subcapítulo" como termos editoriais.
+2. Atualizar as tabelas do modelo lógico para refletir a nova hierarquia formal.
+3. Confirmar se a tabela capitulos_documento deve permanecer como entidade própria ou ser reorganizada com subcapítulos.
+4. Revisar a matriz de estados e as relações entre tabelas para garantir consistência com a nova nomenclatura.
+5. Depois, propor as páginas do sistema e o desenho dos fluxos de interface.
+
+Não faça suposições fora do que já foi aprovado. Antes de implementar, apresente cada ajuste em tela para validação.

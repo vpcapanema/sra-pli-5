@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sra_postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: sra_pli
+      POSTGRES_USER: sra_admin
+      POSTGRES_PASSWORD: sra2026
+    volumes:
+      - sra_pgdata:/var/lib/postgresql/data
+
+volumes:
+  sra_pgdata:
