@@ -1,0 +1,278 @@
+<div class="sra-logs-panel" id="sra-logs-panel">
+    <div class="sra-logs-panel__header">
+        <h4 class="sra-logs-panel__title">Logs do Sistema</h4>
+        <div class="sra-logs-panel__controls">
+            <select id="sra-logs-filter" class="sra-logs-panel__filter" aria-label="Filtrar logs por nível">
+                <option value="">Todos os níveis</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+                <option value="DEBUG">DEBUG</option>
+            </select>
+            <button id="sra-logs-toggle" class="sra-logs-panel__toggle" type="button" aria-label="Expandir/colapsar painel de logs">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="18 15 12 9 6 15"/>
+                </svg>
+            </button>
+            <button id="sra-logs-clear" class="sra-logs-panel__clear" type="button" aria-label="Limpar logs">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="sra-logs-panel__content" id="sra-logs-content">
+        <div class="sra-logs-panel__empty">Carregando logs...</div>
+    </div>
+</div>
+
+<style>
+.sra-logs-panel {
+    position: fixed;
+    bottom: 0;
+    right: 20px;
+    width: 500px;
+    max-height: 300px;
+    background: #1a1a2e;
+    border: 1px solid #d5dce6;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    transition: max-height 0.3s ease;
+}
+
+.sra-logs-panel--collapsed {
+    max-height: 45px;
+}
+
+.sra-logs-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: #1c3d59;
+    border-radius: 8px 8px 0 0;
+    color: #fff;
+}
+
+.sra-logs-panel__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.sra-logs-panel__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sra-logs-panel__filter {
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.sra-logs-panel__filter option {
+    background: #1a1a2e;
+    color: #1a1a2e;
+}
+
+.sra-logs-panel__toggle,
+.sra-logs-panel__clear {
+    padding: 4px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sra-logs-panel__toggle:hover,
+.sra-logs-panel__clear:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sra-logs-panel__toggle svg,
+.sra-logs-panel__clear svg {
+    width: 16px;
+    height: 16px;
+}
+
+.sra-logs-panel__content {
+    padding: 10px;
+    overflow-y: auto;
+    max-height: 250px;
+    background: #1a1a2e;
+}
+
+.sra-logs-panel__empty {
+    color: #4f5d6e;
+    text-align: center;
+    padding: 20px;
+}
+
+.sra-logs-panel__entry {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    word-break: break-all;
+}
+
+.sra-logs-panel__entry--INFO {
+    border-left-color: #2a9450;
+    background: rgba(42, 148, 80, 0.1);
+}
+
+.sra-logs-panel__entry--WARNING {
+    border-left-color: #c88000;
+    background: rgba(200, 128, 0, 0.1);
+}
+
+.sra-logs-panel__entry--ERROR {
+    border-left-color: #7a1212;
+    background: rgba(122, 18, 18, 0.1);
+}
+
+.sra-logs-panel__entry--DEBUG {
+    border-left-color: #116593;
+    background: rgba(17, 101, 147, 0.1);
+}
+
+.sra-logs-panel__entry-time {
+    color: #4f5d6e;
+    font-size: 11px;
+}
+
+.sra-logs-panel__entry-level {
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+.sra-logs-panel__entry-level--INFO {
+    color: #2a9450;
+}
+
+.sra-logs-panel__entry-level--WARNING {
+    color: #c88000;
+}
+
+.sra-logs-panel__entry-level--ERROR {
+    color: #7a1212;
+}
+
+.sra-logs-panel__entry-level--DEBUG {
+    color: #116593;
+}
+
+.sra-logs-panel__entry-message {
+    color: #1a1a2e;
+    margin-top: 2px;
+}
+
+.sra-logs-panel__entry-meta {
+    color: #4f5d6e;
+    font-size: 10px;
+    margin-top: 2px;
+}
+</style>
+
+<script>
+(function() {
+    var logsPanel = document.getElementById('sra-logs-panel');
+    var logsContent = document.getElementById('sra-logs-content');
+    var logsFilter = document.getElementById('sra-logs-filter');
+    var logsToggle = document.getElementById('sra-logs-toggle');
+    var logsClear = document.getElementById('sra-logs-clear');
+    var refreshInterval = null;
+
+    function formatTime(isoString) {
+        var date = new Date(isoString);
+        return date.toLocaleTimeString('pt-BR');
+    }
+
+    function renderLogs(logs) {
+        if (!logs || logs.length === 0) {
+            logsContent.innerHTML = '<div class="sra-logs-panel__empty">Nenhum log encontrado</div>';
+            return;
+        }
+
+        var html = '';
+        logs.forEach(function(log) {
+            html += '<div class="sra-logs-panel__entry sra-logs-panel__entry--' + log.level + '">';
+            html += '<span class="sra-logs-panel__entry-time">' + formatTime(log.timestamp) + '</span>';
+            html += '<span class="sra-logs-panel__entry-level sra-logs-panel__entry-level--' + log.level + '">' + log.level + '</span>';
+            html += '<div class="sra-logs-panel__entry-message">' + log.message + '</div>';
+            html += '<div class="sra-logs-panel__entry-meta">';
+            html += 'Usuário: ' + log.user + ' | Perfil: ' + log.perfil + ' | ' + log.method + ' ' + log.path;
+            html += '</div>';
+            html += '</div>';
+        });
+        logsContent.innerHTML = html;
+        logsContent.scrollTop = logsContent.scrollHeight;
+    }
+
+    function fetchLogs() {
+        var level = logsFilter.value;
+        var url = '/api/logs?limit=100';
+        if (level) {
+            url += '&level=' + level;
+        }
+
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                renderLogs(data.logs);
+            })
+            .catch(function(error) {
+                console.error('Erro ao buscar logs:', error);
+            });
+    }
+
+    function startAutoRefresh() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(fetchLogs, 3000);
+    }
+
+    function stopAutoRefresh() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+    }
+
+    // Toggle panel
+    logsToggle.addEventListener('click', function() {
+        logsPanel.classList.toggle('sra-logs-panel--collapsed');
+        if (logsPanel.classList.contains('sra-logs-panel--collapsed')) {
+            stopAutoRefresh();
+        } else {
+            fetchLogs();
+            startAutoRefresh();
+        }
+    });
+
+    // Filter change
+    logsFilter.addEventListener('change', fetchLogs);
+
+    // Clear logs (visual only)
+    logsClear.addEventListener('click', function() {
+        logsContent.innerHTML = '<div class="sra-logs-panel__empty">Logs limpos</div>';
+    });
+
+    // Initial load
+    fetchLogs();
+    startAutoRefresh();
+})();
+</script>

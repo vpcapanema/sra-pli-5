@@ -25,8 +25,7 @@ def listar_usuarios():
     """Lista todos os usuários do sistema."""
     usuarios = ServicoUsuario.listar_usuarios()
     return render_conteudo(
-        ['components/configuracoes/gestao_usuarios.html'],
-        perfil_ativo=session.get('perfil_ativo', ''),
+        ['admin/gestao_usuarios.html'],
         usuarios=usuarios
     )
 
@@ -35,7 +34,7 @@ def listar_usuarios():
 def criar_usuario():
     """Cria um novo usuário e envia convite por email."""
     usuario, link = ServicoUsuario.convidar_usuario(
-        nome_completo=request.form.get('nome_completo'),
+        nome=request.form.get('nome_completo'),
         email=request.form.get('email'),
         perfil=request.form.get('tipo_perfil')
     )
@@ -78,7 +77,7 @@ def editar_usuario(id_usuario):
     if request.method == 'POST':
         ServicoUsuario.atualizar_usuario(
             id_usuario,
-            nome_completo=request.form.get('nome_completo'),
+            nome=request.form.get('nome_completo'),
             email=request.form.get('email')
         )
         flash('Usuário atualizado.', 'sucesso')

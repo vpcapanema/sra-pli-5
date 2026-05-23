@@ -1,44 +1,136 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
 
 {% macro lista_relatorios_producao(relatorios_producao) %}
-<div class="sra-card">
+<div class="sra-card" id="relatorios-producao-container">
     <div class="sra-card__header">
         <h3 class="sra-card__title">Relatórios em Produção</h3>
     </div>
     <div class="sra-card__content">
-        {% if relatorios_producao %}
-            {% set linhas = [] %}
-            {% for rel in relatorios_producao %}
-                {% set acoes %}
-                    <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Visualizar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </a>
-                    <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Editar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                    </a>
-                    <form method="POST" action="{{ url_for('relatorio.excluir_relatorio_producao', id_relatorio=rel.id) }}" class="sra-inline-form" onsubmit="return confirm('Excluir relatório &quot;{{ rel.titulo_curto }}&quot;?');">
-                        <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                    </form>
-                {% endset %}
-                {% set _ = linhas.append([
-                    rel.id,
-                    rel.titulo_curto or '—',
-                    rel.codigo_d20,
-                    rel.versao_atual,
-                    rel.status.codigo if rel.status else '—',
-                    acoes
-                ]) %}
-            {% endfor %}
-            {{ tabela(
-                colunas=['ID', 'Título', 'Código D-20', 'Versão', 'Status', 'Ações'],
-                linhas=linhas,
-                vazio='Nenhum relatório em produção.'
-            ) }}
-        {% else %}
-            <p class="sra-text--muted">Nenhum relatório em produção cadastrado.</p>
-        {% endif %}
+        {% set linhas = [] %}
+        {% for rel in relatorios_producao %}
+            {% set acoes %}
+                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Visualizar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Editar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                </a>
+                <button type="button" class="sra-btn-icon sra-btn-icon--danger btn-excluir-relatorio" title="Excluir" data-id="{{ rel.id }}" data-titulo="{{ rel.titulo_curto or rel.codigo_d20 }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            {% endset %}
+            {% set _ = linhas.append([
+                rel.id,
+                rel.titulo_curto or '—',
+                rel.codigo_d20,
+                rel.versao_atual,
+                rel.status.codigo if rel.status else '—',
+                acoes
+            ]) %}
+        {% endfor %}
+        {{ tabela(
+            colunas=['ID', 'Título', 'Código D-20', 'Versão', 'Status', 'Ações'],
+            linhas=linhas,
+            vazio='Nenhum relatório em produção.'
+        ) }}
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-excluir-relatorio').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const titulo = this.getAttribute('data-titulo');
+
+            Swal.fire({
+                title: 'Confirmar Exclusão',
+                text: `Deseja excluir o relatório "${titulo}"? Esta ação não pode ser desfeita.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Confirmar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#7a1212',
+                cancelButtonColor: '#6b7280'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Mostrar modal de progresso
+                    Swal.fire({
+                        title: 'Excluindo Relatório',
+                        html: '<div id="exclusao-log" style="text-align: left; font-family: monospace; font-size: 0.875rem;"></div>',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    const logContainer = document.getElementById('exclusao-log');
+
+                    function addLog(message, status = 'pending') {
+                        const icons = { pending: '⏳', success: '✓', error: '✗' };
+                        const colors = { pending: '#666', success: '#2a9450', error: '#7a1212' };
+                        const div = document.createElement('div');
+                        div.style.marginBottom = '4px';
+                        div.style.color = colors[status];
+                        div.textContent = `${icons[status]} ${message}`;
+                        logContainer.appendChild(div);
+                    }
+
+                    addLog('Validando permissões...', 'pending');
+
+                    // Fazer requisição para excluir
+                    fetch(`/relatorio/producao/${id}/excluir`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.erro) {
+                            addLog('Erro: ' + data.erro, 'error');
+                            Swal.update({
+                                icon: 'error',
+                                title: 'Erro na Exclusão',
+                                html: logContainer.outerHTML,
+                                showConfirmButton: true,
+                                confirmButtonColor: '#7a1212'
+                            });
+                        } else {
+                            addLog('Validando permissões...', 'success');
+                            addLog('Removendo arquivo do storage...', 'success');
+                            addLog('Excluindo registro do banco...', 'success');
+
+                            setTimeout(() => {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Exclusão Concluída',
+                                    text: 'Relatório excluído com sucesso!',
+                                    timer: 1500,
+                                    showConfirmButton: false,
+                                    timerProgressBar: true
+                                }).then(() => {
+                                    // Recarregar a tabela via HTMX
+                                    htmx.ajax('GET', '/dashboard-coordenador', {target: '#main-content', swap: 'innerHTML'});
+                                });
+                            }, 500);
+                        }
+                    })
+                    .catch(error => {
+                        addLog('Erro de conexão: ' + error, 'error');
+                        Swal.update({
+                            icon: 'error',
+                            title: 'Erro de Conexão',
+                            html: logContainer.outerHTML,
+                            showConfirmButton: true,
+                            confirmButtonColor: '#7a1212'
+                        });
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
 {% endmacro %}

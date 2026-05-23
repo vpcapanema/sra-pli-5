@@ -1,0 +1,40 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+{% macro tabela_envios_conteudo(envios) %}
+{% set linhas = [] %}
+{% for envio in envios %}
+    {% set status %}
+        <span class="sra-badge sra-badge--{{ envio.status_envio }}">{{ envio.status_envio|capitalize }}</span>
+    {% endset %}
+    {% set data %}
+        {% if envio.criado_em %}{{ envio.criado_em.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}
+    {% endset %}
+    {% set acoes %}
+        <a href="#" class="sra-btn-icon" title="Visualizar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </a>
+        <a href="#" class="sra-btn-icon" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        </a>
+    {% endset %}
+    {% set _ = linhas.append([
+        envio.id_envio_conteudo,
+        envio.relatorio.codigo_d20 or envio.relatorio.titulo_curto,
+        envio.usuario.nome,
+        envio.nome_arquivo,
+        envio.caminho_arquivo,
+        status,
+        data,
+        acoes
+    ]) %}
+{% endfor %}
+{{ tabela(
+    colunas=['ID', 'Relatório', 'Usuário', 'Nome do Arquivo', 'Caminho do Arquivo', 'Status do Envio', 'Criado Em', 'Ações'],
+    linhas=linhas,
+    vazio='Nenhum envio de conteúdo encontrado.'
+) }}
+{% endmacro %}
+
+{% if envios is defined %}
+{{ tabela_envios_conteudo(envios) }}
+{% endif %}

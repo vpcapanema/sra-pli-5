@@ -4,7 +4,7 @@
     <div class="sra-card__header">
         <h3 class="sra-card__title">Painel de Edição — Coordenador</h3>
         <div class="sra-card__actions">
-            <a href="{{ url_for('relatorio.editor_coordenador', id=relatorio_producao.id) }}" class="sra-button sra-button--sm sra-button--secondary">
+            <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-button sra-button--sm sra-button--secondary">
                 <i class="ph ph-eye"></i> Abrir Revisão
             </a>
         </div>
@@ -18,13 +18,13 @@
                 {% endset %}
                 {% set responsavel_nome = cap.responsavel.nome if cap.responsavel else '—' %}
                 {% set acoes %}
-                    <a href="{{ url_for('relatorio.editor_coordenador', id=relatorio_producao.id) }}" class="sra-btn-icon" title="Visualizar">
+                    <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-btn-icon" title="Visualizar">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </a>
-                    <a href="{{ url_for('relatorio.editor_coordenador', id=relatorio_producao.id) }}" class="sra-btn-icon" title="Editar">
+                    <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-btn-icon" title="Editar">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                     </a>
-                    <form method="POST" action="{{ url_for('relatorio.atribuir_responsavel', id=relatorio_producao.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
+                    <form method="POST" action="{{ url_for('relatorio.atribuir_responsavel', id_versao=versao_trabalho.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
                         <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
                             <option value="">Sem responsável</option>
                             {% for u in autores_disponiveis %}

@@ -1,0 +1,301 @@
+<!-- Dashboard Coordenador - Layout Hierárquico -->
+
+<!-- Header da Página -->
+<div class="sra-page-header">
+    <h1 class="sra-page-header__title">Dashboard do Coordenador</h1>
+    <p class="sra-page-header__welcome">
+        Bem-vindo(a), <strong>{{ current_user.nome }}</strong>!
+        <span class="sra-page-header__role">Coordenador</span>
+    </p>
+</div>
+
+<!-- Container 1: Criar novo relatório mensal de atividades -->
+<div class="sra-section sra-section--bordered">
+    <h2 class="sra-section__title">1. Criar novo relatório mensal de atividades</h2>
+    <p class="sra-section__description">
+        Utilize este formulário para criar um novo relatório de produção a partir de um modelo da biblioteca.
+        Preencha as informações cadastrais, selecione o relatório base e clique em "Criar Relatório de Produção".
+        O sistema clonará o arquivo e configurará o status inicial automaticamente.
+    </p>
+
+    <!-- 1.1 Informações cadastrais -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">1.1 Informações cadastrais</h3>
+        </div>
+        <div class="sra-card__content">
+            <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_relatorio_producao') }}" id="form-criar-relatorio" enctype="multipart/form-data">
+                <div class="sra-grid sra-grid--2">
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="numero_medicao">Número da medição</label>
+                        <input class="sra-input__field" type="number" id="numero_medicao" name="numero_medicao" required min="1">
+                    </div>
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="codigo_pli">Código PLI do Relatório</label>
+                        <input class="sra-input__field" type="text" id="codigo_pli" name="codigo_pli" placeholder="Ex: D20-16" required>
+                    </div>
+                </div>
+
+                <div class="sra-grid sra-grid--2">
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="mes_referencia">Mês de referência</label>
+                        <input class="sra-input__field" type="text" id="mes_referencia" name="mes_referencia" placeholder="Ex: maio de 2026" required>
+                    </div>
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="ano_referencia">Ano de referência</label>
+                        <input class="sra-input__field" type="number" id="ano_referencia" name="ano_referencia" required>
+                    </div>
+                </div>
+
+                <div class="sra-grid sra-grid--2">
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="periodo_inicio">Início da medição</label>
+                        <input class="sra-input__field" type="date" id="periodo_inicio" name="periodo_inicio" required>
+                    </div>
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="periodo_fim">Fim da medição</label>
+                        <input class="sra-input__field" type="date" id="periodo_fim" name="periodo_fim" required>
+                    </div>
+                </div>
+
+                <div class="sra-input">
+                    <label class="sra-input__label" for="titulo_curto">Título curto (opcional)</label>
+                    <input class="sra-input__field" type="text" id="titulo_curto" name="titulo_curto" placeholder="Título breve do relatório">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 1.2 Base de clonagem -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">1.2 Base de clonagem</h3>
+        </div>
+        <div class="sra-card__content">
+            <div class="sra-input">
+                <label class="sra-input__label" for="relatorio_base_arquivo">Relatório da biblioteca</label>
+                <select class="sra-input__field" id="relatorio_base_arquivo" name="relatorio_base_arquivo">
+                    <option value="">Selecione um relatório...</option>
+                    {% for arquivo in arquivos_relatorios_base %}
+                    <option value="{{ arquivo }}">{{ arquivo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sra-input">
+                <label class="sra-input__label" for="biblioteca_formatacao">Biblioteca de formatação</label>
+                <select class="sra-input__field" id="biblioteca_formatacao" name="biblioteca_formatacao">
+                    <option value="">Selecione uma biblioteca...</option>
+                    {% for bib in bibliotecas_formatacao %}
+                    <option value="{{ bib.id_biblioteca_formatacao_canonica }}">{{ bib.nome_biblioteca }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" class="sra-button sra-button--primary" onclick="clonarDaBiblioteca()">Criar Relatório de Produção</button>
+        </div>
+    </div>
+</div>
+
+<!-- Container 2: Quadro de Relatórios por situação -->
+<div class="sra-section sra-section--bordered">
+    <h2 class="sra-section__title">2. Quadro de Relatórios por situação</h2>
+    <p class="sra-section__description">
+        Visualize e gerencie todos os relatórios do sistema. Os relatórios em produção são aqueles atualmente em elaboração,
+        enquanto os relatórios finalizados estão armazenados na biblioteca para uso como modelos em futuras clonagens.
+    </p>
+
+    <!-- 2.1 Relatórios em Produção -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">2.1 Relatórios em Produção</h3>
+        </div>
+        <div class="sra-card__content">
+            {% from "components/relatorio/lista_relatorios_producao.html" import lista_relatorios_producao %}
+            {{ lista_relatorios_producao(relatorios_producao) }}
+        </div>
+    </div>
+
+    <!-- 2.2 Relatórios Finalizados (Biblioteca) -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">2.2 Relatórios Finalizados (Biblioteca)</h3>
+        </div>
+        <div class="sra-card__content">
+            {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
+            {{ lista_relatorios_base(relatorios_finalizados) }}
+        </div>
+    </div>
+</div>
+
+<script>
+// Lógica para cálculo automático do período
+document.getElementById('numero_medicao').addEventListener('change', function() {
+    const numeroMedicao = parseInt(this.value);
+    if (numeroMedicao) {
+        // Lógica: medição 16 = maio 2026 = 11/05/2026 a 10/06/2026
+        const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+        const mesIndice = (numeroMedicao - 1) % 12;
+        const ano = 2026; // Seed fixo em 2026
+
+        const mesNome = meses[mesIndice];
+        document.getElementById('mes_referencia').value = `${mesNome} de ${ano}`;
+        document.getElementById('ano_referencia').value = ano;
+
+        // Período: 11/mês a 10/mês+1
+        const dataInicio = new Date(ano, mesIndice, 11);
+        const dataFim = new Date(ano, mesIndice + 1, 10);
+
+        document.getElementById('periodo_inicio').value = dataInicio.toISOString().split('T')[0];
+        document.getElementById('periodo_fim').value = dataFim.toISOString().split('T')[0];
+
+        // Atualizar código PLI automaticamente
+        document.getElementById('codigo_pli').value = `D20-${numeroMedicao}`;
+    }
+});
+
+// Função de clonagem da biblioteca
+function clonarDaBiblioteca() {
+    const arquivo = document.getElementById('relatorio_base_arquivo').value;
+    const biblioteca = document.getElementById('biblioteca_formatacao').value;
+
+    if (!arquivo) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atenção',
+            text: 'Selecione um relatório da biblioteca'
+        });
+        return;
+    }
+
+    if (!biblioteca) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atenção',
+            text: 'Selecione uma biblioteca de formatação'
+        });
+        return;
+    }
+
+    // Toast de confirmação usando SweetAlert2
+    Swal.fire({
+        title: 'Confirmar Clonagem',
+        text: `Deseja clonar o relatório "${arquivo}"?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2a9450',
+        cancelButtonColor: '#7a1212'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar modal de progresso
+            Swal.fire({
+                title: 'Clonando Relatório',
+                html: '<div id="progresso-log" style="text-align: left; font-family: monospace; font-size: 0.875rem; max-height: 200px; overflow-y: auto;"></div>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const logContainer = document.getElementById('progresso-log');
+
+            function addLog(message, status = 'pending') {
+                const icons = {
+                    pending: '⏳',
+                    success: '✓',
+                    error: '✗'
+                };
+                const colors = {
+                    pending: '#666',
+                    success: '#2a9450',
+                    error: '#7a1212'
+                };
+                const div = document.createElement('div');
+                div.style.marginBottom = '4px';
+                div.style.color = colors[status];
+                div.textContent = `${icons[status]} ${message}`;
+                logContainer.appendChild(div);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            addLog('Validando dados...', 'pending');
+
+            // Fazer requisição para clonar
+            fetch(`/relatorio/producao/clonar-biblioteca`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    arquivo_base: arquivo,
+                    biblioteca_id: biblioteca,
+                    titulo_curto: document.getElementById('titulo_curto').value,
+                    numero_medicao: document.getElementById('numero_medicao').value,
+                    codigo_pli: document.getElementById('codigo_pli').value,
+                    mes_referencia: document.getElementById('mes_referencia').value,
+                    ano_referencia: document.getElementById('ano_referencia').value,
+                    periodo_inicio: document.getElementById('periodo_inicio').value,
+                    periodo_fim: document.getElementById('periodo_fim').value,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    addLog('Erro: ' + data.erro, 'error');
+                    Swal.update({
+                        icon: 'error',
+                        title: 'Erro na Clonagem',
+                        html: logContainer.outerHTML,
+                        showConfirmButton: true,
+                        confirmButtonColor: '#7a1212'
+                    });
+                } else {
+                    // Atualizar logs com sucesso
+                    logContainer.innerHTML = '';
+                    if (data.logs) {
+                        data.logs.forEach(log => {
+                            addLog(log.mensagem, log.status);
+                        });
+                    } else {
+                        // Fallback se não houver logs
+                        addLog('Validando dados...', 'success');
+                        addLog('Copiando arquivo...', 'success');
+                        addLog('Criando relatório de produção...', 'success');
+                        addLog('Configurando status inicial...', 'success');
+                        addLog('Extraindo estrutura de capítulos...', 'success');
+                    }
+
+                    setTimeout(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Clonagem Concluída',
+                            text: 'Relatório clonado com sucesso!',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            timerProgressBar: true
+                        }).then(() => {
+                            // Redirecionar para o relatório criado
+                            if (data.id_producao) {
+                                window.location.href = `/relatorio/versao-trabalho/${data.id_producao}`;
+                            }
+                        });
+                    }, 500);
+                }
+            })
+            .catch(error => {
+                addLog('Erro de conexão: ' + error, 'error');
+                Swal.update({
+                    icon: 'error',
+                    title: 'Erro de Conexão',
+                    html: logContainer.outerHTML,
+                    showConfirmButton: true,
+                    confirmButtonColor: '#7a1212'
+                });
+            });
+        }
+    });
+}
+</script>

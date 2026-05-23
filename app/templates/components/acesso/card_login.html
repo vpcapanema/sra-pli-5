@@ -6,11 +6,11 @@
     <form class="sra-auth__form" method="POST" action="{{ url_for('auth.login') }}">
         <div class="sra-input">
             <label class="sra-input__label" for="email">E-mail</label>
-            <input class="sra-input__field" type="email" id="email" name="email" required>
+            <input class="sra-input__field" type="email" id="email" name="email" autocomplete="username" required>
         </div>
         <div class="sra-input">
             <label class="sra-input__label" for="senha">Senha</label>
-            <input class="sra-input__field" type="password" id="senha" name="senha" required>
+            <input class="sra-input__field" type="password" id="senha" name="senha" autocomplete="current-password" required>
         </div>
         <div class="sra-input">
             <label class="sra-input__label" for="tipo_perfil">Tipo de perfil</label>

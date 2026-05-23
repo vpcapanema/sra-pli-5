@@ -1,0 +1,41 @@
+{% from "components/relatorio/tabela_todos_relatorios.html" import tabela_todos_relatorios %}
+{% from "components/relatorio/tabela_envios_conteudo.html" import tabela_envios_conteudo %}
+{% from "components/relatorio/seletor_relatorio.html" import seletor_relatorio %}
+
+<div class="sra-page">
+    <div class="sra-page__header">
+        <h1 class="sra-page__title">Panorama de Relatórios</h1>
+    </div>
+
+    <div class="sra-page__content">
+        <div class="sra-panorama">
+            <!-- Seção: Todos os Relatórios -->
+            <div class="sra-card">
+                <div class="sra-card__header">
+                    <h3 class="sra-card__title">Todos os Relatórios</h3>
+                </div>
+                <div class="sra-card__content">
+                    <div id="tabela-todos-relatorios">
+                        {{ tabela_todos_relatorios(relatorios) }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção: Envios de Conteúdo -->
+            <div class="sra-card">
+                <div class="sra-card__header">
+                    <h3 class="sra-card__title">Envios de Conteúdo</h3>
+                </div>
+                <div class="sra-card__content">
+                    <div id="seletor-relatorio-container">
+                        {{ seletor_relatorio(relatorios, None) }}
+                    </div>
+
+                    <div id="tabela-envios" class="sra-mt-4">
+                        {{ tabela_envios_conteudo([]) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

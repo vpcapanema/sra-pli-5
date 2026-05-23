@@ -41,8 +41,8 @@ def biblioteca_formatacao():
         BibliotecaFormatacaoCanonica.id_biblioteca_formatacao_canonica
     ).all()
     return render_conteudo(
-        ['components/configuracoes/biblioteca_formatacao.html'],
-        bibliotecas=bibliotecas,
+        ['configuracoes/biblioteca_formatacao.html'],
+        bibliotecas=bibliotecas
     )
 
 
@@ -235,8 +235,8 @@ def biblioteca_relatorios_base():
         flash(f'Erro ao carregar relatórios base: {str(e)}', 'erro')
         relatorios_finalizados = []
     return render_conteudo(
-        ['components/configuracoes/biblioteca_relatorios_base.html'],
-        relatorios_finalizados=relatorios_finalizados,
+        ['configuracoes/biblioteca_relatorios_base.html'],
+        relatorios_finalizados=relatorios_finalizados
     )
 
 

@@ -1,0 +1,64 @@
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+{% macro tabela_todos_relatorios(relatorios) %}
+{% set linhas = [] %}
+{% for rel in relatorios %}
+    {% set tipo_label = 'Em Produção' if rel.tipo_relatorio == 'producao' else 'Base' %}
+    {% set tipo %}
+        <span class="sra-badge sra-badge--{{ rel.tipo_relatorio }}">{{ tipo_label }}</span>
+    {% endset %}
+    {% set tipo_real = rel.tipo_relatorio %}
+    {% set status_real = rel.status_codigo %}
+    {% if tipo_real == 'producao' and status_real == 'finalizado' %}
+        {% set status_label = 'Inconsistente' %}
+        {% set status_class = 'erro' %}
+    {% elif tipo_real == 'finalizado' and status_real != 'finalizado' %}
+        {% set status_label = rel.status_descricao ~ ' (Finalizado)' %}
+        {% set status_class = rel.status_codigo %}
+    {% else %}
+        {% set status_label = rel.status_descricao %}
+        {% set status_class = rel.status_codigo %}
+    {% endif %}
+    {% set status %}
+        <span class="sra-badge sra-badge--{{ status_class }}">{{ status_label }}</span>
+    {% endset %}
+    {% set periodo %}
+        {% if rel.periodo_inicio and rel.periodo_fim %}
+            {{ rel.periodo_inicio.strftime('%d/%m/%Y') }} a {{ rel.periodo_fim.strftime('%d/%m/%Y') }}
+        {% else %}-{% endif %}
+    {% endset %}
+    {% set data %}
+        {% if rel.data_criacao %}{{ rel.data_criacao.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}
+    {% endset %}
+    {% set acoes %}
+        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Visualizar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </a>
+        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        </a>
+    {% endset %}
+    {% set _ = linhas.append([
+        rel.id,
+        tipo,
+        rel.codigo,
+        rel.titulo or '-',
+        rel.numero_medicao,
+        periodo,
+        status,
+        rel.versao,
+        rel.criador_nome,
+        data,
+        acoes
+    ]) %}
+{% endfor %}
+{{ tabela(
+    colunas=['ID', 'Tipo', 'Código', 'Título', 'Medição', 'Período', 'Status', 'Versão', 'Criador', 'Data Criação', 'Ações'],
+    linhas=linhas,
+    vazio='Nenhum relatório encontrado.'
+) }}
+{% endmacro %}
+
+{% if relatorios is defined %}
+{{ tabela_todos_relatorios(relatorios) }}
+{% endif %}

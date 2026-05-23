@@ -1,37 +1,43 @@
-{% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/relatorio/tabela_todos_relatorios.html" import tabela_todos_relatorios %}
+{% from "components/relatorio/tabela_envios_conteudo.html" import tabela_envios_conteudo %}
+{% from "components/relatorio/seletor_relatorio.html" import seletor_relatorio %}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Panorama de Relatórios</h3>
+<div class="sra-panorama">
+    <!-- Seção: Todos os Relatórios -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">Todos os Relatórios</h3>
+        </div>
+        <div class="sra-card__content">
+            <div hx-get="/relatorio/todos-relatorios"
+                 hx-trigger="load"
+                 hx-target="#tabela-todos-relatorios"
+                 hx-swap="innerHTML">
+                <div id="tabela-todos-relatorios">
+                    <p>Carregando relatórios...</p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="sra-card__content">
-        {% set linhas_panorama = [] %}
-        {% for r in panorama %}
-            {% set badge %}
-                <span class="sra-badge sra-badge--{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span>
-            {% endset %}
-            {% set acoes %}
-                {% if r.id_relatorio %}
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=r.id_relatorio) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=r.id_relatorio) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
-                {% endif %}
-            {% endset %}
-            {% set _ = linhas_panorama.append([
-                r.tipo,
-                r.titulo,
-                r.versao,
-                badge,
-                acoes
-            ]) %}
-        {% endfor %}
-        {{ tabela(
-            colunas=['Tipo', 'Título', 'Versão', 'Status', 'Ações'],
-            linhas=linhas_panorama,
-            vazio='Nenhum relatório cadastrado.'
-        ) }}
+
+    <!-- Seção: Envios de Conteúdo -->
+    <div class="sra-card">
+        <div class="sra-card__header">
+            <h3 class="sra-card__title">Envios de Conteúdo</h3>
+        </div>
+        <div class="sra-card__content">
+            <div hx-get="/relatorio/todos-relatorios?seletor=true"
+                 hx-trigger="load"
+                 hx-target="#seletor-relatorio-container"
+                 hx-swap="innerHTML">
+                <div id="seletor-relatorio-container">
+                    <p>Carregando lista de relatórios...</p>
+                </div>
+            </div>
+
+            <div id="tabela-envios" class="sra-mt-4">
+                <p class="sra-text--muted">Selecione um relatório para visualizar os envios de conteúdo.</p>
+            </div>
+        </div>
     </div>
 </div>

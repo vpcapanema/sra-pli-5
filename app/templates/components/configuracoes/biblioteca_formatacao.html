@@ -26,7 +26,7 @@
             {% set _ = linhas_bib.append([
                 b.id_biblioteca_formatacao_canonica,
                 b.nome_biblioteca,
-                b.descricao or '—',
+                '<span style="display:block;text-align:left">' ~ (b.descricao or '—') ~ '</span>',
                 'Sim' if b.extraida else 'Não',
                 status,
                 acoes

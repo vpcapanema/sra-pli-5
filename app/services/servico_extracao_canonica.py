@@ -562,21 +562,52 @@ class ServicoExtracaoCanonica:
     def _extrair_capitulos(doc):
         """
         Extrai a árvore de capítulos do documento baseada nos estilos
-        Heading 1..9. Retorna lista hierárquica (aninhada).
-        Nota: extrai apenas os elementos TEXTUAIS.
+        Heading 1..9 e elementos pré/pós textuais.
+        Retorna lista hierárquica (aninhada) com tipo_elemento.
         """
+        # Primeiro, extrair estrutura macro para identificar tipos
+        macro = ServicoExtracaoCanonica._extrair_macro(doc)
+
+        # Mapear índice de parágrafo para tipo de elemento
+        tipo_por_indice = {}
+        for bloco in macro:
+            tipo = bloco['tipo']
+            inicio = bloco['inicio_paragrafo']
+            fim = bloco['fim_paragrafo']
+            for i in range(inicio, fim + 1):
+                tipo_por_indice[i] = tipo
+
         headings_flat = []
-        for para in doc.paragraphs:
+        for i, para in enumerate(doc.paragraphs):
             style_name = para.style.name or ''
-            if style_name.startswith('Heading'):
+            texto = para.text.strip()
+
+            # Identificar tipo baseado na estrutura macro
+            tipo_elemento = tipo_por_indice.get(i, 'textual')
+
+            # Para elementos pré e pós textuais, também incluir títulos
+            # que não são necessariamente Heading styles
+            if tipo_elemento in ('pre_textual', 'pos_textual') and texto:
+                # Elementos pré/pós textuais podem ter estilos variados
+                # Incluir como capítulo se tiver texto significativo
+                if len(texto) > 3:  # Evitar textos muito curtos
+                    headings_flat.append({
+                        'titulo': texto,
+                        'nivel': 1,  # Simplificado para pré/pós
+                        'estilo': style_name,
+                        'tipo_elemento': tipo_elemento,
+                        'filhos': [],
+                    })
+            elif style_name.startswith('Heading'):
                 try:
                     nivel = int(style_name.replace('Heading ', ''))
                 except ValueError:
                     continue
                 headings_flat.append({
-                    'titulo': para.text.strip(),
+                    'titulo': texto,
                     'nivel': nivel,
                     'estilo': style_name,
+                    'tipo_elemento': tipo_elemento,
                     'filhos': [],
                 })
 

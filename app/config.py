@@ -1,3 +1,5 @@
+"""Configurações da aplicação Flask SRA."""
+
 import os
 from dotenv import load_dotenv
 
@@ -5,6 +7,7 @@ load_dotenv()
 
 
 class Config:
+    """Classe de configuração da aplicação."""
     SECRET_KEY = os.environ.get(
         'SECRET_KEY', 'chave-dev-temporaria'
     )

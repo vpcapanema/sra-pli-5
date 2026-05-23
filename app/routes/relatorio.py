@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import locale
 from datetime import datetime
 
 from flask import (
@@ -15,16 +16,49 @@ from app import db
 from app.models.usuario import Usuario
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.relatorio_producao import RelatorioProducao
+from app.models.envio_conteudo import EnvioConteudo
 from app.models.dominio import DomStatusRelatorio
 from app.models.biblioteca_formatacao import (
     BibliotecaFormatacaoCanonica
 )
 from app.services.servico_relatorio import ServicoRelatorio
+from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.utils.htmx import render_conteudo
 
 relatorio_bp = Blueprint(
     'relatorio', __name__, url_prefix='/relatorio'
 )
+
+
+def _criar_capitulo_recursivo(cap_dict, id_relatorio, id_pai, ordem, indice_pai=''):
+    """Cria capítulo recursivamente a partir da árvore extraída do DOCX."""
+    # Calcular índice do capítulo atual
+    indice = f"{indice_pai}{ordem}" if indice_pai else str(ordem)
+
+    # Usar tipo_elemento do dicionário extraído, ou 'textual' como padrão
+    tipo = cap_dict.get('tipo_elemento', 'textual')
+
+    capitulo = CapituloDocumento(
+        id_relatorio=id_relatorio,
+        id_capitulo_pai=id_pai,
+        titulo_capitulo=cap_dict['titulo'],
+        ordem_capitulo=ordem,
+        nivel_capitulo=cap_dict['nivel'],
+        tipo_elemento=tipo,
+        indice_capitulo=indice,
+        status_capitulo='em_edicao'
+    )
+    db.session.add(capitulo)
+    db.session.flush()  # Para obter o ID antes de criar filhos
+
+    # Criar filhos recursivamente
+    ordem_filho = 1
+    for filho in cap_dict['filhos']:
+        _criar_capitulo_recursivo(
+            filho, id_relatorio, capitulo.id_capitulo_documento,
+            ordem_filho, f"{indice}."
+        )
+        ordem_filho += 1
 
 
 @relatorio_bp.before_request
@@ -40,11 +74,36 @@ def verificar_acesso():
 @relatorio_bp.route('/panorama')
 def panorama():
     """Exibe panorama de relatórios."""
-    linhas = ServicoRelatorio.panorama()
+    from sqlalchemy import text
+
+    conn = db.session.connection()
+    result = conn.execute(text("""
+        SELECT * FROM vw_todos_relatorios
+        ORDER BY data_criacao DESC
+    """))
+
+    relatorios = []
+    for row in result:
+        relatorios.append({
+            'id': row.id,
+            'tipo_relatorio': row.tipo_relatorio,
+            'codigo': row.codigo,
+            'titulo': row.titulo,
+            'numero_medicao': row.numero_medicao,
+            'mes_referencia': row.mes_referencia,
+            'ano_referencia': row.ano_referencia,
+            'periodo_inicio': row.periodo_inicio,
+            'periodo_fim': row.periodo_fim,
+            'status_codigo': row.status_codigo,
+            'status_descricao': row.status_descricao,
+            'data_criacao': row.data_criacao,
+            'versao': row.versao,
+            'criador_nome': row.criador_nome
+        })
+
     return render_conteudo(
-        ['components/relatorio/panorama_relatorios.html'],
-        perfil_ativo=session.get('perfil_ativo', ''),
-        panorama=linhas
+        ['relatorio/panorama.html'],
+        relatorios=relatorios
     )
 
 
@@ -73,15 +132,12 @@ def criar_modelo():
 
 
 @relatorio_bp.route('/base')
-def listar_relatorios_base():
+def relatorios_base():
     """Lista relatórios base disponíveis."""
-    relatorios = ServicoRelatorio.listar_relatorios_base()
-    modelos = ServicoRelatorio.listar_modelos()
+    relatorios = ServicoRelatorio.listar_relatorios_finalizados()
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_base_wrapper.html'],
-        perfil_ativo=session.get('perfil_ativo', ''),
-        relatorios_finalizados=relatorios,
-        modelos=modelos
+        ['relatorio/relatorios_base.html'],
+        relatorios_finalizados=relatorios
     )
 
 
@@ -91,7 +147,7 @@ def criar_relatorio_base():
     arquivo = request.files.get('arquivo_docx')
     if not arquivo or not arquivo.filename.endswith('.docx'):
         flash('Envie um arquivo .docx válido.', 'erro')
-        return redirect(url_for('relatorio.listar_relatorios_base'))
+        return redirect(url_for('relatorio.relatorios_base'))
 
     # Salvar arquivo
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -105,12 +161,24 @@ def criar_relatorio_base():
     # Por enquanto, usar criar_relatorio_finalizado
     flash('Funcionalidade em desenvolvimento.', 'info')
     return redirect(
-        url_for('relatorio.listar_relatorios_base')
+        url_for('relatorio.relatorios_base')
+    )
+
+
+@relatorio_bp.route('/producao')
+def relatorios_producao():
+    """Lista relatórios em produção."""
+    relatorios = RelatorioProducao.query.order_by(
+        RelatorioProducao.criado_em.desc()
+    ).all()
+    return render_conteudo(
+        ['relatorio/relatorios_producao.html'],
+        relatorios_producao=relatorios
     )
 
 
 @relatorio_bp.route('/versao-trabalho')
-def listar_versoes():
+def versao_trabalho():
     """Lista versões de trabalho."""
     versoes = ServicoRelatorio.listar_versoes_trabalho()
     relatorios = ServicoRelatorio.listar_relatorios_base()
@@ -123,24 +191,21 @@ def listar_versoes():
 
 
 @relatorio_bp.route('/capitulos')
-def painel_capitulos():
+def capitulos():
     """Lista de relatórios de produção - redireciona para detalhe."""
     relatorios = ServicoRelatorio.listar_relatorios_producao()
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_producao_wrapper.html'],
-        perfil_ativo=session.get('perfil_ativo'),
+        ['relatorio/capitulos.html'],
         relatorios_producao=relatorios
     )
 
 
 @relatorio_bp.route('/editor')
-def painel_editor():
+def editor():
     """Lista de relatórios para edição - redireciona para editor específico."""
     relatorios = ServicoRelatorio.listar_relatorios_producao()
-    perfil = session.get('perfil_ativo')
     return render_conteudo(
-        ['components/relatorio/lista_relatorios_producao_wrapper.html'],
-        perfil_ativo=perfil,
+        ['relatorio/editor.html'],
         relatorios_producao=relatorios
     )
 
@@ -167,8 +232,8 @@ def detalhe_versao(id_versao):
     versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão de trabalho não encontrada.', 'erro')
-        return redirect(url_for('relatorio.listar_versoes'))
-    capitulos = ServicoRelatorio.listar_capitulos(id_versao)
+        return redirect(url_for('relatorio.relatorios_producao'))
+    lista_capitulos = ServicoRelatorio.listar_capitulos(id_versao)
     capitulos_flat = CapituloDocumento.query.filter_by(
         id_relatorio=id_versao
     ).order_by(CapituloDocumento.ordem_capitulo).all()
@@ -179,18 +244,25 @@ def detalhe_versao(id_versao):
         Usuario.perfil_id.in_([1, 2, 3]),  # NOTE: usar codigo do perfil
         Usuario.ativo
     ).order_by(Usuario.nome).all()
+    # Relatórios em produção para o seletor
+    relatorios_producao = db.session.query(RelatorioProducao).join(
+        DomStatusRelatorio,
+        RelatorioProducao.status_id == DomStatusRelatorio.id
+    ).filter(
+        DomStatusRelatorio.codigo == 'em_producao'
+    ).order_by(RelatorioProducao.criado_em.desc()).all()
     componentes = [
         'components/relatorio/arvore_capitulos.html',
-        'components/paineis/painel_capitulos_coordenador.html',
     ]
     return render_conteudo(
         componentes,
         perfil_ativo=session.get('perfil_ativo', ''),
         versao_trabalho=versao,
-        capitulos=capitulos,
+        capitulos=lista_capitulos,
         capitulos_flat=capitulos_flat,
         bibliotecas_disponiveis=bibliotecas,
         autores_disponiveis=autores,
+        relatorios_producao=relatorios_producao,
     )
 
 
@@ -234,7 +306,7 @@ def vincular_biblioteca(id_versao):
     versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
-        return redirect(url_for('relatorio.listar_versoes'))
+        return redirect(url_for('relatorio.relatorios_producao'))
     id_bib = request.form.get('id_biblioteca', type=int)
     if id_bib:
         versao.id_biblioteca_formatacao_canonica = id_bib
@@ -273,7 +345,7 @@ def editor_autor(id_versao):
     versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
-        return redirect(url_for('relatorio.listar_versoes'))
+        return redirect(url_for('relatorio.relatorios_producao'))
     return render_template(
         'editor_autor.html',
         versao=versao,
@@ -290,7 +362,7 @@ def editor_coordenador(id_versao):
     versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash('Versão não encontrada.', 'erro')
-        return redirect(url_for('relatorio.listar_versoes'))
+        return redirect(url_for('relatorio.relatorios_producao'))
     return render_template(
         'editor_coordenador.html',
         versao=versao,
@@ -311,9 +383,9 @@ def criar_relatorio_producao():
         flash('Acesso restrito a coordenadores.', 'erro')
         return redirect(url_for('principal.index'))
 
-    # Obter status inicial (em_edicao)
+    # Obter status inicial (em_producao)
     status_inicial = DomStatusRelatorio.query.filter_by(
-        codigo='em_edicao'
+        codigo='em_producao'
     ).first()
 
     if not status_inicial:
@@ -372,17 +444,31 @@ def criar_relatorio_producao():
 def clonar_da_biblioteca():
     """Clona um relatório finalizado da biblioteca para produção."""
 
+    # Configurar locale para português para parsing de datas
+    try:
+        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+        except locale.Error:
+            pass  # Fallback: usar formato ISO se locale falhar
+
     perfil = session.get('perfil_ativo')
     if perfil != 'coordenador' and perfil != 'admin':
         return jsonify({'erro': 'Acesso restrito'}), 403
 
     arquivo_base = request.json.get('arquivo_base')
+    biblioteca_id = request.json.get('biblioteca_id')
+
     if not arquivo_base:
         return jsonify({'erro': 'Arquivo não fornecido'}), 400
 
-    # Obter status inicial (em_edicao)
+    if not biblioteca_id:
+        return jsonify({'erro': 'Biblioteca de formatação não fornecida'}), 400
+
+    # Obter status inicial (em_producao)
     status_inicial = DomStatusRelatorio.query.filter_by(
-        codigo='em_edicao'
+        codigo='em_producao'
     ).first()
 
     if not status_inicial:
@@ -411,7 +497,7 @@ def clonar_da_biblioteca():
     # Criar RelatorioProducao
     relatorio_producao = RelatorioProducao(
         codigo_d20=request.json.get('codigo_pli'),
-        numero_medicao=request.json.get('numero_medicao', type=int),
+        numero_medicao=int(request.json.get('numero_medicao')) if request.json.get('numero_medicao') else None,
         mes_referencia=datetime.strptime(
             request.json.get('mes_referencia'), '%B de %Y'
         ) if request.json.get('mes_referencia') else None,
@@ -424,18 +510,50 @@ def clonar_da_biblioteca():
         titulo_curto=request.json.get('titulo_curto'),
         status_id=status_inicial.id,
         criado_por=current_user.id,
-        ano_referencia=request.json.get('ano_referencia', type=int),
+        ano_referencia=int(request.json.get('ano_referencia')) if request.json.get('ano_referencia') else None,
         versao_atual='R00',
         bloqueio_edicao=False,
-        caminho_template=caminho_producao
+        caminho_template=caminho_producao,
+        biblioteca_id=biblioteca_id
     )
 
     db.session.add(relatorio_producao)
     db.session.commit()
 
+    logs = []
+    logs.append({'mensagem': 'Validando dados...', 'status': 'success'})
+    logs.append({'mensagem': 'Copiando arquivo...', 'status': 'success'})
+    logs.append({'mensagem': 'Criando relatório de produção...', 'status': 'success'})
+    logs.append({'mensagem': 'Configurando status inicial...', 'status': 'success'})
+
+    # Extrair estrutura de capítulos do DOCX clonado
+    try:
+        logs.append({'mensagem': 'Extraindo estrutura de capítulos...', 'status': 'pending'})
+        from docx import Document
+        doc = Document(caminho_producao)
+        capitulos_arvore = ServicoExtracaoCanonica._extrair_capitulos(doc)
+
+        # Criar capítulos no banco de dados
+        ordem_global = 1
+        total_capitulos = 0
+        for cap_raiz in capitulos_arvore:
+            _criar_capitulo_recursivo(
+                cap_raiz, relatorio_producao.id, None, ordem_global
+            )
+            ordem_global += 1
+            total_capitulos += 1
+
+        db.session.commit()
+        logs[-1] = {'mensagem': f'Extraindo estrutura de capítulos... ({total_capitulos} capítulos encontrados)', 'status': 'success'}
+    except Exception as e:
+        db.session.rollback()
+        logs[-1] = {'mensagem': f'Erro ao extrair capítulos: {str(e)}', 'status': 'error'}
+        return jsonify({'erro': f'Erro ao extrair capítulos: {str(e)}', 'logs': logs}), 500
+
     return jsonify({
         'mensagem': 'Clonagem realizada com sucesso',
-        'id_producao': relatorio_producao.id
+        'id_producao': relatorio_producao.id,
+        'logs': logs
     })
 
 
@@ -449,13 +567,18 @@ def excluir_relatorio_producao(id_relatorio):
 
     perfil = session.get('perfil_ativo')
     if perfil != 'coordenador' and perfil != 'admin':
-        flash('Acesso restrito a coordenadores.', 'erro')
-        return redirect(url_for('principal.index'))
+        return jsonify({'erro': 'Acesso restrito a coordenadores.'}), 403
 
     relatorio = RelatorioProducao.query.get_or_404(id_relatorio)
     titulo = relatorio.titulo_curto or relatorio.codigo_d20 or 'Relatório'
 
     try:
+        # Deletar capítulos associados primeiro
+        from app.models.capitulo_documento import CapituloDocumento
+        CapituloDocumento.query.filter_by(
+            id_relatorio=id_relatorio
+        ).delete()
+
         # Remover arquivo do storage/relatorios_producao
         if relatorio.caminho_template and os.path.exists(
             relatorio.caminho_template
@@ -464,12 +587,30 @@ def excluir_relatorio_producao(id_relatorio):
 
         db.session.delete(relatorio)
         db.session.commit()
-        flash(f'Relatório "{titulo}" excluído.', 'sucesso')
+        return jsonify({'mensagem': f'Relatório "{titulo}" excluído com sucesso.'})
     except (OSError, IOError) as e:
         db.session.rollback()
-        flash(f'Erro ao excluir relatório: {e}', 'erro')
+        return jsonify({'erro': f'Erro ao excluir relatório: {e}'}), 500
 
-    return redirect(url_for('principal.index'))
+
+@relatorio_bp.route('/producao/<int:id_relatorio>/docx')
+@login_required
+def baixar_docx_producao(id_relatorio):
+    """Serve o DOCX do relatório de produção para visualização."""
+    relatorio = RelatorioProducao.query.get_or_404(id_relatorio)
+
+    if not relatorio.caminho_template:
+        return ('DOCX não disponível', 404)
+
+    if not os.path.exists(relatorio.caminho_template):
+        return ('Arquivo não encontrado', 404)
+
+    from flask import send_file
+    return send_file(
+        relatorio.caminho_template,
+        as_attachment=False,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
 
 
 @relatorio_bp.route('/producao/upload-docx', methods=['POST'])
@@ -498,3 +639,69 @@ def upload_docx_clonagem():
         'mensagem': 'Upload realizado',
         'caminho': caminho
     })
+
+
+# ==============================================================
+# Envios de Conteúdo
+# ==============================================================
+
+@relatorio_bp.route('/envios-conteudo')
+def listar_envios_conteudo():
+    """Lista envios de conteúdo filtrando por relatório."""
+    id_relatorio = request.args.get('id_relatorio', type=int)
+
+    if id_relatorio:
+        envios = EnvioConteudo.query.filter_by(
+            id_relatorio=id_relatorio
+        ).order_by(EnvioConteudo.criado_em.desc()).all()
+    else:
+        envios = []
+
+    return render_conteudo(
+        ['components/relatorio/tabela_envios_conteudo.html'],
+        envios=envios
+    )
+
+
+@relatorio_bp.route('/todos-relatorios')
+def listar_todos_relatorios():
+    """Lista todos os relatórios da VIEW vw_todos_relatorios."""
+    from sqlalchemy import text
+
+    conn = db.session.connection()
+    result = conn.execute(text("""
+        SELECT * FROM vw_todos_relatorios
+        ORDER BY data_criacao DESC
+    """))
+
+    relatorios = []
+    for row in result:
+        relatorios.append({
+            'id': row.id,
+            'tipo_relatorio': row.tipo_relatorio,
+            'codigo': row.codigo,
+            'titulo': row.titulo,
+            'numero_medicao': row.numero_medicao,
+            'mes_referencia': row.mes_referencia,
+            'ano_referencia': row.ano_referencia,
+            'periodo_inicio': row.periodo_inicio,
+            'periodo_fim': row.periodo_fim,
+            'status_codigo': row.status_codigo,
+            'status_descricao': row.status_descricao,
+            'data_criacao': row.data_criacao,
+            'versao': row.versao,
+            'criador_nome': row.criador_nome
+        })
+
+    # Se for chamado via HTMX para o seletor, retorna o seletor
+    if request.args.get('seletor') == 'true':
+        return render_conteudo(
+            ['components/relatorio/seletor_relatorio.html'],
+            relatorios=relatorios,
+            id_relatorio_selecionado=None
+        )
+
+    return render_conteudo(
+        ['components/relatorio/tabela_todos_relatorios.html'],
+        relatorios=relatorios
+    )

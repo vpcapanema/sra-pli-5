@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from app.config import Config
+from app.utils.logger import setup_sra_logging
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -20,6 +21,9 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+
+    # Configurar logging personalizado
+    setup_sra_logging(app)
 
     from app.routes.auth import auth_bp
     from app.routes.principal import principal_bp

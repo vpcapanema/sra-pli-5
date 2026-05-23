@@ -26,6 +26,12 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     titulo_capitulo = db.Column(db.String(300), nullable=False)
     indice_capitulo = db.Column(db.String(50), nullable=True)
     nivel_capitulo = db.Column(db.Integer, nullable=False, default=1)
+    tipo_elemento = db.Column(
+        db.String(50),
+        nullable=False,
+        default='textual'
+    )  # pre_textual, textual, pos_textual
+    docx_bookmark = db.Column(db.String(200), nullable=True)  # Marcador no DOCX
     status_capitulo = db.Column(
         db.String(50), nullable=False, default='em_edicao'
     )

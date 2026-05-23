@@ -99,45 +99,100 @@ document.getElementById('numero_medicao').addEventListener('change', function() 
 function clonarDaBiblioteca() {
     const arquivo = document.getElementById('relatorio_base_arquivo').value;
     if (!arquivo) {
-        alert('Selecione um relatório da biblioteca');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atenção',
+            text: 'Selecione um relatório da biblioteca'
+        });
         return;
     }
 
-    if (!confirm(`Clonar relatório "${arquivo}"?`)) {
-        return;
-    }
+    // Toast de confirmação usando SweetAlert2
+    Swal.fire({
+        title: 'Confirmar Clonagem',
+        text: `Deseja clonar o relatório "${arquivo}"?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2a9450',
+        cancelButtonColor: '#7a1212'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar modal de progresso
+            Swal.fire({
+                title: 'Clonando Relatório',
+                html: '<div id="progresso-tarefas">' +
+                      '<div>✓ Validando dados...</div>' +
+                      '<div id="tarefa-1">⏳ Copiando arquivo...</div>' +
+                      '<div id="tarefa-2">⏳ Criando relatório de produção...</div>' +
+                      '<div id="tarefa-3">⏳ Configurando status inicial...</div>' +
+                      '</div>',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
-    // Fazer requisição para clonar
-    fetch(`/relatorio/producao/clonar-biblioteca`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            arquivo_base: arquivo,
-            titulo_curto: document.getElementById('titulo_curto').value,
-            numero_medicao: document.getElementById('numero_medicao').value,
-            codigo_pli: document.getElementById('codigo_pli').value,
-            mes_referencia: document.getElementById('mes_referencia').value,
-            ano_referencia: document.getElementById('ano_referencia').value,
-            periodo_inicio: document.getElementById('periodo_inicio').value,
-            periodo_fim: document.getElementById('periodo_fim').value,
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.erro) {
-            alert('Erro: ' + data.erro);
-        } else {
-            alert('Relatório clonado com sucesso!');
-            // Redirecionar para o relatório criado
-            if (data.id_producao) {
-                window.location.href = `/relatorio/versao-trabalho/${data.id_producao}`;
-            }
+            // Fazer requisição para clonar
+            fetch(`/relatorio/producao/clonar-biblioteca`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    arquivo_base: arquivo,
+                    titulo_curto: document.getElementById('titulo_curto').value,
+                    numero_medicao: document.getElementById('numero_medicao').value,
+                    codigo_pli: document.getElementById('codigo_pli').value,
+                    mes_referencia: document.getElementById('mes_referencia').value,
+                    ano_referencia: document.getElementById('ano_referencia').value,
+                    periodo_inicio: document.getElementById('periodo_inicio').value,
+                    periodo_fim: document.getElementById('periodo_fim').value,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro',
+                        text: data.erro,
+                        confirmButtonColor: '#7a1212'
+                    });
+                } else {
+                    // Atualizar tarefas como concluídas
+                    document.getElementById('tarefa-1').innerHTML = '✓ Arquivo copiado com sucesso';
+                    document.getElementById('tarefa-2').innerHTML = '✓ Relatório criado com sucesso';
+                    document.getElementById('tarefa-3').innerHTML = '✓ Status configurado com sucesso';
+
+                    setTimeout(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Clonagem Concluída',
+                            text: 'Relatório clonado com sucesso!',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            timerProgressBar: true
+                        }).then(() => {
+                            // Redirecionar para o relatório criado
+                            if (data.id_producao) {
+                                window.location.href = `/relatorio/versao-trabalho/${data.id_producao}`;
+                            }
+                        });
+                    }, 500);
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao clonar: ' + error,
+                    confirmButtonColor: '#7a1212'
+                });
+            });
         }
-    })
-    .catch(error => {
-        alert('Erro ao clonar: ' + error);
     });
 }
 </script>

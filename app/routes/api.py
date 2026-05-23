@@ -26,6 +26,7 @@ from app.models.biblioteca_formatacao import (
 )
 from app.models.notificacao import Notificacao
 from app.services.servico_motor_renderizacao import MotorRenderizacao
+from app.utils.logger import sra_log_handler
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
@@ -598,3 +599,13 @@ def _serializar_capitulo(cap):
         'observacao_coordenador': cap.observacao_coordenador,
         'filhos': [_serializar_capitulo(f) for f in filhos],
     }
+
+
+@api_bp.route('/logs')
+@login_required
+def get_logs():
+    """Retorna logs do sistema para exibição no navegador."""
+    level = request.args.get('level')
+    limit = request.args.get('limit', 100, type=int)
+    logs = sra_log_handler.get_logs(level=level, limit=limit)
+    return jsonify({'logs': logs})

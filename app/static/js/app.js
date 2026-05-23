@@ -220,7 +220,10 @@ function sraInit() {
         });
     });
 
-    // SweetAlert2 toast notifications (flash messages)
+}
+
+// SweetAlert2 toast notifications (flash messages)
+function processarFlashMessages() {
     var flashEl = document.getElementById('sra-flash-data');
     if (flashEl && typeof Swal !== 'undefined') {
         var mapa = { erro: 'error', sucesso: 'success', info: 'info', warning: 'warning' };
@@ -243,7 +246,13 @@ function sraInit() {
 }
 
 // Init on page load
-document.addEventListener('DOMContentLoaded', sraInit);
+document.addEventListener('DOMContentLoaded', function() {
+    sraInit();
+    processarFlashMessages();
+});
 
 // Re-init after HTMX swaps new content
-document.addEventListener('htmx:afterSwap', sraInit);
+document.addEventListener('htmx:afterSwap', function() {
+    sraInit();
+    processarFlashMessages();
+});

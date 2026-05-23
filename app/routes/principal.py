@@ -6,6 +6,7 @@ from flask_login import login_required
 
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.relatorio_finalizado import RelatorioFinalizado
+from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.utils.htmx import render_conteudo
 
 principal_bp = Blueprint('principal', __name__)
@@ -14,11 +15,15 @@ principal_bp = Blueprint('principal', __name__)
 @principal_bp.route('/')
 @login_required
 def index():
+    """Rota principal do dashboard."""
     perfil_ativo = session.get('perfil_ativo', '')
     componentes = _resolver_componentes(perfil_ativo)
 
     relatorios_producao = RelatorioProducao.query.all()
     relatorios_finalizados = RelatorioFinalizado.query.all()
+    bibliotecas_formatacao = BibliotecaFormatacaoCanonica.query.filter_by(
+        ativa=True
+    ).all()
 
     # Listar arquivos de storage/relatorios_base
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -35,7 +40,8 @@ def index():
         perfil_ativo=perfil_ativo,
         relatorios_producao=relatorios_producao,
         relatorios_finalizados=relatorios_finalizados,
-        arquivos_relatorios_base=arquivos_relatorios_base
+        arquivos_relatorios_base=arquivos_relatorios_base,
+        bibliotecas_formatacao=bibliotecas_formatacao
     )
 
 
@@ -47,8 +53,7 @@ def _resolver_componentes(perfil):
         ]
     elif perfil == 'coordenador':
         return [
-            'components/paineis/painel_relatorios.html',
-            'components/paineis/painel_criar_relatorio_producao.html',
+            'components/paineis/dashboard_coordenador.html',
         ]
     elif perfil == 'autor':
         return [

@@ -40,7 +40,7 @@ class ServicoUsuario:
         return None
 
     @staticmethod
-    def convidar_usuario(nome_completo, email, perfil):
+    def convidar_usuario(nome, email, perfil):
         if perfil not in PERFIS_VALIDOS:
             raise ValueError(
                 f'Perfil inválido: {perfil}'
@@ -50,7 +50,7 @@ class ServicoUsuario:
             hours=CONVITE_HORAS
         )
         usuario = Usuario(
-            nome_completo=nome_completo,
+            nome=nome,
             perfil=perfil,
             email=email,
             ativo=False,
@@ -61,7 +61,7 @@ class ServicoUsuario:
         db.session.commit()
 
         link = ServicoEmail.enviar_convite(
-            email, nome_completo, token
+            email, nome, token
         )
         return usuario, link
 
@@ -105,14 +105,14 @@ class ServicoUsuario:
         ) + timedelta(hours=CONVITE_HORAS)
         db.session.commit()
         link = ServicoEmail.enviar_convite(
-            usuario.email, usuario.nome_completo, token
+            usuario.email, usuario.nome, token
         )
         return link
 
     @staticmethod
     def listar_usuarios():
         return Usuario.query.order_by(
-            Usuario.nome_completo
+            Usuario.nome
         ).all()
 
     @staticmethod
@@ -148,7 +148,7 @@ class ServicoUsuario:
         ) + timedelta(hours=RESET_HORAS)
         db.session.commit()
         ServicoEmail.enviar_recuperacao(
-            usuario.email, usuario.nome_completo, token
+            usuario.email, usuario.nome, token
         )
         return usuario
 
