@@ -102,6 +102,16 @@
      data-id-usuario="{{ current_user.id }}"
      data-api-base="/api"
      class="ew__data-hidden"></div>
+<script>
+(function() {
+    var el = document.getElementById('editorData');
+    window.EDITOR_DATA = {
+        idVersao: Number(el.dataset.idVersao),
+        idUsuario: Number(el.dataset.idUsuario),
+        apiBase: el.dataset.apiBase
+    };
+})();
+</script>
 {% endblock %}
 
 {% block scripts %}

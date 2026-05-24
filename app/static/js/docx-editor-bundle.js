@@ -7819,20 +7819,20 @@
   // src/index.jsx
   var import_react = __toESM(require_react());
   var import_client = __toESM(require_client());
-  function DocxEditor({ apiBase, capituloId, csrfToken, readOnly }) {
+  function DocxEditor({ apiBase, capituloId, csrfToken, readOnly, docxUrl, saveUrl }) {
     const containerRef = (0, import_react.useRef)(null);
     const [loading, setLoading] = (0, import_react.useState)(true);
     const [error, setError] = (0, import_react.useState)(null);
     const [modificado, setModificado] = (0, import_react.useState)(false);
     const [salvando, setSalvando] = (0, import_react.useState)(false);
     const docxBlobRef = (0, import_react.useRef)(null);
+    const effectiveDocxUrl = docxUrl || `${apiBase}/capitulos/${capituloId}/conteudo`;
+    const effectiveSaveUrl = saveUrl || `${apiBase}/capitulos/${capituloId}/conteudo`;
     const carregarConteudo = (0, import_react.useCallback)(async () => {
       setLoading(true);
       setError(null);
       try {
-        const resp = await fetch(
-          `${apiBase}/capitulos/${capituloId}/conteudo`
-        );
+        const resp = await fetch(effectiveDocxUrl);
         if (resp.status === 204) {
           setError("Nenhum conte\xFAdo enviado ainda.");
           setLoading(false);
@@ -7871,12 +7871,12 @@
         setError(e.message || "Erro desconhecido");
       }
       setLoading(false);
-    }, [apiBase, capituloId, readOnly]);
+    }, [effectiveDocxUrl, readOnly]);
     (0, import_react.useEffect)(() => {
-      if (capituloId) {
+      if (capituloId || docxUrl) {
         carregarConteudo();
       }
-    }, [capituloId, carregarConteudo]);
+    }, [capituloId, docxUrl, carregarConteudo]);
     const salvarAlteracoes = async () => {
       if (!containerRef.current || salvando)
         return;
@@ -7886,17 +7886,14 @@
         if (!wrapper)
           throw new Error("Wrapper n\xE3o encontrado");
         const htmlEditado = wrapper.innerHTML;
-        const resp = await fetch(
-          `${apiBase}/capitulos/${capituloId}/conteudo`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "text/html",
-              "X-CSRF-Token": csrfToken
-            },
-            body: htmlEditado
-          }
-        );
+        const resp = await fetch(effectiveSaveUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "text/html",
+            "X-CSRF-Token": csrfToken
+          },
+          body: htmlEditado
+        });
         if (!resp.ok)
           throw new Error("Falha ao salvar");
         setModificado(false);

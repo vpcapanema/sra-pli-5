@@ -17,6 +17,12 @@
             <span class="sra-text--muted">Status: {{ versao_trabalho.status.codigo if versao_trabalho.status else '-' }}</span>
             <span class="sra-text--muted">&middot; Versão: {{ versao_trabalho.versao_atual }}</span>
         </div>
+        <div class="sra-page-header__actions">
+            <a href="{{ url_for('relatorio.gerar_final', id_relatorio=versao_trabalho.id) }}"
+               class="sra-button sra-button--primary sra-button--sm">
+                <i class="ph ph-download-simple"></i> Gerar Relatório Final
+            </a>
+        </div>
     </div>
 </div>
 
@@ -173,6 +179,9 @@
                             <button type="button" class="sra-btn-icon btn-inspecionar" title="Inspecionar no DOCX" data-cap-id="{{ cap.id_capitulo_documento }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
+                            <a href="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-btn-icon" title="Enviar conteúdo (autor)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </a>
                             <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-btn-icon" title="Editar">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                             </a>

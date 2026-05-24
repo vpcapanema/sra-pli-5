@@ -1,0 +1,172 @@
+{#
+    Prévia de envio do autor — usa o editor DOCX real
+    (docx-preview + contenteditable, montado por window.SRADocxEditor).
+
+    Cada capítulo destino vira um bloco com o DOCX segmentado real
+    carregado via /api/envios/<id>/capitulos/<id_cap>/docx.
+
+    Variáveis esperadas:
+      - envio: EnvioConteudo
+      - previas: lista de PrevisualizacaoConteudo
+      - versao_trabalho: RelatorioProducao
+#}
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+<script src="{{ url_for('static', filename='js/docx-editor-bundle.js') }}"></script>
+
+<div class="sra-page">
+    <div class="sra-page__header">
+        <h1 class="sra-page__title">Prévia do Envio</h1>
+        <p class="sra-text--muted">
+            Arquivo: <strong>{{ envio.nome_arquivo }}</strong> ·
+            Status:
+            <span class="sra-badge sra-badge--{{ envio.status_envio }}">
+                {{ envio.status_envio | replace('_', ' ') | capitalize }}
+            </span>
+        </p>
+    </div>
+
+    <div class="sra-page__content">
+        <div class="sra-card">
+            <div class="sra-card__header">
+                <h3 class="sra-card__title">DOCX original do envio</h3>
+                <div class="sra-card__actions">
+                    <a class="sra-button sra-button--sm sra-button--outline"
+                       href="{{ url_for('api.baixar_envio_docx', id_envio=envio.id_envio_conteudo) }}"
+                       target="_blank">
+                        <i class="ph ph-download-simple"></i> Baixar
+                    </a>
+                </div>
+            </div>
+            <div class="sra-card__content">
+                <div id="previa-envio-original" class="sra-docx-viewer"></div>
+            </div>
+        </div>
+
+        {% set segmentos = previas | selectattr('tipo_previsualizacao', 'equalto', 'parcial') | list %}
+        {% if segmentos %}
+            <h2 class="sra-section-title">Segmentos por capítulo</h2>
+            {% for prev in segmentos %}
+                {% set cap_id = prev.caminho_saida %}
+                <div class="sra-card">
+                    <div class="sra-card__header">
+                        <h3 class="sra-card__title">
+                            Capítulo #{{ cap_id }}
+                        </h3>
+                        <div class="sra-card__actions">
+                            <a class="sra-button sra-button--sm sra-button--outline"
+                               href="{{ url_for('api.baixar_envio_segmento_docx', id_envio=envio.id_envio_conteudo, id_capitulo=cap_id) }}"
+                               target="_blank">
+                                <i class="ph ph-download-simple"></i> Baixar segmento
+                            </a>
+                        </div>
+                    </div>
+                    <div class="sra-card__content">
+                        <div id="previa-cap-{{ cap_id }}"
+                             class="sra-docx-editor-mount"
+                             data-envio-id="{{ envio.id_envio_conteudo }}"
+                             data-capitulo-id="{{ cap_id }}"></div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            {% for prev in previas %}
+                <div class="sra-card">
+                    <div class="sra-card__header">
+                        <h3 class="sra-card__title">
+                            Prévia ({{ prev.tipo_previsualizacao }})
+                        </h3>
+                    </div>
+                    <div class="sra-card__content sra-previa-conteudo">
+                        {{ prev.resultado_html | safe }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if envio.status_envio == 'em_previa' %}
+        <div class="sra-card">
+            <div class="sra-card__header">
+                <h3 class="sra-card__title">Confirmar</h3>
+            </div>
+            <div class="sra-card__content">
+                <p class="sra-text--muted">
+                    Revise os segmentos no editor acima. Se editar
+                    no editor, clique em "Salvar alterações" do
+                    próprio segmento antes de importar. Ao importar,
+                    o conteúdo é incorporado aos capítulos correspondentes
+                    do relatório em produção.
+                </p>
+                <div class="sra-actions-row">
+                    <form method="POST"
+                          action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='importar') }}">
+                        <button type="submit"
+                                class="sra-button sra-button--primary">
+                            Importar conteúdo
+                        </button>
+                    </form>
+                    <form method="POST"
+                          action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='rejeitar') }}">
+                        <button type="submit"
+                                class="sra-button sra-button--secondary">
+                            Rejeitar e reenviar
+                        </button>
+                    </form>
+                    <a href="{{ url_for('relatorio.detalhe_versao', id_versao=envio.id_relatorio) }}"
+                       class="sra-button sra-button--sm">
+                        Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function() {
+    const csrfPromise = fetch('/api/csrf-token', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) { return d.token; })
+        .catch(function() { return ''; });
+
+    // Renderizar o DOCX original via docx-preview
+    fetch('{{ url_for("api.baixar_envio_docx", id_envio=envio.id_envio_conteudo) }}')
+        .then(function(r) { return r.ok ? r.blob() : null; })
+        .then(function(blob) {
+            if (!blob) return;
+            var container = document.getElementById('previa-envio-original');
+            if (container && window.docx) {
+                container.innerHTML = '';
+                window.docx.renderAsync(blob, container, null, {
+                    className: 'docx-preview-content',
+                    inWrapper: true,
+                    ignoreWidth: false,
+                    ignoreHeight: true
+                });
+            }
+        });
+
+    // Montar editor para cada segmento por capítulo
+    csrfPromise.then(function(csrfToken) {
+        document.querySelectorAll('.sra-docx-editor-mount').forEach(function(el) {
+            var envioId = el.dataset.envioId;
+            var capId = el.dataset.capituloId;
+            var docxUrl = '/api/envios/' + envioId + '/capitulos/' + capId + '/docx';
+            if (window.SRADocxEditor) {
+                window.SRADocxEditor.mount(el.id, {
+                    apiBase: '/api',
+                    capituloId: capId,
+                    docxUrl: docxUrl,
+                    saveUrl: docxUrl,
+                    csrfToken: csrfToken,
+                    readOnly: {{ 'true' if envio.status_envio != 'em_previa' else 'false' }}
+                });
+            }
+        });
+    });
+})();
+</script>

@@ -17,12 +17,14 @@ from app.models.usuario import Usuario
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.envio_conteudo import EnvioConteudo
+from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.models.dominio import DomStatusRelatorio
 from app.models.biblioteca_formatacao import (
     BibliotecaFormatacaoCanonica
 )
 from app.services.servico_relatorio import ServicoRelatorio
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
+from app.services.servico_envio_autor import ServicoEnvioAutor
 from app.utils.htmx import render_conteudo
 
 relatorio_bp = Blueprint(
@@ -314,7 +316,7 @@ def vincular_biblioteca(id_versao):
         flash('Biblioteca vinculada com sucesso.', 'sucesso')
     else:
         flash('Selecione uma biblioteca.', 'erro')
-    return redirect(url_for('relatorio.detalhe_versao', id_versao=id))
+    return redirect(url_for('relatorio.detalhe_versao', id_versao=id_versao))
 
 
 # ==============================================================
@@ -440,120 +442,204 @@ def criar_relatorio_producao():
     )
 
 
+def _parse_mes_referencia_br(valor):
+    """Parse string de mês em PT-BR (ex: 'maio de 2026') para date."""
+    if not valor:
+        return None
+    meses_pt = {
+        'janeiro': 1, 'fevereiro': 2, 'março': 3, 'marco': 3,
+        'abril': 4, 'maio': 5, 'junho': 6, 'julho': 7,
+        'agosto': 8, 'setembro': 9, 'outubro': 10,
+        'novembro': 11, 'dezembro': 12,
+    }
+    v = valor.strip().lower()
+    # Aceita "maio de 2026", "maio 2026", "2026-05-01"
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        pass
+    for nome, n in meses_pt.items():
+        if v.startswith(nome):
+            resto = v[len(nome):].strip().lstrip('de ').strip()
+            try:
+                ano = int(resto[:4])
+                return datetime(ano, n, 1).date()
+            except (ValueError, TypeError):
+                return None
+    return None
+
+
+def _parse_data_iso(valor):
+    """Parse 'YYYY-MM-DD' tolerante."""
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return None
+
+
 @relatorio_bp.route('/producao/clonar-biblioteca', methods=['POST'])
 def clonar_da_biblioteca():
-    """Clona um relatório finalizado da biblioteca para produção."""
+    """Clona um relatório finalizado da biblioteca para produção.
 
-    # Configurar locale para português para parsing de datas
-    try:
-        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-    except locale.Error:
-        try:
-            locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
-        except locale.Error:
-            pass  # Fallback: usar formato ISO se locale falhar
-
+    Idempotente: se já existir um RelatorioProducao com mesmo
+    titulo_curto, devolve-o em vez de criar duplicado.
+    """
     perfil = session.get('perfil_ativo')
-    if perfil != 'coordenador' and perfil != 'admin':
+    if perfil not in ('coordenador', 'admin'):
         return jsonify({'erro': 'Acesso restrito'}), 403
 
-    arquivo_base = request.json.get('arquivo_base')
-    biblioteca_id = request.json.get('biblioteca_id')
+    payload = request.get_json(silent=True) or {}
+    arquivo_base = payload.get('arquivo_base')
+    biblioteca_id = payload.get('biblioteca_id')
+    titulo_curto = (payload.get('titulo_curto') or '').strip()
+    codigo_pli = (payload.get('codigo_pli') or '').strip()
 
     if not arquivo_base:
         return jsonify({'erro': 'Arquivo não fornecido'}), 400
-
     if not biblioteca_id:
-        return jsonify({'erro': 'Biblioteca de formatação não fornecida'}), 400
+        return jsonify(
+            {'erro': 'Biblioteca de formatação não fornecida'}
+        ), 400
 
-    # Obter status inicial (em_producao)
     status_inicial = DomStatusRelatorio.query.filter_by(
         codigo='em_producao'
     ).first()
-
     if not status_inicial:
         return jsonify({'erro': 'Status inicial não configurado'}), 500
 
-    # Copiar arquivo de storage/relatorios_base para
-    # storage/relatorios_producao
+    # Anti-duplicação: mesmo título e código → reaproveita
+    if titulo_curto or codigo_pli:
+        query = RelatorioProducao.query
+        if titulo_curto:
+            query = query.filter(
+                RelatorioProducao.titulo_curto == titulo_curto
+            )
+        if codigo_pli:
+            query = query.filter(
+                RelatorioProducao.codigo_d20 == codigo_pli
+            )
+        existente = query.first()
+        if existente:
+            return jsonify({
+                'mensagem': 'Já existe relatório com esses dados',
+                'id_producao': existente.id,
+                'duplicado': True,
+                'logs': [{
+                    'mensagem': (
+                        'Relatório já existente — reutilizando registro'
+                    ),
+                    'status': 'success'
+                }],
+            }), 200
+
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     dir_base = os.path.join(base_dir, 'storage', 'relatorios_base')
-    dir_producao = os.path.join(base_dir, 'storage', 'relatorios_producao')
+    dir_producao = os.path.join(
+        base_dir, 'storage', 'relatorios_producao'
+    )
     os.makedirs(dir_producao, exist_ok=True)
 
     caminho_base = os.path.join(dir_base, arquivo_base)
     if not os.path.exists(caminho_base):
         return jsonify({'erro': 'Arquivo base não encontrado'}), 404
 
-    # Nome do arquivo de produção: usar titulo_curto ou codigo
-    nome_arquivo = (request.json.get('titulo_curto') or
-                    arquivo_base.replace('.docx', ''))
-    nome_arquivo_seguro = secure_filename(f"{nome_arquivo}.docx")
+    nome_arquivo = titulo_curto or arquivo_base.replace('.docx', '')
+    # Suffix com timestamp para evitar sobrescrita ao reclonar
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    nome_arquivo_seguro = secure_filename(
+        f"{nome_arquivo}_{timestamp}.docx"
+    )
     caminho_producao = os.path.join(dir_producao, nome_arquivo_seguro)
-
-    # Copiar arquivo
     shutil.copy2(caminho_base, caminho_producao)
 
-    # Criar RelatorioProducao
     relatorio_producao = RelatorioProducao(
-        codigo_d20=request.json.get('codigo_pli'),
-        numero_medicao=int(request.json.get('numero_medicao')) if request.json.get('numero_medicao') else None,
-        mes_referencia=datetime.strptime(
-            request.json.get('mes_referencia'), '%B de %Y'
-        ) if request.json.get('mes_referencia') else None,
-        periodo_inicio=datetime.strptime(
-            request.json.get('periodo_inicio'), '%Y-%m-%d'
-        ) if request.json.get('periodo_inicio') else None,
-        periodo_fim=datetime.strptime(
-            request.json.get('periodo_fim'), '%Y-%m-%d'
-        ) if request.json.get('periodo_fim') else None,
-        titulo_curto=request.json.get('titulo_curto'),
+        codigo_d20=codigo_pli or 'D-20',
+        numero_medicao=(
+            int(payload['numero_medicao'])
+            if payload.get('numero_medicao') else None
+        ),
+        mes_referencia=_parse_mes_referencia_br(
+            payload.get('mes_referencia')
+        ),
+        periodo_inicio=_parse_data_iso(payload.get('periodo_inicio')),
+        periodo_fim=_parse_data_iso(payload.get('periodo_fim')),
+        titulo_curto=titulo_curto or None,
         status_id=status_inicial.id,
         criado_por=current_user.id,
-        ano_referencia=int(request.json.get('ano_referencia')) if request.json.get('ano_referencia') else None,
+        ano_referencia=(
+            int(payload['ano_referencia'])
+            if payload.get('ano_referencia') else None
+        ),
         versao_atual='R00',
         bloqueio_edicao=False,
         caminho_template=caminho_producao,
-        biblioteca_id=biblioteca_id
+        biblioteca_id=biblioteca_id,
     )
-
     db.session.add(relatorio_producao)
     db.session.commit()
 
-    logs = []
-    logs.append({'mensagem': 'Validando dados...', 'status': 'success'})
-    logs.append({'mensagem': 'Copiando arquivo...', 'status': 'success'})
-    logs.append({'mensagem': 'Criando relatório de produção...', 'status': 'success'})
-    logs.append({'mensagem': 'Configurando status inicial...', 'status': 'success'})
+    logs = [
+        {'mensagem': 'Validando dados...', 'status': 'success'},
+        {'mensagem': 'Copiando arquivo...', 'status': 'success'},
+        {
+            'mensagem': 'Criando relatório de produção...',
+            'status': 'success'
+        },
+        {
+            'mensagem': 'Configurando status inicial...',
+            'status': 'success'
+        },
+        {
+            'mensagem': 'Extraindo estrutura de capítulos...',
+            'status': 'pending'
+        },
+    ]
 
-    # Extrair estrutura de capítulos do DOCX clonado
     try:
-        logs.append({'mensagem': 'Extraindo estrutura de capítulos...', 'status': 'pending'})
         from docx import Document
         doc = Document(caminho_producao)
         capitulos_arvore = ServicoExtracaoCanonica._extrair_capitulos(doc)
 
-        # Criar capítulos no banco de dados
+        # Antes de inserir: garantir que não há capítulos existentes
+        # para este relatório (defesa contra duplicação por re-clone).
+        CapituloDocumento.query.filter_by(
+            id_relatorio=relatorio_producao.id
+        ).delete()
+
         ordem_global = 1
-        total_capitulos = 0
+        total = 0
         for cap_raiz in capitulos_arvore:
             _criar_capitulo_recursivo(
                 cap_raiz, relatorio_producao.id, None, ordem_global
             )
             ordem_global += 1
-            total_capitulos += 1
+            total += 1
 
         db.session.commit()
-        logs[-1] = {'mensagem': f'Extraindo estrutura de capítulos... ({total_capitulos} capítulos encontrados)', 'status': 'success'}
+        logs[-1] = {
+            'mensagem': (
+                f'Extraindo estrutura de capítulos... '
+                f'({total} raízes; árvore deduplicada)'
+            ),
+            'status': 'success'
+        }
     except Exception as e:
         db.session.rollback()
-        logs[-1] = {'mensagem': f'Erro ao extrair capítulos: {str(e)}', 'status': 'error'}
-        return jsonify({'erro': f'Erro ao extrair capítulos: {str(e)}', 'logs': logs}), 500
+        logs[-1] = {
+            'mensagem': f'Erro ao extrair capítulos: {e}',
+            'status': 'error'
+        }
+        return jsonify({
+            'erro': f'Erro ao extrair capítulos: {e}',
+            'logs': logs,
+        }), 500
 
     return jsonify({
         'mensagem': 'Clonagem realizada com sucesso',
         'id_producao': relatorio_producao.id,
-        'logs': logs
+        'logs': logs,
     })
 
 
@@ -591,6 +677,34 @@ def excluir_relatorio_producao(id_relatorio):
     except (OSError, IOError) as e:
         db.session.rollback()
         return jsonify({'erro': f'Erro ao excluir relatório: {e}'}), 500
+
+
+@relatorio_bp.route('/producao/<int:id_relatorio>/gerar-final')
+@login_required
+def gerar_final(id_relatorio):
+    """Gera e envia o DOCX final montado a partir dos capítulos."""
+    vt = RelatorioProducao.query.get_or_404(id_relatorio)
+    try:
+        # Importação tardia para evitar ciclo de blueprints
+        from app.routes.api import _gerar_docx_versao
+        docx_bytes = _gerar_docx_versao(vt)
+    except (ValueError, RuntimeError, OSError) as e:
+        flash(f'Erro ao gerar relatório final: {e}', 'erro')
+        return redirect(
+            url_for('relatorio.detalhe_versao', id_versao=id_relatorio)
+        )
+
+    from io import BytesIO
+    from flask import send_file
+    return send_file(
+        BytesIO(docx_bytes),
+        as_attachment=True,
+        download_name=f'relatorio_{vt.id}_{vt.versao_atual}.docx',
+        mimetype=(
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ),
+    )
 
 
 @relatorio_bp.route('/producao/<int:id_relatorio>/docx')
@@ -644,6 +758,157 @@ def upload_docx_clonagem():
 # ==============================================================
 # Envios de Conteúdo
 # ==============================================================
+
+# ==============================================================
+# Upload, prévia e confirmação do autor
+# ==============================================================
+
+@relatorio_bp.route(
+    '/versao-trabalho/<int:id_versao>/capitulo/<int:id_capitulo>/upload',
+    methods=['GET', 'POST']
+)
+def upload_conteudo(id_versao, id_capitulo):
+    """Tela de upload de conteúdo do autor para um capítulo."""
+    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    capitulo = CapituloDocumento.query.get_or_404(id_capitulo)
+    if not versao or capitulo.id_relatorio != versao.id:
+        flash('Capítulo não pertence à versão informada.', 'erro')
+        return redirect(url_for('relatorio.relatorios_producao'))
+
+    if request.method == 'POST':
+        arquivo = request.files.get('arquivo_docx')
+        if not arquivo or not (arquivo.filename or '').endswith('.docx'):
+            flash('Envie um arquivo .docx válido.', 'erro')
+            return redirect(url_for(
+                'relatorio.upload_conteudo',
+                id_versao=id_versao, id_capitulo=id_capitulo,
+            ))
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(__file__))
+        )
+        try:
+            envio = ServicoEnvioAutor.processar_upload(
+                id_relatorio=id_versao,
+                id_usuario=current_user.id,
+                arquivo_storage=arquivo,
+                base_dir=base_dir,
+                id_capitulo_destino=id_capitulo,
+            )
+        except (OSError, ValueError) as e:
+            flash(f'Falha no upload: {e}', 'erro')
+            return redirect(url_for(
+                'relatorio.upload_conteudo',
+                id_versao=id_versao, id_capitulo=id_capitulo,
+            ))
+        flash(
+            'Upload realizado. Revise a prévia e confirme a importação.',
+            'sucesso'
+        )
+        return redirect(url_for(
+            'relatorio.previa_envio',
+            id_envio=envio.id_envio_conteudo,
+        ))
+
+    # GET: render tela
+    envio = EnvioConteudo.query.filter_by(
+        id_relatorio=id_versao,
+        id_usuario=current_user.id,
+        status_envio='em_previa',
+    ).order_by(EnvioConteudo.criado_em.desc()).first()
+    capitulos_nav = ServicoRelatorio.listar_capitulos(id_versao)
+    return render_conteudo(
+        ['components/capitulo/upload_docx.html'],
+        versao_trabalho=versao,
+        capitulo=capitulo,
+        envio=envio,
+        capitulos_nav=capitulos_nav,
+        preview_html=None,
+    )
+
+
+@relatorio_bp.route('/envios-conteudo/<int:id_envio>/previa')
+def previa_envio(id_envio):
+    """Mostra prévias geradas a partir do envio para o autor confirmar."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        flash('Sem permissão.', 'erro')
+        return redirect(url_for('principal.index'))
+
+    previas = envio.previsualizacoes
+    versao = ServicoRelatorio.obter_versao_trabalho(envio.id_relatorio)
+    return render_conteudo(
+        ['components/capitulo/previa_envio.html'],
+        envio=envio,
+        previas=previas,
+        versao_trabalho=versao,
+    )
+
+
+@relatorio_bp.route(
+    '/envios-conteudo/<int:id_envio>/confirmar/<acao>',
+    methods=['POST']
+)
+def confirmar_envio(id_envio, acao):
+    """Aplica decisão do autor: importar ou rejeitar."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        flash('Sem permissão.', 'erro')
+        return redirect(url_for('principal.index'))
+
+    if acao not in ('importar', 'rejeitar'):
+        flash('Ação inválida.', 'erro')
+        return redirect(
+            url_for('relatorio.previa_envio', id_envio=id_envio)
+        )
+
+    resultado = ServicoEnvioAutor.confirmar(envio=envio, acao=acao)
+    if not resultado.get('ok'):
+        flash(resultado.get('erro') or 'Falha ao processar.', 'erro')
+        return redirect(
+            url_for('relatorio.previa_envio', id_envio=id_envio)
+        )
+
+    if acao == 'importar':
+        flash(
+            f"Importado para {resultado.get('capitulos_atualizados', 0)} "
+            f"capítulo(s).",
+            'sucesso'
+        )
+    else:
+        flash('Envio rejeitado.', 'info')
+
+    return redirect(
+        url_for('relatorio.detalhe_versao', id_versao=envio.id_relatorio)
+    )
+
+
+@relatorio_bp.route(
+    '/envios-conteudo/<int:id_envio>/conteudo',
+    methods=['POST']
+)
+def salvar_conteudo_autor(id_envio):
+    """Alias de compatibilidade com o template de prévia.
+
+    Aceita texto HTML editado pelo autor antes da confirmação.
+    Atualmente, apenas marca o envio como atualizado.
+    """
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if envio.id_usuario != current_user.id:
+        return jsonify({'erro': 'Sem permissão'}), 403
+    # Persistência do HTML editado: associa como prévia 'editada'.
+    dados = request.get_data(as_text=True) or ''
+    if dados:
+        prev = PrevisualizacaoConteudo(
+            id_envio_conteudo=envio.id_envio_conteudo,
+            tipo_previsualizacao='editada',
+            resultado_html=dados,
+        )
+        db.session.add(prev)
+        db.session.commit()
+    return jsonify({'ok': True})
+
 
 @relatorio_bp.route('/envios-conteudo')
 def listar_envios_conteudo():

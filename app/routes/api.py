@@ -168,6 +168,124 @@ def excluir_capitulo(id_cap):
 
 
 # ==============================================================
+# ENVIOS DO AUTOR — blob DOCX original e segmentado por capítulo
+# ==============================================================
+
+@api_bp.route('/envios/<int:id_envio>/docx')
+@login_required
+def baixar_envio_docx(id_envio):
+    """Serve o DOCX original do envio para visualização no editor.
+
+    Acessível para o próprio autor que enviou e para coordenadores.
+    """
+    from app.models.envio_conteudo import EnvioConteudo
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        return jsonify({'erro': 'Sem permissão'}), 403
+    if not envio.caminho_arquivo or not os.path.exists(envio.caminho_arquivo):
+        return ('', 204)
+    return send_file(
+        envio.caminho_arquivo,
+        mimetype=(
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ),
+        as_attachment=False,
+        download_name=envio.nome_arquivo or f'envio_{id_envio}.docx',
+    )
+
+
+@api_bp.route('/envios/<int:id_envio>/capitulos/<int:id_capitulo>/docx')
+@login_required
+def baixar_envio_segmento_docx(id_envio, id_capitulo):
+    """Serve o DOCX segmentado por capítulo para um envio.
+
+    Gerado em memória a partir do DOCX original do envio + classificação:
+    parte do DOCX que foi atribuída ao capítulo informado.
+    """
+    from app.models.envio_conteudo import EnvioConteudo
+    from app.services.servico_envio_autor import gerar_docx_segmento
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        return jsonify({'erro': 'Sem permissão'}), 403
+    cap = CapituloDocumento.query.get_or_404(id_capitulo)
+    if cap.id_relatorio != envio.id_relatorio:
+        return jsonify({'erro': 'Capítulo não pertence ao envio'}), 400
+    try:
+        blob = gerar_docx_segmento(envio, cap)
+    except (OSError, ValueError, RuntimeError) as e:
+        return jsonify({'erro': f'Falha ao gerar segmento: {e}'}), 500
+    if not blob:
+        return ('', 204)
+    return send_file(
+        BytesIO(blob),
+        mimetype=(
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ),
+        as_attachment=False,
+        download_name=f'envio_{id_envio}_cap_{id_capitulo}.docx',
+    )
+
+
+@api_bp.route(
+    '/envios/<int:id_envio>/capitulos/<int:id_capitulo>/docx',
+    methods=['PUT']
+)
+@login_required
+def salvar_envio_segmento_docx(id_envio, id_capitulo):
+    """Salva o DOCX editado (pelo editor no browser) como o segmento
+    confirmado daquele capítulo no envio.
+
+    Aceita:
+    - application/octet-stream: bytes DOCX
+    - text/html: HTML do contenteditable; convertido para DOCX
+    """
+    from app.models.envio_conteudo import EnvioConteudo
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if envio.id_usuario != current_user.id:
+        return jsonify({'erro': 'Sem permissão'}), 403
+    cap = CapituloDocumento.query.get_or_404(id_capitulo)
+    if cap.id_relatorio != envio.id_relatorio:
+        return jsonify({'erro': 'Capítulo não pertence ao envio'}), 400
+
+    content_type = request.content_type or ''
+    dados = request.get_data()
+    if len(dados) > MAX_UPLOAD_BYTES:
+        return jsonify({'erro': 'Arquivo excede 50 MB'}), 413
+
+    if 'text/html' in content_type:
+        try:
+            soup = BeautifulSoup(dados.decode('utf-8'), 'html.parser')
+            doc = Document()
+            for el in soup.find_all(
+                ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+            ):
+                txt = el.get_text(strip=True)
+                if not txt:
+                    continue
+                if el.name.startswith('h'):
+                    nivel = int(el.name[1])
+                    doc.add_heading(txt, level=min(nivel, 9))
+                else:
+                    doc.add_paragraph(txt)
+            buf = BytesIO()
+            doc.save(buf)
+            dados = buf.getvalue()
+        except (ValueError, TypeError, AttributeError) as e:
+            return jsonify(
+                {'erro': f'Erro ao converter HTML para DOCX: {e}'}
+            ), 400
+
+    # Persiste como conteúdo do capítulo (fonte da verdade na importação)
+    cap.conteudo_docx = dados
+    db.session.commit()
+    return jsonify({'ok': True, 'size': len(dados)})
+
+
+# ==============================================================
 # CONTEÚDO DOCX — upload/download por capítulo
 # ==============================================================
 
@@ -329,18 +447,11 @@ def finalizar_relatorio(id_rp):
             'status': env.status_envio,
         })
 
-    # Gerar DOCX final (NOTE: implementar renderização)
+    # Gerar DOCX final — usa biblioteca canônica quando disponível,
+    # senão usa o fallback de montagem direta a partir dos capítulos.
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    dir_canonicos = os.path.join(base_dir, 'storage', 'canonicos')
-    caminho_bib = ''
-    if relatorio.biblioteca:
-        caminho_bib = os.path.join(
-            dir_canonicos,
-            secure_filename(relatorio.biblioteca.nome_biblioteca)
-        )
-    motor = MotorRenderizacao(caminho_biblioteca=caminho_bib)
     try:
-        docx_bytes = motor.renderizar_versao(id_rp)
+        docx_bytes = _gerar_docx_versao(relatorio)
     except (ValueError, TypeError, RuntimeError, OSError) as e:
         return jsonify({'erro': f'Erro ao gerar DOCX: {str(e)}'}), 500
 
@@ -473,19 +584,108 @@ def reprovar_capitulo(id_cap):
 # RENDERIZAÇÃO — gera DOCX completo com formatação canônica
 # ==============================================================
 
+def _gerar_docx_versao(vt):
+    """Gera o DOCX final para a versão de trabalho.
+
+    Estratégia:
+    - Se a versão tem biblioteca canônica vinculada com extração feita,
+      usa o `MotorRenderizacao` (caminho ideal).
+    - Caso contrário, faz um *fallback funcional*: constrói o DOCX
+      capítulo a capítulo a partir dos `conteudo_docx` salvos (e dos
+      títulos quando o capítulo ainda não tem conteúdo).
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+    # 1. Caminho com biblioteca canônica
+    dir_canonicos = os.path.join(base_dir, 'storage', 'canonicos')
+    if vt.biblioteca:
+        caminho_bib = os.path.join(
+            dir_canonicos,
+            secure_filename(vt.biblioteca.nome_biblioteca)
+        )
+        if os.path.exists(caminho_bib):
+            motor = MotorRenderizacao(caminho_biblioteca=caminho_bib)
+            return motor.renderizar_versao(vt.id)
+
+    # 2. Fallback sem biblioteca canônica
+    from docx import Document
+    doc = Document()
+
+    titulo_doc = (
+        vt.titulo_curto or vt.codigo_d20 or f'Relatório {vt.id}'
+    )
+    doc.add_heading(titulo_doc, level=0)
+
+    capitulos = CapituloDocumento.query.filter_by(
+        id_relatorio=vt.id,
+        id_capitulo_pai=None,
+        ativo=True,
+    ).order_by(CapituloDocumento.ordem_capitulo).all()
+
+    def _renderizar(cap, nivel):
+        doc.add_heading(
+            f"{cap.indice_capitulo or ''} {cap.titulo_capitulo}".strip(),
+            level=min(max(nivel, 1), 9),
+        )
+        if cap.conteudo_docx:
+            try:
+                autor_doc = Document(BytesIO(cap.conteudo_docx))
+                for p in autor_doc.paragraphs:
+                    if p.text.strip():
+                        novo = doc.add_paragraph()
+                        for run in p.runs:
+                            r = novo.add_run(run.text)
+                            if run.bold:
+                                r.bold = True
+                            if run.italic:
+                                r.italic = True
+                            if run.underline:
+                                r.underline = True
+            except (ValueError, OSError, RuntimeError):
+                doc.add_paragraph(
+                    '[Conteúdo do autor não pôde ser lido]'
+                )
+        else:
+            doc.add_paragraph('[Sem conteúdo enviado]')
+
+        filhos = CapituloDocumento.query.filter_by(
+            id_capitulo_pai=cap.id_capitulo_documento,
+            ativo=True,
+        ).order_by(CapituloDocumento.ordem_capitulo).all()
+        for f in filhos:
+            _renderizar(f, nivel + 1)
+
+    for cap in capitulos:
+        _renderizar(cap, 1)
+
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
 @api_bp.route(
     '/versoes-trabalho/<int:id_vt>/renderizar', methods=['POST']
 )
 @login_required
 def renderizar_versao(id_vt):
     """
-    Monta o DOCX final aplicando a biblioteca canônica.
-    Retorna o DOCX binário.
+    Monta o DOCX final (com ou sem biblioteca canônica).
+    Retorna o DOCX binário inline para download.
     """
-    RelatorioProducao.query.get_or_404(id_vt)
-    return jsonify({
-        'erro': 'Funcionalidade de biblioteca canônica não implementada'
-    }), 501
+    vt = RelatorioProducao.query.get_or_404(id_vt)
+    try:
+        docx_bytes = _gerar_docx_versao(vt)
+    except (ValueError, RuntimeError, OSError) as e:
+        return jsonify({'erro': f'Erro ao gerar DOCX: {e}'}), 500
+    return send_file(
+        BytesIO(docx_bytes),
+        as_attachment=True,
+        download_name=f'relatorio_{vt.id}_{vt.versao_atual}.docx',
+        mimetype=(
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ),
+    )
 
 
 @api_bp.route(
@@ -493,12 +693,21 @@ def renderizar_versao(id_vt):
 )
 @login_required
 def preview_versao(id_vt):
-    """
-    Gera o DOCX renderizado para preview via docx-preview.
-    Igual ao renderizar mas sem forçar download.
-    """
-    RelatorioProducao.query.get_or_404(id_vt)
-    return ('Funcionalidade de biblioteca canônica não implementada', 501)
+    """Versão preview (inline, não-download) do DOCX gerado."""
+    vt = RelatorioProducao.query.get_or_404(id_vt)
+    try:
+        docx_bytes = _gerar_docx_versao(vt)
+    except (ValueError, RuntimeError, OSError) as e:
+        return jsonify({'erro': f'Erro ao gerar DOCX: {e}'}), 500
+    return send_file(
+        BytesIO(docx_bytes),
+        as_attachment=False,
+        download_name=f'preview_{vt.id}.docx',
+        mimetype=(
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ),
+    )
 
 
 # ==============================================================

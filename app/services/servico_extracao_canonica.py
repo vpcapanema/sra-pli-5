@@ -558,74 +558,115 @@ class ServicoExtracaoCanonica:
         ordem = ['capa', 'pre_textual', 'textual', 'pos_textual']
         return [resultado[t] for t in ordem if t in resultado]
 
-    @staticmethod
-    def _extrair_capitulos(doc):
-        """
-        Extrai a árvore de capítulos do documento baseada nos estilos
-        Heading 1..9 e elementos pré/pós textuais.
-        Retorna lista hierárquica (aninhada) com tipo_elemento.
-        """
-        # Primeiro, extrair estrutura macro para identificar tipos
-        macro = ServicoExtracaoCanonica._extrair_macro(doc)
+    # Conjunto canônico de títulos pré-textuais para detecção rigorosa
+    _PRE_TEXTUAIS_TITULOS = {
+        'sumário', 'sumario', 'resumo', 'abstract',
+        'lista de figuras', 'lista de tabelas',
+        'lista de abreviaturas', 'lista de siglas',
+        'lista de quadros', 'lista de gráficos',
+        'lista de símbolos', 'dedicatória', 'dedicatoria',
+        'agradecimentos', 'epígrafe', 'epigrafe',
+        'folha de rosto', 'folha de aprovação',
+        'table of contents',
+    }
+    _POS_TEXTUAIS_PREFIXOS = (
+        'referências', 'referencias', 'bibliography',
+        'apêndice', 'apendice', 'appendix',
+        'anexo', 'annex', 'glossário', 'glossario', 'índice', 'indice',
+    )
 
-        # Mapear índice de parágrafo para tipo de elemento
+    @classmethod
+    def _extrair_capitulos(cls, doc):
+        """
+        Extrai a árvore hierárquica de capítulos.
+
+        Regras (para evitar duplicação e ruído):
+        - Só considera parágrafos com estilo Heading N (1..9) ou
+          parágrafos cujo texto coincide exatamente com um título
+          canônico pré-textual (Sumário, Resumo, etc.) ou começa
+          com prefixo pós-textual (Apêndice, Anexo, ...).
+        - Deduplica por (título_normalizado, nível) dentro do mesmo
+          pai — entradas repetidas no DOCX (TOC + Heading real) não
+          geram capítulos duplicados.
+        - Itens pré-textuais ficam no nível 1 com tipo 'pre_textual';
+          pós-textuais no nível 1 com tipo 'pos_textual'; demais
+          headings ficam como 'textual'.
+        """
+        # Estrutura macro para tipagem
+        macro = cls._extrair_macro(doc)
         tipo_por_indice = {}
         for bloco in macro:
-            tipo = bloco['tipo']
-            inicio = bloco['inicio_paragrafo']
-            fim = bloco['fim_paragrafo']
-            for i in range(inicio, fim + 1):
-                tipo_por_indice[i] = tipo
+            for i in range(bloco['inicio_paragrafo'],
+                           bloco['fim_paragrafo'] + 1):
+                tipo_por_indice[i] = bloco['tipo']
 
         headings_flat = []
         for i, para in enumerate(doc.paragraphs):
             style_name = para.style.name or ''
             texto = para.text.strip()
-
-            # Identificar tipo baseado na estrutura macro
+            if not texto or len(texto) < 2:
+                continue
             tipo_elemento = tipo_por_indice.get(i, 'textual')
+            texto_lower = texto.lower()
 
-            # Para elementos pré e pós textuais, também incluir títulos
-            # que não são necessariamente Heading styles
-            if tipo_elemento in ('pre_textual', 'pos_textual') and texto:
-                # Elementos pré/pós textuais podem ter estilos variados
-                # Incluir como capítulo se tiver texto significativo
-                if len(texto) > 3:  # Evitar textos muito curtos
-                    headings_flat.append({
-                        'titulo': texto,
-                        'nivel': 1,  # Simplificado para pré/pós
-                        'estilo': style_name,
-                        'tipo_elemento': tipo_elemento,
-                        'filhos': [],
-                    })
-            elif style_name.startswith('Heading'):
+            nivel = None
+            incluir = False
+
+            if style_name.startswith('Heading'):
                 try:
-                    nivel = int(style_name.replace('Heading ', ''))
+                    nivel = int(style_name.replace('Heading ', '').strip())
+                    incluir = True
                 except ValueError:
-                    continue
-                headings_flat.append({
-                    'titulo': texto,
-                    'nivel': nivel,
-                    'estilo': style_name,
-                    'tipo_elemento': tipo_elemento,
-                    'filhos': [],
-                })
+                    nivel = None
 
-        # Montar árvore hierárquica
+            # Pré-textuais: apenas títulos canônicos exatos
+            if (not incluir and tipo_elemento == 'pre_textual'
+                    and texto_lower in cls._PRE_TEXTUAIS_TITULOS):
+                nivel = 1
+                incluir = True
+
+            # Pós-textuais: apenas se prefixo conhecido
+            if (not incluir and tipo_elemento == 'pos_textual'
+                    and any(texto_lower.startswith(p)
+                            for p in cls._POS_TEXTUAIS_PREFIXOS)):
+                nivel = 1
+                incluir = True
+
+            if not incluir or nivel is None:
+                continue
+
+            headings_flat.append({
+                'titulo': texto,
+                'nivel': nivel,
+                'estilo': style_name,
+                'tipo_elemento': tipo_elemento,
+                'filhos': [],
+            })
+
+        # Montar árvore hierárquica com deduplicação por (titulo, nível, pai)
         raiz = []
-        pilha = []  # (nivel, nó)
+        pilha = []  # lista de (nivel, nó)
+
+        def _existe_irmao(lista, titulo_norm, nivel):
+            for irmao in lista:
+                if (irmao['nivel'] == nivel
+                        and irmao['titulo'].strip().lower()
+                        == titulo_norm):
+                    return True
+            return False
 
         for item in headings_flat:
             nv = item['nivel']
-            # Voltar na pilha até encontrar pai
+            titulo_norm = item['titulo'].strip().lower()
             while pilha and pilha[-1][0] >= nv:
                 pilha.pop()
 
-            if pilha:
-                pilha[-1][1]['filhos'].append(item)
-            else:
-                raiz.append(item)
+            destino = pilha[-1][1]['filhos'] if pilha else raiz
+            if _existe_irmao(destino, titulo_norm, nv):
+                # Já registrado neste nível e pai — pular duplicata
+                continue
 
+            destino.append(item)
             pilha.append((nv, item))
 
         return raiz
