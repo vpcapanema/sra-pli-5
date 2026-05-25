@@ -5,7 +5,13 @@ __pycache__/
 *.pyc
 *.pyo
 venv/
+.venv/
 .env
 instance/
 *.db
 storage/
+experimentos/
+
+# Editor (manter tasks.json versionado, ignorar arquivos pessoais)
+.vscode/launch.json
+.vscode/settings.json

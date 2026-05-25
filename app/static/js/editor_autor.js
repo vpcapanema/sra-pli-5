@@ -43,10 +43,6 @@
     }
 
     var mount = document.getElementById('docxEditorMount');
-    var btnZoomIn = document.getElementById('zoom-in');
-    var btnZoomOut = document.getElementById('zoom-out');
-    var btnZoomReset = document.getElementById('zoom-reset');
-    var zoomValue = document.getElementById('zoom-value');
     var capSelect = document.getElementById('ea-cap-select');
     var capLivreSelect = document.getElementById('ea-cap-livre-select');
     var btnAddCapLivre = document.getElementById('ea-add-cap-livre');
@@ -173,45 +169,6 @@
     }
 
     // ======================================================
-    // 3. Zoom
-    // ======================================================
-    function aplicarZoom() {
-        var docWrap = mount.querySelector('.docx-wrapper') || mount;
-        docWrap.style.transform = 'scale(' + currentZoom + ')';
-        if (zoomValue) {
-            zoomValue.textContent = Math.round(currentZoom * 100) + '%';
-        }
-    }
-
-    if (btnZoomIn) {
-        btnZoomIn.addEventListener('click', function () {
-            currentZoom = Math.min(currentZoom + 0.1, 2.5);
-            aplicarZoom();
-            if (typeof SRALogger !== 'undefined') {
-                SRALogger.click(btnZoomIn, 'zoom-in');
-            }
-        });
-    }
-    if (btnZoomOut) {
-        btnZoomOut.addEventListener('click', function () {
-            currentZoom = Math.max(currentZoom - 0.1, 0.5);
-            aplicarZoom();
-            if (typeof SRALogger !== 'undefined') {
-                SRALogger.click(btnZoomOut, 'zoom-out');
-            }
-        });
-    }
-    if (btnZoomReset) {
-        btnZoomReset.addEventListener('click', function () {
-            currentZoom = 1.0;
-            aplicarZoom();
-            if (typeof SRALogger !== 'undefined') {
-                SRALogger.click(btnZoomReset, 'zoom-reset');
-            }
-        });
-    }
-
-    // ======================================================
     // 4. Scroll ate o capitulo selecionado
     // ======================================================
     if (capSelect) {
@@ -279,6 +236,7 @@
     inicializarColapsaveis();
     inicializarSeletorCapitulosLivres();
     inicializarZoomDocx();
+    setTimeout(marcarCapitulosEditaveis, 1500);
     inicializarEnvioContainers();
 
     if (typeof SRALogger !== 'undefined') {
@@ -309,15 +267,12 @@
         }
 
         // Carregar segmentos quando o container for aberto
-        var segmentosTrigger = document.querySelector(
-            '[data-collapse-target="ea-preview-segmentos"]'
-        );
+        var segmentosTrigger = document.querySelector('[data-collapse-target="ea-preview-segmentos"]');
         if (segmentosTrigger) {
             segmentosTrigger.addEventListener('click', function () {
-                var mount = document.getElementById('ea-segmentos-mount');
-                if (!mount || mount.children.length > 0) return; // Já carregado
-
-                carregarSegmentos(idEnvio, mount);
+                var treeMount = document.getElementById('ea-estrutura-tree');
+                if (!treeMount || treeMount.children.length > 0) return;
+                carregarSegmentos(idEnvio, treeMount);
             });
         }
     }

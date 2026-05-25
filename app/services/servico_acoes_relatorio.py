@@ -22,6 +22,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, Tuple
 
+from flask_login import current_user
+
 
 # ===========================================================
 # Modelo da acao
@@ -138,11 +140,16 @@ def _h_reindexar_captions(rel, perfil):
     info = reindexar_captions(rel.caminho_template, perfil=perfil)
     mapa = info.get('mapa_labels', {}) if isinstance(info, dict) else {}
     n_refs = substituir_referencias(rel.caminho_template, mapa)
+    resolvidas = n_refs.get('tags_resolvidas', 0) if isinstance(n_refs, dict) else 0
+    nao_resolvidas = n_refs.get('tags_nao_resolvidas', 0) if isinstance(n_refs, dict) else 0
+    sufixo_nao_resolvidas = (
+        f', {nao_resolvidas} não resolvida(s)' if nao_resolvidas else ''
+    )
     return (
         f'{info.get("figuras", 0)} figuras, '
         f'{info.get("tabelas", 0)} tabelas, '
         f'{info.get("equacoes", 0)} equações; '
-        f'{n_refs} referência(s) atualizada(s).'
+        f'{resolvidas} ref(s) atualizada(s){sufixo_nao_resolvidas}.'
     )
 
 
@@ -198,14 +205,13 @@ def _h_validar_estrutura(rel, perfil):
 
 def _h_gerar_final(rel, perfil):
     """Delega ao servico de finalizacao. Bloqueia futuras edicoes."""
-    from app.services.servico_finalizar_relatorio import (
-        gerar_snapshot_finalizado,
+    from app.services.servico_finalizar_relatorio import finalizar
+    rf = finalizar(id_relatorio=rel.id, id_usuario=current_user.id)
+    checksum_curto = (rf.checksum_docx or '')[:8]
+    return (
+        f'Relatório finalizado: {rf.nome_arquivo} '
+        f'(checksum {checksum_curto}…)'
     )
-    info = gerar_snapshot_finalizado(rel)
-    if isinstance(info, dict):
-        nome = info.get('arquivo') or info.get('caminho') or 'snapshot'
-        return f'Relatório finalizado e snapshot salvo: {nome}'
-    return 'Relatório finalizado e snapshot salvo.'
 
 
 # ===========================================================

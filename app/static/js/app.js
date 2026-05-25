@@ -271,6 +271,8 @@ function processarFlashMessages() {
         msgs.forEach(function (m) {
             toast.fire({ icon: mapa[m[0]] || 'info', title: m[1] });
         });
+        // Remove o nó para evitar reprocessamento em htmx:afterSwap
+        flashEl.remove();
     }
 }
 
