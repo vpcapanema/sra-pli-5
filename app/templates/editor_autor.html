@@ -54,7 +54,6 @@
                 <i class="ph ph-files"></i> Relatório:
             </label>
             <select id="ea-rel-select" class="ea__select"
-                    onchange="if(this.value){window.location.href=this.value;}"
                     title="Escolher outro relatório em produção">
                 {% for rel in todos_relatorios %}
                 <option value="{{ url_for('relatorio.editor_autor') }}?id_versao={{ rel.id }}"
@@ -314,7 +313,7 @@
                     <form method="POST"
                           action="/relatorio/versao-trabalho/{{ versao.id }}/editor-autor/enviar-final"
                           class="acao-form"
-                          onsubmit="return confirm('Enviar conteúdo final ao coordenador? Depois disso sua edição ficará bloqueada.');">
+                          data-envio-final="1">
                         <button type="submit"
                                 class="acao-btn"
                                 {% if not capitulos_do_autor_ids %}disabled{% endif %}>

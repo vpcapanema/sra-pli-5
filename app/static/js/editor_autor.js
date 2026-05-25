@@ -169,6 +169,32 @@
     }
 
     // ======================================================
+    // Seletor de relatorio: navega para o valor da option
+    // (migrado de onchange inline em editor_autor.html — R11)
+    // ======================================================
+    const selRel = document.getElementById('ea-rel-select');
+    if (selRel) {
+        selRel.addEventListener('change', (ev) => {
+            const v = ev.target.value;
+            if (v) window.location.href = v;
+        });
+    }
+
+    // ======================================================
+    // Form de envio final: confirmação antes de submeter
+    // (migrado de onsubmit inline em editor_autor.html — R12)
+    // ======================================================
+    const formEnvio = document.querySelector('form.acao-form[data-envio-final="1"]');
+    if (formEnvio) {
+        formEnvio.addEventListener('submit', (ev) => {
+            if (!window.confirm('Enviar conteúdo final ao coordenador? Depois disso sua edição ficará bloqueada.')) {
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        });
+    }
+
+    // ======================================================
     // 4. Scroll ate o capitulo selecionado
     // ======================================================
     if (capSelect) {

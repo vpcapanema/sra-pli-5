@@ -8,7 +8,7 @@
         SRALogger.info('visualizador_parametros.js carregado');
     }
 
-    var vpDataScript = document.getElementById('vpData');
+    const vpDataScript = document.getElementById('vpData');
     if (!vpDataScript) {
         if (typeof SRALogger !== 'undefined') {
             SRALogger.warn('Elemento vpData não encontrado');
@@ -16,12 +16,12 @@
         return;
     }
 
-    var D = JSON.parse(vpDataScript.textContent) || {};
-    var macro = D.macro || [];
-    var capitulos = D.capitulos || [];
-    var fmt = D.formatacao || {};
-    var docxContainer = document.getElementById('docxContainer');
-    var pagesContainer = document.getElementById('vpPages');
+    const D = JSON.parse(vpDataScript.textContent) || {};
+    const macro = D.macro || [];
+    const capitulos = D.capitulos || [];
+    const fmt = D.formatacao || {};
+    const docxContainer = document.getElementById('docxContainer');
+    const pagesContainer = document.getElementById('vpPages');
 
     if (typeof SRALogger !== 'undefined') {
         SRALogger.debug('Dados carregados: ' + macro.length + ' macros, ' + capitulos.length + ' capítulos');
@@ -31,17 +31,17 @@
     if (docxContainer) docxContainer.style.display = 'flex';
     if (pagesContainer) pagesContainer.style.display = 'none';
 
-    var TIPO_LABEL = {
+    const TIPO_LABEL = {
         capa: 'Capa', pre_textual: 'Pré-textuais',
         textual: 'Textuais', pos_textual: 'Pós-textuais'
     };
-    var activeTab = 'documento';
+    let activeTab = 'documento';
 
     function mm(v) { return v + 'mm'; }
 
     // ---- helpers ----
     function el(tag, cls, html) {
-        var e = document.createElement(tag);
+        const e = document.createElement(tag);
         if (cls) e.className = cls;
         if (html !== undefined) e.innerHTML = html;
         return e;
@@ -51,37 +51,37 @@
             + (value != null ? value : '—') + '</span>';
     }
     function findEstiloRaw(id) {
-        var arr = fmt.estilos_paragrafo || [];
-        for (var i = 0; i < arr.length; i++) {
+        const arr = fmt.estilos_paragrafo || [];
+        for (let i = 0; i < arr.length; i++) {
             if (arr[i].style_id === id || arr[i].nome === id)
                 return arr[i];
         }
         return null;
     }
     function getEstilo(id) {
-        var est = findEstiloRaw(id);
+        const est = findEstiloRaw(id);
         if (!est) return null;
         // Resolve inheritance chain
-        var merged = {};
-        var chain = [];
-        var cur = est;
-        var seen = {};
+        const merged = {};
+        const chain = [];
+        let cur = est;
+        const seen = {};
         while (cur && !seen[cur.style_id]) {
             chain.unshift(cur);
             seen[cur.style_id] = true;
             cur = cur.base_style
                 ? findEstiloRaw(cur.base_style) : null;
         }
-        var props = [
+        const props = [
             'fonte_nome', 'fonte_tamanho_pt', 'negrito',
             'italico', 'sublinhado', 'cor_rgb', 'alinhamento',
             'espacamento_antes_pt', 'espacamento_depois_pt',
             'entre_linhas', 'recuo_esquerda_cm',
             'recuo_direita_cm', 'recuo_primeira_linha_cm'
         ];
-        for (var i = 0; i < chain.length; i++) {
-            for (var j = 0; j < props.length; j++) {
-                var p = props[j];
+        for (let i = 0; i < chain.length; i++) {
+            for (let j = 0; j < props.length; j++) {
+                const p = props[j];
                 if (chain[i][p] != null) merged[p] = chain[i][p];
             }
         }
@@ -91,7 +91,7 @@
     }
     function alignMap(a) {
         if (!a) return '';
-        var m = {
+        const m = {
             'LEFT (0)': 'left', 'CENTER (1)': 'center',
             'RIGHT (2)': 'right', 'JUSTIFY (3)': 'justify'
         };
@@ -106,7 +106,7 @@
         if (est.negrito) node.style.fontWeight = 'bold';
         if (est.italico) node.style.fontStyle = 'italic';
         if (est.cor_rgb) node.style.color = '#' + est.cor_rgb;
-        var al = alignMap(est.alinhamento);
+        const al = alignMap(est.alinhamento);
         if (al) node.style.textAlign = al;
         if (est.espacamento_antes_pt)
             node.style.marginTop = est.espacamento_antes_pt + 'pt';
@@ -122,7 +122,7 @@
 
     // ---- section helpers ----
     function getSecao(idx) {
-        var secoes = fmt.secoes || [];
+        const secoes = fmt.secoes || [];
         return secoes[idx] || secoes[0] || {
             largura_pagina_mm: 210, altura_pagina_mm: 297,
             margem_top_mm: 25, margem_right_mm: 30,
@@ -131,7 +131,7 @@
     }
     function getSectionForBloco(bloco) {
         if (!bloco) return getSecao(0);
-        var indices = bloco.secoes_indices || [];
+        const indices = bloco.secoes_indices || [];
         return indices.length ? getSecao(indices[0]) : getSecao(0);
     }
 
@@ -147,7 +147,7 @@
     }
     function highlightBlock(key) {
         clearHighlights();
-        var targets = pagesContainer.querySelectorAll(
+        const targets = pagesContainer.querySelectorAll(
             '[data-block="' + key + '"]'
         );
         targets.forEach(function (t) {
@@ -163,18 +163,18 @@
     // ==============================================================
     // PAGE CREATION — Word-like pages
     // ==============================================================
-    var pageCounter = 0;
+    let pageCounter = 0;
 
     function createPage(secao, secIdx, showBadge) {
         pageCounter++;
-        var w = secao.largura_pagina_mm || 210;
-        var h = secao.altura_pagina_mm || 297;
-        var mt = secao.margem_top_mm || 25;
-        var mr = secao.margem_right_mm || 30;
-        var mb = secao.margem_bottom_mm || 20;
-        var ml = secao.margem_left_mm || 30;
+        const w = secao.largura_pagina_mm || 210;
+        const h = secao.altura_pagina_mm || 297;
+        const mt = secao.margem_top_mm || 25;
+        const mr = secao.margem_right_mm || 30;
+        const mb = secao.margem_bottom_mm || 20;
+        const ml = secao.margem_left_mm || 30;
 
-        var pg = el('div', 'vp__page');
+        const pg = el('div', 'vp__page');
         pg.style.width = mm(w);
         pg.style.height = mm(h);
         pg.style.paddingTop = mm(mt);
@@ -183,7 +183,7 @@
         pg.style.paddingLeft = mm(ml);
 
         // Margin guide (dashed inner border)
-        var guide = el('div', 'vp__page-margin-guide');
+        const guide = el('div', 'vp__page-margin-guide');
         guide.style.position = 'absolute';
         guide.style.top = mm(mt);
         guide.style.right = mm(mr);
@@ -195,7 +195,7 @@
         pg.appendChild(guide);
 
         if (showBadge !== false) {
-            var badge = el('div', 'vp__page-section-badge',
+            const badge = el('div', 'vp__page-section-badge',
                 'Seção ' + (secIdx + 1) + ' · '
                 + Math.round(w) + '×' + Math.round(h) + 'mm'
                 + ' · M: ' + mt.toFixed(1) + '/'
@@ -205,7 +205,7 @@
             pg.appendChild(badge);
         }
 
-        var num = el('div', 'vp__page-number',
+        const num = el('div', 'vp__page-number',
             String(pageCounter));
         pg.appendChild(num);
 
@@ -216,16 +216,16 @@
     // ==============================================================
     // DOCX-PREVIEW — shared fetch + render
     // ==============================================================
-    var docxBlob = null; // cached blob
+    let docxBlob = null; // cached blob
 
     function fetchDocx(cb) {
         if (docxBlob) { cb(docxBlob); return; }
-        var url = D.docxUrl;
+        const url = D.docxUrl;
         if (!url) {
             cb(null);
             return;
         }
-        var xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.responseType = 'arraybuffer';
         xhr.onload = function () {
@@ -287,30 +287,30 @@
         pageCounter = 0;
 
         if (!macro.length) {
-            var pg0 = createPage(getSecao(0), 0);
+            const pg0 = createPage(getSecao(0), 0);
             pg0.appendChild(el('p', '',
                 '<em>Nenhum dado macro extraído.</em>'));
             return;
         }
 
         macro.forEach(function (bloco) {
-            var sec = getSectionForBloco(bloco);
-            var secIdx = (bloco.secoes_indices || [0])[0] || 0;
-            var pg = createPage(sec, secIdx);
+            const sec = getSectionForBloco(bloco);
+            const secIdx = (bloco.secoes_indices || [0])[0] || 0;
+            const pg = createPage(sec, secIdx);
             pg.setAttribute('data-block', 'macro.' + bloco.tipo);
 
-            var lbl = el('div',
+            const lbl = el('div',
                 'vp-label vp-label--' + bloco.tipo,
                 (TIPO_LABEL[bloco.tipo] || bloco.tipo)
                     .toUpperCase());
             pg.appendChild(lbl);
 
-            var title = el('div', 'vp__macro-page-title');
+            const title = el('div', 'vp__macro-page-title');
             title.innerHTML = '<strong>'
                 + (TIPO_LABEL[bloco.tipo] || bloco.tipo)
                 + '</strong>';
             if (bloco.titulos && bloco.titulos.length) {
-                var ul = el('ul', '');
+                const ul = el('ul', '');
                 ul.style.textAlign = 'left';
                 ul.style.marginTop = '16px';
                 ul.style.fontSize = '10pt';
@@ -321,9 +321,9 @@
                 });
                 title.appendChild(ul);
             }
-            var nPar = bloco.fim_paragrafo
+            const nPar = bloco.fim_paragrafo
                 - bloco.inicio_paragrafo + 1;
-            var meta = el('div', '');
+            const meta = el('div', '');
             meta.style.marginTop = '12px';
             meta.style.fontSize = '8pt';
             meta.style.color = '#999';
@@ -342,11 +342,11 @@
         pagesContainer.innerHTML = '';
         pageCounter = 0;
 
-        var sec0 = getSecao(0);
-        var pg = createPage(sec0, 0, false);
+        const sec0 = getSecao(0);
+        const pg = createPage(sec0, 0, false);
         pg.classList.add('vp__cap-tree-page');
 
-        var lbl = el('div', 'vp-label vp-label--textual',
+        const lbl = el('div', 'vp-label vp-label--textual',
             'ÁRVORE DE CAPÍTULOS');
         pg.appendChild(lbl);
         pg.appendChild(el('div', '', '&nbsp;'));
@@ -360,11 +360,11 @@
     }
 
     function buildTreeOnPage(pg, caps, numPrefix, level) {
-        for (var i = 0; i < caps.length; i++) {
-            var cap = caps[i];
-            var num = numPrefix + (i + 1);
-            var lvlCls = 'cap-item cap-level-' + level;
-            var item = el('div', lvlCls);
+        for (let i = 0; i < caps.length; i++) {
+            const cap = caps[i];
+            const num = numPrefix + (i + 1);
+            const lvlCls = 'cap-item cap-level-' + level;
+            const item = el('div', lvlCls);
             item.setAttribute('data-block',
                 'cap.' + numPrefix.replace(/\./g, '') + i);
             item.innerHTML =
@@ -414,13 +414,13 @@
 
     // Helpers to find macro blocks
     function findBloco(tipo) {
-        for (var i = 0; i < macro.length; i++) {
+        for (let i = 0; i < macro.length; i++) {
             if (macro[i].tipo === tipo) return macro[i];
         }
         return null;
     }
     function findBlocoSecIdx(tipo) {
-        var b = findBloco(tipo);
+        const b = findBloco(tipo);
         return b && b.secoes_indices && b.secoes_indices.length
             ? b.secoes_indices[0] : 0;
     }
@@ -429,20 +429,20 @@
     // 1. MACRO — inspector timeline
     // ==============================================================
     function buildMacroTimeline() {
-        var tl = document.getElementById('macroTimeline');
+        const tl = document.getElementById('macroTimeline');
         if (!tl) return;
         tl.innerHTML = '';
         macro.forEach(function (bloco) {
-            var nPar = bloco.fim_paragrafo
+            const nPar = bloco.fim_paragrafo
                 - bloco.inicio_paragrafo + 1;
-            var secInfo = '';
+            let secInfo = '';
             if (bloco.secoes_indices && bloco.secoes_indices.length) {
                 secInfo = ' · Seções: '
                     + bloco.secoes_indices.map(function (si) {
                         return si + 1;
                     }).join(', ');
             }
-            var card = el('div', 'vp__macro-block');
+            const card = el('div', 'vp__macro-block');
             card.innerHTML =
                 '<div class="vp__macro-bar vp__macro-bar--'
                     + bloco.tipo + '"></div>'
@@ -473,17 +473,17 @@
     // 2. CAPÍTULOS — inspector tree
     // ==============================================================
     function buildCapTree() {
-        var tree = document.getElementById('capTree');
+        const tree = document.getElementById('capTree');
         if (!tree) return;
         tree.innerHTML = '';
         renderTree(tree, capitulos, '', '');
     }
     function renderTree(container, caps, prefix, numPrefix) {
-        for (var i = 0; i < caps.length; i++) {
-            var cap = caps[i];
-            var key = 'cap.' + prefix + i;
-            var num = numPrefix + (i + 1);
-            var node = el('div', 'vp__tree-node');
+        for (let i = 0; i < caps.length; i++) {
+            const cap = caps[i];
+            const key = 'cap.' + prefix + i;
+            const num = numPrefix + (i + 1);
+            const node = el('div', 'vp__tree-node');
             node.innerHTML =
                 '<span class="vp__tree-level">H'
                 + cap.nivel + '</span>'
@@ -498,7 +498,7 @@
             })(key, node));
             container.appendChild(node);
             if (cap.filhos && cap.filhos.length) {
-                var children = el('div', 'vp__tree-children');
+                const children = el('div', 'vp__tree-children');
                 renderTree(children, cap.filhos,
                     prefix + i + '.', num + '.');
                 container.appendChild(children);
@@ -518,18 +518,18 @@
     }
 
     function buildSecoes() {
-        var body = document.getElementById('subSecoesBody');
+        const body = document.getElementById('subSecoesBody');
         if (!body) return;
         body.innerHTML = '';
-        var secoes = fmt.secoes || [];
+        const secoes = fmt.secoes || [];
         if (!secoes.length) {
             body.innerHTML = '<p style="font-size:.75rem;color:#999">'
                 + 'Nenhuma seção extraída.</p>';
             return;
         }
         secoes.forEach(function (s, i) {
-            var card = el('div', 'vp__fmt-card');
-            var parRange = '';
+            const card = el('div', 'vp__fmt-card');
+            let parRange = '';
             if (s.inicio_paragrafo !== undefined) {
                 parRange = fmtTag('Parágrafos',
                     '§' + s.inicio_paragrafo
@@ -566,10 +566,10 @@
     }
 
     function buildEstilosParagrafo() {
-        var body = document.getElementById('subEstilosBody');
+        const body = document.getElementById('subEstilosBody');
         if (!body) return;
         body.innerHTML = '';
-        var estilos = (fmt.estilos_paragrafo || []).filter(
+        const estilos = (fmt.estilos_paragrafo || []).filter(
             function (e) {
                 return e.fonte_nome || e.fonte_tamanho_pt;
             }
@@ -580,7 +580,7 @@
             return;
         }
         estilos.forEach(function (est) {
-            var card = el('div', 'vp__fmt-card');
+            const card = el('div', 'vp__fmt-card');
             card.innerHTML =
                 '<div class="vp__fmt-card-title">' + est.nome
                 + ' <small style="color:#999">('
@@ -606,7 +606,7 @@
                 + est.style_id + '">Texto de exemplo com este '
                 + 'estilo aplicado.</div>';
             setTimeout(function () {
-                var prev = document.getElementById(
+                const prev = document.getElementById(
                     'prev-' + est.style_id);
                 if (prev) applyCss(prev, est);
             }, 0);
@@ -619,10 +619,10 @@
     }
 
     function buildEstilosCaractere() {
-        var body = document.getElementById('subCaractereBody');
+        const body = document.getElementById('subCaractereBody');
         if (!body) return;
         body.innerHTML = '';
-        var estilos = (fmt.estilos_caractere || []).filter(
+        const estilos = (fmt.estilos_caractere || []).filter(
             function (e) {
                 return e.fonte_nome || e.negrito || e.italico;
             }
@@ -633,7 +633,7 @@
             return;
         }
         estilos.forEach(function (est) {
-            var card = el('div', 'vp__fmt-card');
+            const card = el('div', 'vp__fmt-card');
             card.innerHTML =
                 '<div class="vp__fmt-card-title">'
                 + est.nome + '</div>'
@@ -649,18 +649,18 @@
     }
 
     function buildNumeracao() {
-        var body = document.getElementById('subNumeracaoBody');
+        const body = document.getElementById('subNumeracaoBody');
         if (!body) return;
         body.innerHTML = '';
-        var nums = fmt.numeracao || [];
+        const nums = fmt.numeracao || [];
         if (!nums.length) {
             body.innerHTML = '<p style="font-size:.75rem;color:#999">'
                 + 'Nenhuma numeração extraída.</p>';
             return;
         }
         nums.forEach(function (num) {
-            var card = el('div', 'vp__fmt-card');
-            var niveis = (num.niveis || []).map(function (n) {
+            const card = el('div', 'vp__fmt-card');
+            const niveis = (num.niveis || []).map(function (n) {
                 return fmtTag('Nv' + n.nivel,
                     (n.formato || '?') + ' "'
                     + (n.texto_nivel || '') + '"');
@@ -674,11 +674,11 @@
     }
 
     function buildProps() {
-        var body = document.getElementById('subPropsBody');
+        const body = document.getElementById('subPropsBody');
         if (!body) return;
         body.innerHTML = '';
-        var props = fmt.propriedades_documento || {};
-        var card = el('div', 'vp__fmt-card');
+        const props = fmt.propriedades_documento || {};
+        const card = el('div', 'vp__fmt-card');
         card.innerHTML =
             '<div class="vp__fmt-row">'
             +   fmtTag('Título', props.titulo || '—')

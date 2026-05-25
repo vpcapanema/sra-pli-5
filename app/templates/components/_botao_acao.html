@@ -22,7 +22,8 @@
       action="{{ url_for('acoes.executar', id_rel=id_relatorio, acao_id=acao.id) }}"
       class="acao-form"
       {% if tem_confirmacao %}
-      onsubmit='return confirm({{ acao.confirmacao | tojson }});'
+      data-confirm
+      data-confirm-message="{{ acao.confirmacao }}"
       {% endif %}>
     <button type="submit"
             class="acao-btn {{ classe }} {% if not item.disponivel %}acao-btn--disabled{% endif %}"

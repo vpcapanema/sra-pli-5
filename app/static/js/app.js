@@ -280,6 +280,15 @@ function processarFlashMessages() {
 document.addEventListener('DOMContentLoaded', function() {
     sraInit();
     processarFlashMessages();
+
+    // Migração de onchange inline de #seletor_relatorio (R15)
+    const selRel = document.getElementById('seletor_relatorio');
+    if (selRel) {
+        selRel.addEventListener('change', function (ev) {
+            const v = ev.target.value;
+            if (v) window.location.href = '/relatorio/versao-trabalho/' + v;
+        });
+    }
 });
 
 // Re-init after HTMX swaps new content

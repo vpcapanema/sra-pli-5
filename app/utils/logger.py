@@ -7,6 +7,32 @@ from flask import request, session
 from flask_login import current_user
 
 
+# Logger dedicado a falhas internas do próprio handler.
+# Não propaga e usa apenas StreamHandler (stderr) para evitar reentrar em SRALogHandler.
+_logger_handler_emit = logging.getLogger('sra.handler_emit')
+_logger_handler_emit.propagate = False
+if not _logger_handler_emit.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(
+        logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+    )
+    _logger_handler_emit.addHandler(_h)
+_logger_handler_emit.setLevel(logging.WARNING)
+
+
+def _logar_warning_sem_recursao(contexto: str, exc: BaseException) -> None:
+    """Registra warning interno do SRALogHandler sem reentrar no próprio handler."""
+    try:
+        _logger_handler_emit.warning(
+            "Falha em %s: %s: %s", contexto, type(exc).__name__, str(exc)
+        )
+    except Exception:
+        # Suprime falha secundária para não quebrar o emit original.
+        pass
+
+
 class SRALogHandler(logging.Handler):
     """Handler personalizado que armazena logs em memória
     para exibição no navegador."""
@@ -27,22 +53,35 @@ class SRALogHandler(logging.Handler):
                         user_name = getattr(
                             current_user, 'nome', 'anonymous'
                         )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _logar_warning_sem_recursao(
+                        'obtenção de current_user.nome em SRALogHandler.emit',
+                        exc,
+                    )
+                    user_name = 'anonymous'
 
                 perfil = ''
                 try:
                     perfil = session.get('perfil_ativo', '')
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _logar_warning_sem_recursao(
+                        'obtenção de session.perfil_ativo em SRALogHandler.emit',
+                        exc,
+                    )
+                    perfil = ''
 
                 path = ''
                 method = ''
                 try:
                     path = request.path
                     method = request.method
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _logar_warning_sem_recursao(
+                        'obtenção de request.path/request.method em SRALogHandler.emit',
+                        exc,
+                    )
+                    path = ''
+                    method = ''
 
                 log_entry = {
                     'timestamp': datetime.fromtimestamp(
@@ -60,7 +99,11 @@ class SRALogHandler(logging.Handler):
                 # Manter apenas os últimos max_logs
                 if len(self.logs) > self.max_logs:
                     self.logs = self.logs[-self.max_logs:]
-        except Exception:
+        except Exception as exc:
+            _logar_warning_sem_recursao(
+                'SRALogHandler.emit (externo)',
+                exc,
+            )
             self.handleError(record)
 
     def get_logs(self, level=None, limit=100):

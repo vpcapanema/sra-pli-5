@@ -112,8 +112,18 @@
         });
     }
 
+    function bindSeletorRelatorio() {
+        const sel = document.getElementById('ec-rel-select');
+        if (!sel) return;
+        sel.addEventListener('change', function (ev) {
+            const v = ev.target.value;
+            if (v) window.location.href = v;
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         bindRecarregar();
+        bindSeletorRelatorio();
         montarEditor();
         if (typeof SRALogger !== 'undefined') {
             SRALogger.info('Editor do coordenador inicializado');

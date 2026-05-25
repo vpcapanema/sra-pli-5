@@ -396,7 +396,7 @@ def _anexar_numero_inline_equacao(p_element, numero_str: str) -> None:
 
     # Adicionar tab + (numero) como novo run
     r = etree.SubElement(p_element, f'{w}r')
-    tab = etree.SubElement(r, f'{w}tab')  # noqa: F841
+    etree.SubElement(r, f'{w}tab')
     t = etree.SubElement(r, f'{w}t')
     t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
     t.text = f'({numero_str})'

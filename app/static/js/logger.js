@@ -18,7 +18,7 @@
 (function () {
     'use strict';
 
-    var Logger = {
+    const Logger = {
         // Configurações
         enabled: true,
         prefix: '[SRA]',
@@ -37,8 +37,8 @@
 
         // Obter nome da página atual
         getPageName: function () {
-            var path = window.location.pathname;
-            var page = path.split('/').pop() || 'index';
+            const path = window.location.pathname;
+            let page = path.split('/').pop() || 'index';
             if (page.indexOf('.') !== -1) {
                 page = page.split('.')[0];
             }
@@ -47,15 +47,15 @@
 
         // Obter timestamp formatado
         getTimestamp: function () {
-            var now = new Date();
+            const now = new Date();
             return now.toISOString().split('T')[1].split('.')[0];
         },
 
         // Formatar mensagem com estilo
         formatMessage: function (level, message, data) {
-            var timestamp = this.getTimestamp();
-            var page = this.getPageName();
-            var prefix = this.prefix + ' [' + timestamp + '] [' + page + ']';
+            const timestamp = this.getTimestamp();
+            const page = this.getPageName();
+            const prefix = this.prefix + ' [' + timestamp + '] [' + page + ']';
             
             if (data) {
                 return prefix + ' ' + message + ' %O';
@@ -67,11 +67,11 @@
         log: function (level, message, data) {
             if (!this.enabled) return;
             
-            var levels = { debug: 0, info: 1, warn: 2, error: 3 };
+            const levels = { debug: 0, info: 1, warn: 2, error: 3 };
             if (levels[level] < levels[this.logLevel]) return;
 
-            var style = 'color: ' + this.colors[level] + '; font-weight: bold;';
-            var formattedMsg = this.formatMessage(level, message, data);
+            const style = 'color: ' + this.colors[level] + '; font-weight: bold;';
+            const formattedMsg = this.formatMessage(level, message, data);
 
             switch (level) {
                 case 'error':
@@ -109,9 +109,9 @@
 
         // Log de visualização de página
         pageView: function (pageName) {
-            var name = pageName || this.getPageName();
-            var style = 'color: ' + this.colors.page + '; font-weight: bold; font-size: 14px;';
-            var timestamp = this.getTimestamp();
+            const name = pageName || this.getPageName();
+            const style = 'color: ' + this.colors.page + '; font-weight: bold; font-size: 14px;';
+            const timestamp = this.getTimestamp();
             console.log(
                 '%c' + this.prefix + ' [' + timestamp + '] === PÁGINA CARREGADA: ' + name + ' ===',
                 style
@@ -124,20 +124,20 @@
         click: function (element, context) {
             if (!element) return;
             
-            var tagName = element.tagName.toLowerCase();
-            var id = element.id ? '#' + element.id : '';
-            var classes = element.className ? '.' + element.className.split(' ').join('.') : '';
-            var selector = tagName + id + classes;
-            var text = element.textContent ? element.textContent.trim().substring(0, 30) : '';
+            const tagName = element.tagName.toLowerCase();
+            const id = element.id ? '#' + element.id : '';
+            const classes = element.className ? '.' + element.className.split(' ').join('.') : '';
+            const selector = tagName + id + classes;
+            const text = element.textContent ? element.textContent.trim().substring(0, 30) : '';
             
-            var data = {
+            const data = {
                 selector: selector,
                 text: text,
                 context: context || 'unknown'
             };
             
-            var style = 'color: ' + this.colors.click + '; font-weight: bold;';
-            var timestamp = this.getTimestamp();
+            const style = 'color: ' + this.colors.click + '; font-weight: bold;';
+            const timestamp = this.getTimestamp();
             console.log(
                 '%c' + this.prefix + ' [' + timestamp + '] 🖱️ CLIQUE: ' + selector,
                 style,
@@ -149,15 +149,15 @@
         formSubmit: function (form, data) {
             if (!form) return;
             
-            var action = form.action || 'unknown';
-            var method = form.method || 'unknown';
-            var formData = {};
+            const action = form.action || 'unknown';
+            const method = form.method || 'unknown';
+            let formData = {};
             
             if (data) {
                 formData = data;
             } else {
                 // Coletar dados do formulário
-                var inputs = form.querySelectorAll('input, select, textarea');
+                const inputs = form.querySelectorAll('input, select, textarea');
                 inputs.forEach(function (input) {
                     if (input.name) {
                         formData[input.name] = input.type === 'password' ? '***' : input.value;
@@ -165,14 +165,14 @@
                 });
             }
             
-            var logData = {
+            const logData = {
                 action: action,
                 method: method,
                 data: formData
             };
             
-            var style = 'color: ' + this.colors.form + '; font-weight: bold;';
-            var timestamp = this.getTimestamp();
+            const style = 'color: ' + this.colors.form + '; font-weight: bold;';
+            const timestamp = this.getTimestamp();
             console.log(
                 '%c' + this.prefix + ' [' + timestamp + '] 📝 FORMULÁRIO SUBMETIDO: ' + method.toUpperCase() + ' ' + action,
                 style,
@@ -182,7 +182,7 @@
 
         // Log de erro
         logError: function (error, context) {
-            var data = {
+            const data = {
                 message: error.message,
                 stack: error.stack,
                 context: context || 'unknown'
@@ -197,8 +197,8 @@
 
         // Log de resposta HTTP
         httpResponse: function (method, url, status, data) {
-            var style = status >= 400 ? 'color: ' + this.colors.error : 'color: ' + this.colors.info;
-            var timestamp = this.getTimestamp();
+            const style = status >= 400 ? 'color: ' + this.colors.error : 'color: ' + this.colors.info;
+            const timestamp = this.getTimestamp();
             console.log(
                 '%c' + this.prefix + ' [' + timestamp + '] 📥 RESPOSTA HTTP: ' + status + ' ' + method.toUpperCase() + ' ' + url,
                 style,
@@ -208,20 +208,20 @@
 
         // Inicializar logging automático de eventos globais
         initAutoLogging: function () {
-            var self = this;
+            const self = this;
 
             // Log de cliques em elementos com data-log-click
             document.addEventListener('click', function (e) {
-                var target = e.target.closest('[data-log-click]');
+                const target = e.target.closest('[data-log-click]');
                 if (target) {
-                    var context = target.dataset.logClick || 'click';
+                    const context = target.dataset.logClick || 'click';
                     self.click(target, context);
                 }
             }, true);
 
             // Log de submissão de formulários
             document.addEventListener('submit', function (e) {
-                var form = e.target;
+                const form = e.target;
                 if (form.tagName === 'FORM') {
                     self.formSubmit(form);
                 }
@@ -241,8 +241,8 @@
             });
 
             // Log de navegação (History API)
-            var originalPushState = history.pushState;
-            var originalReplaceState = history.replaceState;
+            const originalPushState = history.pushState;
+            const originalReplaceState = history.replaceState;
 
             history.pushState = function () {
                 originalPushState.apply(this, arguments);

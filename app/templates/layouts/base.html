@@ -24,6 +24,7 @@
     {% endwith %}
     <script src="{{ url_for('static', filename='js/logger.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/confirmacao_form.js') }}?v={{ static_v('js/confirmacao_form.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

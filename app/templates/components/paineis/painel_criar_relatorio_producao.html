@@ -63,7 +63,7 @@
                 {% endfor %}
             </select>
         </div>
-        <button type="button" class="sra-button sra-button--primary" onclick="clonarDaBiblioteca()">Criar Relatório de Produção</button>
+        <button type="button" class="sra-button sra-button--primary" data-clonar-da-biblioteca>Criar Relatório de Produção</button>
     </div>
 </div>
 
@@ -196,3 +196,5 @@ function clonarDaBiblioteca() {
     });
 }
 </script>
+
+<script src="{{ url_for('static', filename='js/painel_clonar.js') }}?v={{ static_v('js/painel_clonar.js') }}" defer></script>

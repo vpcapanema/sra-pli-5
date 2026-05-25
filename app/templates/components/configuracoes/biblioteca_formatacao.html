@@ -16,7 +16,7 @@
                 <a href="{{ url_for('configuracoes.editar_biblioteca_formatacao', id_bib=b.id_biblioteca_formatacao_canonica) }}" class="sra-btn-icon" title="Editar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                 </a>
-                <form method="POST" action="{{ url_for('configuracoes.excluir_biblioteca_formatacao', id_bib=b.id_biblioteca_formatacao_canonica) }}" class="sra-inline-form" onsubmit="return confirm('Excluir biblioteca &quot;{{ b.nome_biblioteca }}&quot;? Esta ação não pode ser desfeita.');">
+                <form method="POST" action="{{ url_for('configuracoes.excluir_biblioteca_formatacao', id_bib=b.id_biblioteca_formatacao_canonica) }}" class="sra-inline-form" data-confirm data-confirm-message='Excluir biblioteca "{{ b.nome_biblioteca }}"? Esta ação não pode ser desfeita.'>
                     <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>

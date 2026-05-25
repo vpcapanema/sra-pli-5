@@ -740,8 +740,8 @@ ul {
 }
 .sigma-pli-conteiner__icon--lg svg,
 .sigma-pli-conteiner__icon--lg svg * {
-  stroke: var(--sra-color-icon-green) !important;
-  fill: none !important;
+  stroke: var(--sra-color-icon-green);
+  fill: none;
   stroke-width: 2;
 }
 
@@ -1382,7 +1382,7 @@ details[open] .sra-collapse__header i {
   position: relative;
 }
 .sra-tree__item--hidden {
-  display: none !important;
+  display: none;
 }
 .sra-tree__toggle {
   background: none;
@@ -1403,15 +1403,15 @@ details[open] .sra-collapse__header i {
   color: var(--sra-color-primary);
 }
 .sra-tree__toggle[hidden] {
-  display: none !important;
+  display: none;
 }
 
 /* --- Tabela colapsável de capítulos --- */
 .sra-table--cap-collapsible .sra-cap-row--hidden {
-  display: none !important;
+  display: none;
 }
 .sra-table__header--left {
-  text-align: left !important;
+  text-align: left;
 }
 
 /* Coluna índice: posição relativa para ancorar o caret */
@@ -1440,7 +1440,7 @@ details[open] .sra-collapse__header i {
   transform: scale(1.15);
 }
 .sra-cap-toggle[hidden] {
-  display: none !important;
+  display: none;
 }
 .sra-cap-index-value {
   display: inline-block;
@@ -1448,7 +1448,7 @@ details[open] .sra-collapse__header i {
 
 /* Coluna Título: alinhada à esquerda + indentação por nível */
 .sra-cap-cell--title {
-  text-align: left !important;
+  text-align: left;
 }
 .sra-cap-cell--title-level-1 { padding-left: 0.5rem; font-weight: 600; }
 .sra-cap-cell--title-level-2 { padding-left: 1.75rem; font-weight: 500; }
