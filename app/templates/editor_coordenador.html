@@ -44,7 +44,6 @@
             <div class="ec__rel-selector">
                 <label for="ec-rel-select" class="sra-sr-only">Relatório:</label>
                 <select id="ec-rel-select" class="ec__rel-select"
-                        onchange="if(this.value){window.location.href=this.value;}"
                         title="Escolher outro relatório">
                     {% for rel in todos_relatorios %}
                     <option value="{{ url_for('relatorio.editor_coordenador', id_versao=rel.id) }}"

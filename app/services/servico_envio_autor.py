@@ -88,7 +88,6 @@ def gerar_docx_segmento(envio, capitulo):
     doc_origem = Document(envio.caminho_arquivo)
     novo = Document()
 
-    cap_atual_norm = None
     coletando = False
     qtd = 0
     for para in doc_origem.paragraphs:
@@ -98,7 +97,6 @@ def gerar_docx_segmento(envio, capitulo):
         if nivel is not None and texto:
             norm = _normalizar(texto)
             if norm in mapa:
-                cap_atual_norm = norm
                 coletando = (norm == alvo_norm)
                 continue
         if not coletando:
@@ -222,9 +220,6 @@ class ServicoEnvioAutor:
             return
 
         # Extrair estrutura completa do DOCX usando ServicoExtracaoCanonica
-        from app.services.servico_extracao_canonica import (  # noqa: C0415
-            ServicoExtracaoCanonica,
-        )
         estrutura = cls._extrair_estrutura_completa(doc)
 
         # Armazenar estrutura no envio para uso na prévia

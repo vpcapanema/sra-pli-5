@@ -22,7 +22,7 @@
     <div class="sra-page-header__content">
         <div class="sra-page-header__select">
             <label class="sra-input__label" for="seletor_relatorio">Relatório em Produção:</label>
-            <select class="sra-input__field" id="seletor_relatorio" onchange="window.location.href='/relatorio/versao-trabalho/' + this.value">
+            <select class="sra-input__field" id="seletor_relatorio">
                 {% for rel in relatorios_producao %}
                 <option value="{{ rel.id_versao_trabalho }}" {{ 'selected' if rel.id_versao_trabalho == versao_trabalho.id else '' }}>
                     {{ rel.codigo_d20 }} — {{ rel.titulo_curto or 'Sem título' }}

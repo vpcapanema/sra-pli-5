@@ -65,7 +65,8 @@
 {# -- Excluir (form POST com confirm) ----------------------------- #}
 {% macro btn_excluir(action_url, confirmacao='Excluir este item e seu arquivo associado?', titulo='Excluir') %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form"
-      onsubmit='return confirm({{ confirmacao | tojson }});'>
+      data-confirm
+      data-confirm-message="{{ confirmacao }}">
     <button type="submit" class="sra-btn-icon sra-btn-icon--delete" title="{{ titulo }}">
         <i class="ph-fill ph-trash" aria-hidden="true"></i>
         <span class="sra-sr-only">{{ titulo }}</span>
