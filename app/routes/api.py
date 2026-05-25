@@ -239,17 +239,24 @@ def buscar_segmentos_envio(id_envio):
 
     segmentos = []
     for prev in previas:
-        if prev.id_capitulo_destino:
-            cap = CapituloDocumento.query.get(prev.id_capitulo_destino)
-            if cap:
-                segmentos.append({
-                    'id_previsualizacao': prev.id_previsualizacao,
-                    'id_capitulo': cap.id_capitulo_documento,
-                    'titulo_capitulo': cap.titulo_capitulo,
-                    'indice_capitulo': cap.indice_capitulo,
-                    'resultado_html': prev.resultado_html,
-                    'tipo_previsualizacao': prev.tipo_previsualizacao,
-                })
+        # O id do capítulo de destino é gravado como string em
+        # `caminho_saida` por servico_envio_autor (não há coluna
+        # dedicada no modelo PrevisualizacaoConteudo).
+        cap = None
+        if prev.caminho_saida:
+            try:
+                cap = CapituloDocumento.query.get(int(prev.caminho_saida))
+            except (ValueError, TypeError):
+                cap = None
+        if cap:
+            segmentos.append({
+                'id_previsualizacao': prev.id_previsualizacao,
+                'id_capitulo': cap.id_capitulo_documento,
+                'titulo_capitulo': cap.titulo_capitulo,
+                'indice_capitulo': cap.indice_capitulo,
+                'resultado_html': prev.resultado_html,
+                'tipo_previsualizacao': prev.tipo_previsualizacao,
+            })
 
     return jsonify({'segmentos': segmentos})
 

@@ -6,7 +6,7 @@ from io import BytesIO
 import json
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import (
     Blueprint,
@@ -1065,7 +1065,7 @@ def editar_relatorio_producao_inline(id_relatorio):
                 dados["periodo_fim"], "%Y-%m-%d"
             ).date()
 
-        relatorio.atualizado_em = datetime.utcnow()
+        relatorio.atualizado_em = datetime.now(timezone.utc)
         db.session.commit()
         return jsonify(
             {
@@ -1313,11 +1313,16 @@ def reindexar_captions_route(id_relatorio):
         info = reindexar_captions(rel.caminho_template, perfil=perfil)
         mapa = info.get("mapa_labels", {}) if isinstance(info, dict) else {}
         n_refs = substituir_referencias(rel.caminho_template, mapa)
+        resolvidas = n_refs.get('tags_resolvidas', 0) if isinstance(n_refs, dict) else 0
+        nao_resolvidas = n_refs.get('tags_nao_resolvidas', 0) if isinstance(n_refs, dict) else 0
+        sufixo_nao_resolvidas = (
+            f', {nao_resolvidas} não resolvida(s)' if nao_resolvidas else ''
+        )
         flash(
             f'Reindexação concluída: {info.get("figuras", 0)} figuras, '
             f'{info.get("tabelas", 0)} tabelas, '
             f'{info.get("equacoes", 0)} equações; '
-            f"{n_refs} referência(s) atualizada(s).",
+            f'{resolvidas} ref(s) atualizada(s){sufixo_nao_resolvidas}.',
             "sucesso",
         )
     except (OSError, ValueError, RuntimeError) as e:
@@ -1437,7 +1442,7 @@ def upload_conteudo(id_versao, id_capitulo):
     # GET: retorna o componente de upload
     if request.method == "GET":
         envio = EnvioConteudo.query.filter_by(
-            id_capitulo_documento=id_capitulo, status_envio="pendente"
+            id_capitulo_destino=id_capitulo, status_envio="pendente"
         ).first()
         return render_template(
             "components/capitulo/upload_docx.html",

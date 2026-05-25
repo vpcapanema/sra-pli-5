@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Run Backend",
+  "description": "Libera a porta 5000, abre o navegador em http://localhost:5000 e inicia o servidor Flask via venv",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Write-Host '--- Porta 5000 liberada ---'; Start-Sleep -Seconds 1; Start-Process 'http://localhost:5000'; .\\venv\\Scripts\\python run.py\"",
+    "timeout": 0
+  },
+  "workspaceFolderName": "sra-pli-5",
+  "shortName": "run-backend-flask"
+}

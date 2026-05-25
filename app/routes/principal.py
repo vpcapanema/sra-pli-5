@@ -57,7 +57,7 @@ def index():
 
 
 def _resolver_componentes(perfil):
-    if perfil == 'administrador':
+    if perfil == 'admin':
         return [
             'components/paineis/painel_indicadores.html',
             'components/paineis/painel_relatorios.html',
@@ -70,4 +70,6 @@ def _resolver_componentes(perfil):
         return [
             'components/paineis/painel_relatorios.html',
         ]
-    return []
+    # Fallback: evita <main> vazio quando o perfil não casa com nenhum
+    # dos conhecidos (ex.: sessão sem perfil definido).
+    return ['components/paineis/painel_relatorios.html']

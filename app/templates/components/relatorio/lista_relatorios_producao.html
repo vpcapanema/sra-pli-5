@@ -69,6 +69,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Escapa string para uso seguro em atributo HTML (evita XSS).
+    function escHtmlAttr(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
     // --- Editar inline ---
     document.querySelectorAll('.btn-editar-relatorio-producao').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -85,17 +94,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 html:
                     '<div class="sra-swal-form">' +
                     '<label class="sra-swal-form__label">Código D-20</label>' +
-                    '<input id="swal-codigo" class="swal2-input" value="' + codigo + '">' +
+                    '<input id="swal-codigo" class="swal2-input" value="' + escHtmlAttr(codigo) + '">' +
                     '<label class="sra-swal-form__label">Título Curto</label>' +
-                    '<input id="swal-titulo" class="swal2-input" value="' + titulo + '">' +
+                    '<input id="swal-titulo" class="swal2-input" value="' + escHtmlAttr(titulo) + '">' +
                     '<label class="sra-swal-form__label">Nº Medição</label>' +
-                    '<input id="swal-medicao" class="swal2-input" type="number" value="' + medicao + '">' +
+                    '<input id="swal-medicao" class="swal2-input" type="number" value="' + escHtmlAttr(medicao) + '">' +
                     '<label class="sra-swal-form__label">Período Início</label>' +
-                    '<input id="swal-periodo-inicio" class="swal2-input" type="date" value="' + pInicio + '">' +
+                    '<input id="swal-periodo-inicio" class="swal2-input" type="date" value="' + escHtmlAttr(pInicio) + '">' +
                     '<label class="sra-swal-form__label">Período Fim</label>' +
-                    '<input id="swal-periodo-fim" class="swal2-input" type="date" value="' + pFim + '">' +
+                    '<input id="swal-periodo-fim" class="swal2-input" type="date" value="' + escHtmlAttr(pFim) + '">' +
                     '<label class="sra-swal-form__label">Versão</label>' +
-                    '<input id="swal-versao" class="swal2-input" value="' + versao + '">' +
+                    '<input id="swal-versao" class="swal2-input" value="' + escHtmlAttr(versao) + '">' +
                     '</div>',
                 focusConfirm: false,
                 showCancelButton: true,

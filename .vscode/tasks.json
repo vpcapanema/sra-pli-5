@@ -18,7 +18,13 @@
                 "panel": "dedicated",
                 "clear": true
             },
-            "isBackground": true
+            "isBackground": true,
+            "statusbar": {
+                "hide": false,
+                "label": "$(play) Run Backend",
+                "tooltip": "Inicia o servidor Flask na porta 5000",
+                "color": "#4CAF50"
+            }
         }
     ]
 }
