@@ -130,6 +130,11 @@ def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
     assert len(cap_ids) == 2
 
 
+@pytest.mark.skip(reason=(
+    'Obsoleto pos-Fase 1: o servico_envio_autor.confirmar nao persiste '
+    'mais cap.conteudo_docx; faz merge in-place no DOCX em producao. '
+    'Substituido pelo smoke test em test_merge_docx.py.'
+))
 def test_confirmar_importa_conteudo_nos_capitulos(app, dados, tmp_path):
     buf = _criar_docx_simples(['Introdução', 'Metodologia'])
     fake = _FakeUpload(buf, 'envio.docx')
@@ -150,6 +155,10 @@ def test_confirmar_importa_conteudo_nos_capitulos(app, dados, tmp_path):
     assert envio_db.status_envio == 'importado'
 
 
+@pytest.mark.skip(reason=(
+    'Obsoleto pos-Fase 1: cap.conteudo_docx foi removido; o cancelamento '
+    'apenas muda status_envio para rejeitado.'
+))
 def test_confirmar_rejeitar_nao_altera_capitulos(app, dados, tmp_path):
     buf = _criar_docx_simples(['Introdução'])
     fake = _FakeUpload(buf, 'envio.docx')
@@ -246,6 +255,10 @@ def test_endpoint_baixar_segmento_docx(app, dados, tmp_path):
     assert 'Parágrafo' in textos
 
 
+@pytest.mark.skip(reason=(
+    'Endpoint salvar_envio_segmento_docx foi depreciado pos-Fase 1 '
+    '(retorna 410 Gone). Substituido pelo fluxo upload + merge.'
+))
 def test_endpoint_salvar_segmento_docx_html(app, dados, tmp_path):
     """PUT /api/envios/.../capitulos/.../docx aceita HTML editado."""
     buf = _criar_docx_simples(['Introdução'])
@@ -281,6 +294,10 @@ def test_endpoint_salvar_segmento_docx_html(app, dados, tmp_path):
     assert 'Novo conteúdo do autor' in textos
 
 
+@pytest.mark.skip(reason=(
+    '_gerar_docx_versao foi removido pos-Fase 1; o DOCX em producao '
+    '(caminho_template) e a fonte unica e e servido direto.'
+))
 def test_gerar_docx_versao_fallback(app, dados):
     d = Document()
     d.add_paragraph('Conteúdo do autor')

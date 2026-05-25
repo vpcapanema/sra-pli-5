@@ -1,9 +1,8 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Painel de Edição — Autor</h3>
-    </div>
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('edit', '', 'Painel de Edição — Autor') }}
     <div class="sra-card__content">
         {% if capitulos_autor %}
             {% set linhas_cap = [] %}
@@ -28,7 +27,7 @@
                 ]) %}
             {% endfor %}
             {{ tabela(
-                colunas=['ID', 'Índice', 'Título', 'Status', 'Ações'],
+                colunas=['Índice', 'Título', 'Status', 'Ações'],
                 linhas=linhas_cap,
                 vazio='Nenhum capítulo atribuído.'
             ) }}

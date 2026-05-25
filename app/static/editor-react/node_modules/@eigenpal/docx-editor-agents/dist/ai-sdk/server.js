@@ -1,0 +1,1 @@
+'use strict';var chunkRI5S75JY_js=require('../chunk-RI5S75JY.js'),ai=require('ai');function n(){return Object.fromEntries(chunkRI5S75JY_js.a.map(o=>[o.name,{description:o.description,inputSchema:ai.jsonSchema(o.inputSchema)}]))}exports.getAiSdkTools=n;

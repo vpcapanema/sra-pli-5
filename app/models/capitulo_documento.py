@@ -35,7 +35,11 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     status_capitulo = db.Column(
         db.String(50), nullable=False, default='em_edicao'
     )
-    conteudo_docx = db.Column(db.LargeBinary, nullable=True)
+    # `conteudo_docx` removido pos-Fase 1 (migration drop_conteudo_docx).
+    # O conteudo de cada capitulo agora vive no DOCX em producao
+    # (`RelatorioProducao.caminho_template`), atualizado in-place pelo
+    # `servico_merge_docx`. Use `extrair_capitulo_como_docx` para obter
+    # o DOCX de um capitulo isolado.
     observacao_coordenador = db.Column(db.Text, nullable=True)
     ativo = db.Column(db.Boolean, default=True)
 

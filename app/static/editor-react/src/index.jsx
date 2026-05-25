@@ -9,6 +9,8 @@
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+import { DocxEditor as EigenpalDocxEditor } from '@eigenpal/docx-editor-react';
+import '@eigenpal/docx-editor-react/styles.css';
 
 function DocxEditor({ apiBase, capituloId, csrfToken, readOnly }) {
     const containerRef = useRef(null);
@@ -144,6 +146,128 @@ function DocxEditor({ apiBase, capituloId, csrfToken, readOnly }) {
     );
 }
 
+/**
+ * ErrorBoundary que captura falhas do EigenpalDocxEditor (ex.: schemas
+ * ProseMirror rejeitando tabelas com células vazias) e dispara o
+ * fallback para docx-preview no componente pai.
+ */
+class EditorErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, message: null };
+    }
+    static getDerivedStateFromError(err) {
+        return {
+            hasError: true,
+            message: (err && err.message) || 'Erro de renderização',
+        };
+    }
+    componentDidCatch(err) {
+        if (typeof this.props.onError === 'function') {
+            this.props.onError(err);
+        }
+    }
+    render() {
+        if (this.state.hasError) return null;
+        return this.props.children;
+    }
+}
+
+/**
+ * Visualizador completo do DOCX usando @eigenpal/docx-editor-react.
+ * Faz fetch da URL informada, transforma em ArrayBuffer e renderiza
+ * o editor em modo "viewing" (leitura).
+ */
+function FullDocxViewer({ url, mode = 'viewing' }) {
+    const [buffer, setBuffer] = useState(null);
+    const [error, setError] = useState(null);
+    const [editorFailed, setEditorFailed] = useState(false);
+    const [failureMsg, setFailureMsg] = useState('');
+
+    // Modos válidos do @eigenpal/docx-editor-react.
+    // Aceitar 'review' como alias legado para 'viewing'.
+    const VALID_MODES = ['editing', 'suggesting', 'viewing'];
+    const editorMode = VALID_MODES.includes(mode)
+        ? mode
+        : (mode === 'review' ? 'viewing' : 'viewing');
+
+    useEffect(() => {
+        let cancelled = false;
+        setBuffer(null);
+        setError(null);
+        setEditorFailed(false);
+        setFailureMsg('');
+        fetch(url)
+            .then((r) => {
+                if (r.status === 204) {
+                    throw new Error(
+                        'Documento ainda não disponível para este item.'
+                    );
+                }
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.arrayBuffer();
+            })
+            .then((buf) => {
+                if (cancelled) return;
+                if (!buf || buf.byteLength === 0) {
+                    setError('Documento vazio ou indisponível.');
+                    return;
+                }
+                setBuffer(buf);
+            })
+            .catch((err) => {
+                if (!cancelled) setError(err.message || 'Erro');
+            });
+        return () => { cancelled = true; };
+    }, [url]);
+
+    if (error) {
+        return (
+            <div className="ew__placeholder">
+                <i className="ph ph-warning"></i>
+                <p>Erro ao carregar documento: {error}</p>
+            </div>
+        );
+    }
+    if (!buffer) {
+        return (
+            <div className="sra-docx-viewer__loading">
+                <i className="ph ph-spinner ph-spin"></i>
+                <span>Carregando documento...</span>
+            </div>
+        );
+    }
+    if (editorFailed) {
+        return (
+            <div className="ew__placeholder">
+                <i className="ph ph-warning"></i>
+                <p>Erro ao renderizar DOCX no editor: {failureMsg}</p>
+            </div>
+        );
+    }
+
+    return (
+        <EditorErrorBoundary
+            onError={(err) => {
+                setFailureMsg((err && err.message) || 'erro de renderização');
+                setEditorFailed(true);
+            }}
+        >
+            <EigenpalDocxEditor
+                documentBuffer={buffer}
+                mode={editorMode}
+                readOnly={editorMode === 'viewing'}
+                onError={(err) => {
+                    setFailureMsg(
+                        (err && err.message) || 'erro de renderização'
+                    );
+                    setEditorFailed(true);
+                }}
+            />
+        </EditorErrorBoundary>
+    );
+}
+
 // Mount point global — chamado pelo JS do coordenador
 window.SRADocxEditor = {
     mount(containerId, props) {
@@ -155,5 +279,15 @@ window.SRADocxEditor = {
     },
     unmount(root) {
         if (root) root.unmount();
+    },
+    mountFullViewer(containerId, props) {
+        const el = document.getElementById(containerId);
+        if (!el) return null;
+        const root = createRoot(el);
+        root.render(<FullDocxViewer {...props} />);
+        return root;
+    },
+    unmountFullViewer(root) {
+        if (root && typeof root.unmount === 'function') root.unmount();
     },
 };

@@ -1,4 +1,5 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_abrir, btn_editar %}
 
 {% macro tabela_todos_relatorios(relatorios) %}
 {% set linhas = [] %}
@@ -31,12 +32,20 @@
         {% if rel.data_criacao %}{{ rel.data_criacao.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}
     {% endset %}
     {% set acoes %}
-        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Visualizar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </a>
-        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Editar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-        </a>
+        {{ btn_visualizar(url_for('relatorio.detalhe_versao', id_versao=rel.id)) }}
+        {% if rel.tipo_relatorio == 'producao' %}
+            {{ btn_abrir(url_for('relatorio.abrir_editor', id_relatorio=rel.id)) }}
+        {% endif %}
+        {{ btn_editar(
+            classe='btn-editar-relatorio-todos',
+            dados={
+                'id': rel.id,
+                'tipo': rel.tipo_relatorio,
+                'titulo': rel.titulo or '',
+                'codigo': rel.codigo,
+                'versao': rel.versao
+            }
+        ) }}
     {% endset %}
     {% set _ = linhas.append([
         rel.id,
@@ -53,10 +62,84 @@
     ]) %}
 {% endfor %}
 {{ tabela(
-    colunas=['ID', 'Tipo', 'Código', 'Título', 'Medição', 'Período', 'Status', 'Versão', 'Criador', 'Data Criação', 'Ações'],
+    colunas=['Tipo', 'Código', 'Título', 'Medição', 'Período', 'Status', 'Versão', 'Criador', 'Data Criação', 'Ações'],
     linhas=linhas,
     vazio='Nenhum relatório encontrado.'
 ) }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-editar-relatorio-todos').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const tipo = this.getAttribute('data-tipo');
+            const titulo = this.getAttribute('data-titulo');
+            const codigo = this.getAttribute('data-codigo');
+            const versao = this.getAttribute('data-versao');
+
+            const url = tipo === 'producao'
+                ? `/relatorio/producao/${id}/editar-inline`
+                : `/configuracoes/relatorio-finalizado/${id}/editar-inline`;
+
+            const campoTitulo = tipo === 'producao' ? 'titulo_curto' : 'titulo';
+            const campoCodigo = tipo === 'producao' ? 'codigo_d20' : 'codigo';
+            const campoVersao = tipo === 'producao' ? 'versao_atual' : 'versao';
+
+            Swal.fire({
+                title: 'Editar Relatório',
+                html:
+                    '<div class="sra-swal-form">' +
+                    '<label class="sra-swal-form__label">Título</label>' +
+                    '<input id="swal-titulo" class="swal2-input" value="' + titulo + '">' +
+                    '<label class="sra-swal-form__label">Código</label>' +
+                    '<input id="swal-codigo" class="swal2-input" value="' + codigo + '">' +
+                    '<label class="sra-swal-form__label">Versão</label>' +
+                    '<input id="swal-versao" class="swal2-input" value="' + versao + '">' +
+                    '</div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2a9450',
+                cancelButtonColor: '#6b7280',
+                preConfirm: () => {
+                    const payload = {};
+                    payload[campoTitulo] = document.getElementById('swal-titulo').value;
+                    payload[campoCodigo] = document.getElementById('swal-codigo').value;
+                    payload[campoVersao] = document.getElementById('swal-versao').value;
+                    return payload;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(url, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(result.value)
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.erro) {
+                            Swal.fire({ icon: 'error', title: 'Erro', text: data.erro });
+                        } else {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Salvo',
+                                text: data.mensagem,
+                                timer: 1200,
+                                showConfirmButton: false
+                            }).then(() => {
+                                htmx.ajax('GET', '/relatorio/panorama', {target: '#main-content', swap: 'innerHTML'});
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Erro de conexão', text: String(err) });
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
 {% endmacro %}
 
 {% if relatorios is defined %}

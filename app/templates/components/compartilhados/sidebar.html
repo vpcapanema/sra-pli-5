@@ -1,113 +1,137 @@
+{#
+  Sidebar principal do SRA.
+
+  Mapeia todas as rotas-pagina existentes para grupos coerentes.
+  Editores (coordenador/autor) e Arvore de Capitulos sao
+  CONTEXTUAIS (precisam de id_versao). Por isso, na sidebar elas
+  sao representadas por HUBs que listam os relatorios disponiveis
+  para escolha (`relatorio.editor`, `relatorio.capitulos`).
+
+  Item ativo destacado via comparacao request.endpoint.
+#}
+{% set ep = request.endpoint or '' %}
+{% set perfil = session.get('perfil_ativo') %}
+
+{% macro nav_link(endpoint, icone, rotulo) %}
+<a href="{{ url_for(endpoint) }}"
+   class="sidebar-menu__link {% if ep == endpoint %}sidebar-menu__link--active{% endif %}">
+    <i class="ph ph-{{ icone }} sidebar-icon"></i>
+    {{ rotulo }}
+</a>
+{% endmacro %}
+
+{% macro nav_group(icone, rotulo, ativo=false) %}
+<button class="sidebar-menu__toggle {% if ativo %}sidebar-menu__toggle--active{% endif %}" type="button">
+    <i class="ph ph-{{ icone }} sidebar-icon"></i>
+    {{ rotulo }}
+    <i class="ph ph-caret-down sidebar-chevron"></i>
+</button>
+{% endmacro %}
+
 <nav class="sidebar-nav">
     <div class="sidebar-logo">
         <strong>SRA</strong>
         <span class="sidebar-logo__sub">PLI-SP</span>
     </div>
+
     <ul class="sidebar-menu">
         <li>
-            <a href="{{ url_for('principal.index') }}" class="sidebar-menu__link">
-                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                Dashboard
-            </a>
+            {{ nav_link('principal.index', 'squares-four', 'Dashboard') }}
         </li>
-        {% if session.get('perfil_ativo') == 'autor' %}
+
+        {# ============================================================
+           AUTOR
+           ============================================================ #}
+        {% if perfil == 'autor' %}
         <li class="sidebar-menu__group">
-            <button class="sidebar-menu__toggle" type="button">
-                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                Meus Trabalhos
-                <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            {{ nav_group('briefcase', 'Meus Trabalhos',
+                ativo=(ep in ('relatorio.relatorios_producao',
+                              'relatorio.editor_autor',
+                              'relatorio.listar_envios_conteudo'))) }}
             <ul class="sidebar-submenu">
-                <li>
-                    <a href="{{ url_for('relatorio.relatorios_producao') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                        Relatórios em Produção
-                    </a>
-                </li>
+                <li>{{ nav_link('relatorio.editor_autor', 'pen-nib',
+                                'Editor do Autor') }}</li>
+                <li>{{ nav_link('relatorio.relatorios_producao', 'file-doc',
+                                'Relatórios em Produção') }}</li>
+                <li>{{ nav_link('relatorio.listar_envios_conteudo', 'upload-simple',
+                                'Meus Envios') }}</li>
             </ul>
         </li>
         {% endif %}
-        {% if session.get('perfil_ativo') in ('coordenador', 'admin') %}
+
+        {# ============================================================
+           COORDENADOR / ADMIN
+           ============================================================ #}
+        {% if perfil in ('coordenador', 'admin') %}
+
+        {# --- 1. Relatorios (operacao) ---------------------------- #}
         <li class="sidebar-menu__group">
-            <button class="sidebar-menu__toggle" type="button">
-                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                Relatórios
-                <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            {{ nav_group('files', 'Relatórios',
+                ativo=(ep in ('relatorio.panorama',
+                              'relatorio.relatorios_producao',
+                              'relatorio.relatorios_base',
+                              'relatorio.listar_todos_relatorios',
+                              'relatorio.versao_trabalho'))) }}
             <ul class="sidebar-submenu">
-                <li>
-                    <a href="{{ url_for('relatorio.panorama') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
-                        Panorama
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('relatorio.relatorios_base') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                        Relatórios Base
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('relatorio.relatorios_producao') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                        Relatórios em Produção
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('relatorio.capitulos') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                        Capítulos
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('relatorio.editor') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        Editor
-                    </a>
-                </li>
+                <li>{{ nav_link('relatorio.panorama', 'chart-line',
+                                'Panorama') }}</li>
+                <li>{{ nav_link('relatorio.relatorios_producao', 'pencil-line',
+                                'Em Produção') }}</li>
+                <li>{{ nav_link('relatorio.relatorios_base', 'archive',
+                                'Finalizados') }}</li>
+                <li>{{ nav_link('relatorio.listar_todos_relatorios', 'list-magnifying-glass',
+                                'Todos os Relatórios') }}</li>
             </ul>
         </li>
+
+        {# --- 2. Edicao ------------------------------------------
+           Editor do Coordenador: pagina completa com seletor de
+           relatorio embutido (abre o mais recente por padrao). #}
         <li class="sidebar-menu__group">
-            <button class="sidebar-menu__toggle" type="button">
-                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                Bibliotecas do Relatório
-                <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            {{ nav_group('pen-nib', 'Editoração',
+                ativo=(ep in ('relatorio.editor_coordenador',
+                              'relatorio.capitulos',
+                              'relatorio.listar_envios_conteudo'))) }}
             <ul class="sidebar-submenu">
-                <li>
-                    <a href="{{ url_for('configuracoes.biblioteca_formatacao') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                        Formatação Canônica
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('configuracoes.biblioteca_relatorios_base') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        Biblioteca de Relatórios Base
-                    </a>
-                </li>
+                <li>{{ nav_link('relatorio.editor_coordenador', 'pencil-ruler',
+                                'Editor do Coordenador') }}</li>
+                <li>{{ nav_link('relatorio.capitulos', 'tree-structure',
+                                'Árvore de Capítulos') }}</li>
+                <li>{{ nav_link('relatorio.listar_envios_conteudo', 'upload-simple',
+                                'Envios de Conteúdo') }}</li>
             </ul>
         </li>
+
+        {# --- 3. Bibliotecas (metadata reutilizavel) -------------- #}
+        <li class="sidebar-menu__group">
+            {{ nav_group('books', 'Bibliotecas Canônicas',
+                ativo=(ep in ('configuracoes.biblioteca_formatacao',
+                              'configuracoes.biblioteca_relatorios_base',
+                              'relatorio.listar_modelos'))) }}
+            <ul class="sidebar-submenu">
+                <li>{{ nav_link('configuracoes.biblioteca_formatacao',
+                                'palette', 'Formatação') }}</li>
+                <li>{{ nav_link('configuracoes.biblioteca_relatorios_base',
+                                'stack', 'Relatórios Base') }}</li>
+                <li>{{ nav_link('relatorio.listar_modelos',
+                                'blueprint', 'Modelos') }}</li>
+            </ul>
+        </li>
+
+        {# --- 4. Administracao ------------------------------------ #}
+        <li class="sidebar-menu__group">
+            {{ nav_group('gear', 'Administração',
+                ativo=(ep == 'admin.listar_usuarios')) }}
+            <ul class="sidebar-submenu">
+                <li>{{ nav_link('admin.listar_usuarios', 'users-three',
+                                'Gestão de Usuários') }}</li>
+            </ul>
+        </li>
+
         {% endif %}
-        {% if session.get('perfil_ativo') in ('coordenador', 'admin') %}
-        <li class="sidebar-menu__group">
-            <button class="sidebar-menu__toggle" type="button">
-                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Configurações
-                <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <ul class="sidebar-submenu">
-                <li>
-                    <a href="{{ url_for('admin.listar_usuarios') }}" class="sidebar-menu__link">
-                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        Gestão de Usuários
-                    </a>
-                </li>
-            </ul>
-        </li>
-        <!--{% endif %}-->
     </ul>
 
+    {# --- Footer: card do usuario + logout ------------------------ #}
     <div class="sidebar-footer">
         <div class="sidebar-usercard">
             <div class="sidebar-usercard__avatar">
@@ -115,11 +139,12 @@
             </div>
             <div class="sidebar-usercard__info">
                 <span class="sidebar-usercard__name">{{ current_user.nome }}</span>
-                <span class="sidebar-usercard__role">{{ session.get('perfil_ativo', '') | capitalize }}</span>
+                <span class="sidebar-usercard__role">{{ perfil | capitalize }}</span>
             </div>
         </div>
-        <a href="{{ url_for('auth.logout') }}" class="sidebar-menu__link sidebar-menu__link--logout">
-            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <a href="{{ url_for('auth.logout') }}"
+           class="sidebar-menu__link sidebar-menu__link--logout">
+            <i class="ph ph-sign-out sidebar-icon"></i>
             Sair
         </a>
     </div>

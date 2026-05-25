@@ -1,20 +1,16 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
-
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">1. Relatórios em Produção</h3>
-    </div>
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_abrir, btn_editar %}
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('file-edit', '1.', 'Relatórios em Produção') }}
     <div class="sra-card__content">
         {% set linhas = [] %}
         {% for rp in relatorios_producao %}
             {% set link_titulo = '<a href="' + url_for('relatorio.detalhe_versao', id_versao=rp.id) + '" class="sra-link">' + (rp.titulo_curto or '-') + '</a>' %}
             {% set acoes %}
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rp.id) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rp.id) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
+                {{ btn_visualizar(url_for('relatorio.detalhe_versao', id_versao=rp.id)) }}
+                {{ btn_abrir(url_for('relatorio.abrir_editor', id_relatorio=rp.id)) }}
+                {{ btn_editar(href=url_for('relatorio.detalhe_versao', id_versao=rp.id)) }}
             {% endset %}
             {% set _ = linhas.append([
                 rp.id,
@@ -29,17 +25,15 @@
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Código', 'Medição', 'Mês Referência', 'Título', 'Status', 'Versão', 'Edição', 'Ações'],
+            colunas=['Código', 'Medição', 'Mês Ref.', 'Título', 'Status', 'Versão', 'Edição', 'Ações'],
             linhas=linhas,
             vazio='Nenhum relatório em produção.'
         ) }}
     </div>
 </div>
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Novo Relatório em Produção</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('plus-circle', '', 'Novo Relatório em Produção') }}
     <div class="sra-card__content">
         <!-- TODO: Implementar criação de RelatorioProducao -->
         <p class="sra-text--muted">Funcionalidade em desenvolvimento para o novo schema.</p>

@@ -1,0 +1,527 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+{# Carrega TODOS os pesos do Phosphor para visualizar as opcoes #}
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/light/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/thin/style.css">
+
+<style>
+.btn-demo {
+    padding: 2rem;
+    background: #f8f9fa;
+    min-height: calc(100vh - 60px);
+}
+.btn-demo h1 {
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem;
+    color: #212529;
+}
+.btn-demo h2 {
+    font-size: 1rem;
+    color: #495057;
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-demo h2 .num {
+    background: #3b5bdb;
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+.btn-demo .intro {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+}
+.btn-demo .grid-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    margin-bottom: 1rem;
+}
+.btn-demo .grid-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f3f5;
+}
+.btn-demo .grid-row:last-child { border-bottom: none; }
+.btn-demo .row-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.btn-demo .row-label small {
+    display: block;
+    font-weight: 400;
+    color: #adb5bd;
+    text-transform: none;
+    font-size: 0.7rem;
+    margin-top: 2px;
+    letter-spacing: 0;
+}
+.btn-demo .btn-strip {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* ==========================================================
+   ESTILOS A — Atual (ghost neutro)
+   ========================================================== */
+.btn-A {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: none; background: transparent;
+    color: #495057; cursor: pointer; padding: 0;
+    transition: all 0.15s;
+}
+.btn-A:hover { background: #e9ecef; color: #212529; }
+.btn-A.danger:hover { background: #fee2e2; color: #dc2626; }
+.btn-A i { font-size: 1.1rem; }
+
+/* ==========================================================
+   ESTILOS B — Pill com fundo suave
+   ========================================================== */
+.btn-B {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; border: none;
+    background: #f1f3f5; color: #495057; cursor: pointer; padding: 0;
+    transition: all 0.15s;
+}
+.btn-B:hover { background: #e7f5ff; color: #1971c2; }
+.btn-B.danger:hover { background: #ffe3e3; color: #c92a2a; }
+.btn-B i { font-size: 1.05rem; }
+
+/* ==========================================================
+   ESTILOS C — Outline (borda visível, fundo branco)
+   ========================================================== */
+.btn-C {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: 1px solid #dee2e6;
+    background: #fff; color: #495057; cursor: pointer; padding: 0;
+    transition: all 0.15s;
+}
+.btn-C:hover { border-color: #339af0; background: #e7f5ff; color: #1971c2; }
+.btn-C.danger:hover { border-color: #ff6b6b; background: #fff5f5; color: #c92a2a; }
+.btn-C i { font-size: 1.05rem; }
+
+/* ==========================================================
+   ESTILOS D — Sólido colorido por função (semântico)
+   ========================================================== */
+.btn-D {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: none;
+    cursor: pointer; padding: 0; color: #fff;
+    transition: all 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.btn-D.view   { background: #228be6; }
+.btn-D.edit   { background: #2f9e44; }
+.btn-D.delete { background: #e03131; }
+.btn-D.move   { background: #6741d9; }
+.btn-D.open   { background: #1098ad; }
+.btn-D.save   { background: #f08c00; }
+.btn-D.upload { background: #ae3ec9; }
+.btn-D:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+.btn-D i { font-size: 1rem; }
+
+/* ==========================================================
+   ESTILOS E — Tinted (fundo da cor, mas suave; ícone na cor)
+   ========================================================== */
+.btn-E {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: none;
+    cursor: pointer; padding: 0;
+    transition: all 0.15s;
+}
+.btn-E.view   { background: #e7f5ff; color: #1971c2; }
+.btn-E.edit   { background: #ebfbee; color: #2f9e44; }
+.btn-E.delete { background: #fff5f5; color: #e03131; }
+.btn-E.move   { background: #f3f0ff; color: #6741d9; }
+.btn-E.open   { background: #e3fafc; color: #0c8599; }
+.btn-E.save   { background: #fff4e6; color: #e8590c; }
+.btn-E.upload { background: #f8f0fc; color: #ae3ec9; }
+.btn-E:hover { filter: brightness(0.95); transform: scale(1.05); }
+.btn-E i { font-size: 1.05rem; }
+
+/* ==========================================================
+   ESTILOS F — Minimalist sem fundo, só ícone colorido
+   ========================================================== */
+.btn-F {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: none; background: transparent;
+    cursor: pointer; padding: 0;
+    transition: all 0.15s;
+}
+.btn-F.view   { color: #339af0; }
+.btn-F.edit   { color: #51cf66; }
+.btn-F.delete { color: #ff6b6b; }
+.btn-F.move   { color: #845ef7; }
+.btn-F.open   { color: #22b8cf; }
+.btn-F.save   { color: #ff922b; }
+.btn-F.upload { color: #cc5de8; }
+.btn-F:hover { background: rgba(0,0,0,0.05); transform: scale(1.1); }
+.btn-F i { font-size: 1.2rem; }
+
+/* ==========================================================
+   ESTILOS G — Quadrado com cantos vivos + sombra
+   ========================================================== */
+.btn-G {
+    width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    color: #495057;
+    cursor: pointer; padding: 0;
+    transition: all 0.15s;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+.btn-G:hover {
+    border-color: #1971c2;
+    color: #1971c2;
+    box-shadow: 0 2px 6px rgba(25, 113, 194, .15);
+}
+.btn-G.danger:hover { border-color: #c92a2a; color: #c92a2a; box-shadow: 0 2px 6px rgba(201, 42, 42, .15); }
+.btn-G i { font-size: 1rem; }
+
+/* ==========================================================
+   Demo helpers
+   ========================================================== */
+.sample-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+.sample-row__text {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #495057;
+}
+.code-snippet {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #2d2d2d;
+    color: #f8f8f2;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.73rem;
+    overflow-x: auto;
+}
+.weight-name {
+    font-size: 0.7rem;
+    color: #868e96;
+    margin-top: 0.25rem;
+    text-align: center;
+}
+.weight-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+.choice-card {
+    padding: 1rem;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    text-align: center;
+    background: #fff;
+}
+.choice-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    color: #212529;
+}
+.choice-card .preview {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+.choice-card p {
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    color: #6c757d;
+    min-height: 2.4em;
+}
+.choices-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="btn-demo">
+
+    <h1>🎨 Variações de botões-ícone para colunas de ação</h1>
+    <p class="intro">
+        Mostra a mesma combinação de 7 ações
+        (<strong>visualizar · editar · excluir · mover · abrir · salvar · upload</strong>)
+        em diferentes estilos visuais. Passe o mouse para ver hover state.
+        No final há uma seção de <strong>escolhas finalistas</strong>.
+    </p>
+
+    {# ============================================================
+       SECAO 1: Pesos do Phosphor (com o estilo atual A)
+       ============================================================ #}
+    <h2><span class="num">1</span> Pesos do Phosphor</h2>
+    <p class="intro">
+        Phosphor tem 6 pesos. O mesmo ícone com peso diferente muda
+        dramaticamente o sentimento da UI. Mais fino = mais "tech"; mais
+        cheio = mais "amigável".
+    </p>
+    <div class="grid-section">
+        {% for peso, classe, label in [
+            ('regular', 'ph', 'Regular (atual)'),
+            ('thin', 'ph-thin', 'Thin (mais fino)'),
+            ('light', 'ph-light', 'Light'),
+            ('bold', 'ph-bold', 'Bold (mais grosso)'),
+            ('fill', 'ph-fill', 'Fill (preenchido)'),
+            ('duotone', 'ph-duotone', 'Duotone (2 tons)')
+        ] %}
+        <div class="grid-row">
+            <div class="row-label">{{ label }}<small>{{ peso }}</small></div>
+            <div class="btn-strip">
+                <button class="btn-A" title="Visualizar"><i class="{{ classe }} ph-eye"></i></button>
+                <button class="btn-A" title="Editar"><i class="{{ classe }} ph-pencil-simple"></i></button>
+                <button class="btn-A danger" title="Excluir"><i class="{{ classe }} ph-trash"></i></button>
+                <button class="btn-A" title="Subir"><i class="{{ classe }} ph-arrow-up"></i></button>
+                <button class="btn-A" title="Descer"><i class="{{ classe }} ph-arrow-down"></i></button>
+                <button class="btn-A" title="Abrir"><i class="{{ classe }} ph-arrow-square-out"></i></button>
+                <button class="btn-A" title="Salvar"><i class="{{ classe }} ph-floppy-disk"></i></button>
+                <button class="btn-A" title="Substituir"><i class="{{ classe }} ph-upload-simple"></i></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# ============================================================
+       SECAO 2: Estilos de botao (A, B, C, D, E, F, G)
+       ============================================================ #}
+    <h2><span class="num">2</span> 7 estilos de botão</h2>
+    <p class="intro">
+        Cada linha usa o mesmo ícone (regular), mudando o
+        <strong>shell</strong> ao redor: fundo, borda, raio, cor.
+    </p>
+
+    <div class="grid-section">
+        <div class="grid-row">
+            <div class="row-label">A · Ghost neutro<small>fundo só no hover (atual)</small></div>
+            <div class="btn-strip">
+                <button class="btn-A" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-A" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-A danger" title="Excluir"><i class="ph ph-trash"></i></button>
+                <button class="btn-A" title="Subir"><i class="ph ph-arrow-up"></i></button>
+                <button class="btn-A" title="Descer"><i class="ph ph-arrow-down"></i></button>
+                <button class="btn-A" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-A" title="Salvar"><i class="ph ph-floppy-disk"></i></button>
+                <button class="btn-A" title="Substituir"><i class="ph ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">B · Pill suave<small>círculo cinza claro</small></div>
+            <div class="btn-strip">
+                <button class="btn-B" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-B" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-B danger" title="Excluir"><i class="ph ph-trash"></i></button>
+                <button class="btn-B" title="Subir"><i class="ph ph-arrow-up"></i></button>
+                <button class="btn-B" title="Descer"><i class="ph ph-arrow-down"></i></button>
+                <button class="btn-B" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-B" title="Salvar"><i class="ph ph-floppy-disk"></i></button>
+                <button class="btn-B" title="Substituir"><i class="ph ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">C · Outline<small>borda visível, fundo branco</small></div>
+            <div class="btn-strip">
+                <button class="btn-C" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-C" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-C danger" title="Excluir"><i class="ph ph-trash"></i></button>
+                <button class="btn-C" title="Subir"><i class="ph ph-arrow-up"></i></button>
+                <button class="btn-C" title="Descer"><i class="ph ph-arrow-down"></i></button>
+                <button class="btn-C" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-C" title="Salvar"><i class="ph ph-floppy-disk"></i></button>
+                <button class="btn-C" title="Substituir"><i class="ph ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">D · Sólido colorido<small>cor sólida por função</small></div>
+            <div class="btn-strip">
+                <button class="btn-D view" title="Visualizar"><i class="ph-fill ph-eye"></i></button>
+                <button class="btn-D edit" title="Editar"><i class="ph-fill ph-pencil-simple"></i></button>
+                <button class="btn-D delete" title="Excluir"><i class="ph-fill ph-trash"></i></button>
+                <button class="btn-D move" title="Subir"><i class="ph-fill ph-arrow-up"></i></button>
+                <button class="btn-D move" title="Descer"><i class="ph-fill ph-arrow-down"></i></button>
+                <button class="btn-D open" title="Abrir"><i class="ph-fill ph-arrow-square-out"></i></button>
+                <button class="btn-D save" title="Salvar"><i class="ph-fill ph-floppy-disk"></i></button>
+                <button class="btn-D upload" title="Substituir"><i class="ph-fill ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">E · Tinted<small>fundo suave + ícone na cor</small></div>
+            <div class="btn-strip">
+                <button class="btn-E view" title="Visualizar"><i class="ph-fill ph-eye"></i></button>
+                <button class="btn-E edit" title="Editar"><i class="ph-fill ph-pencil-simple"></i></button>
+                <button class="btn-E delete" title="Excluir"><i class="ph-fill ph-trash"></i></button>
+                <button class="btn-E move" title="Subir"><i class="ph-fill ph-arrow-up"></i></button>
+                <button class="btn-E move" title="Descer"><i class="ph-fill ph-arrow-down"></i></button>
+                <button class="btn-E open" title="Abrir"><i class="ph-fill ph-arrow-square-out"></i></button>
+                <button class="btn-E save" title="Salvar"><i class="ph-fill ph-floppy-disk"></i></button>
+                <button class="btn-E upload" title="Substituir"><i class="ph-fill ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">F · Minimalista<small>só ícone colorido</small></div>
+            <div class="btn-strip">
+                <button class="btn-F view" title="Visualizar"><i class="ph-bold ph-eye"></i></button>
+                <button class="btn-F edit" title="Editar"><i class="ph-bold ph-pencil-simple"></i></button>
+                <button class="btn-F delete" title="Excluir"><i class="ph-bold ph-trash"></i></button>
+                <button class="btn-F move" title="Subir"><i class="ph-bold ph-arrow-up"></i></button>
+                <button class="btn-F move" title="Descer"><i class="ph-bold ph-arrow-down"></i></button>
+                <button class="btn-F open" title="Abrir"><i class="ph-bold ph-arrow-square-out"></i></button>
+                <button class="btn-F save" title="Salvar"><i class="ph-bold ph-floppy-disk"></i></button>
+                <button class="btn-F upload" title="Substituir"><i class="ph-bold ph-upload-simple"></i></button>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="row-label">G · Card com sombra<small>visual de "botão físico"</small></div>
+            <div class="btn-strip">
+                <button class="btn-G" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-G" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-G danger" title="Excluir"><i class="ph ph-trash"></i></button>
+                <button class="btn-G" title="Subir"><i class="ph ph-arrow-up"></i></button>
+                <button class="btn-G" title="Descer"><i class="ph ph-arrow-down"></i></button>
+                <button class="btn-G" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-G" title="Salvar"><i class="ph ph-floppy-disk"></i></button>
+                <button class="btn-G" title="Substituir"><i class="ph ph-upload-simple"></i></button>
+            </div>
+        </div>
+    </div>
+
+    {# ============================================================
+       SECAO 3: Como ficaria numa linha de tabela real
+       ============================================================ #}
+    <h2><span class="num">3</span> Em contexto: linha de tabela real</h2>
+    <p class="intro">
+        Os mesmos estilos aplicados a uma linha de tabela típica do SRA,
+        para você visualizar o resultado final no fluxo real.
+    </p>
+
+    {% for letra, classe in [('A','btn-A'), ('B','btn-B'), ('C','btn-C'), ('D','btn-D'), ('E','btn-E'), ('F','btn-F'), ('G','btn-G')] %}
+    <div class="grid-section" style="padding:1rem;">
+        <strong style="font-size:0.85rem;color:#495057">Estilo {{ letra }}:</strong>
+        <div class="sample-row">
+            <span class="sample-row__text">📄 D20-15 R00 — Relatório de Acompanhamento Maio/2026</span>
+            <button class="{{ classe }} {{ 'view' if classe in ('btn-D','btn-E','btn-F') }}" title="Visualizar"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-eye"></i></button>
+            <button class="{{ classe }} {{ 'open' if classe in ('btn-D','btn-E','btn-F') }}" title="Abrir"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-arrow-square-out"></i></button>
+            <button class="{{ classe }} {{ 'edit' if classe in ('btn-D','btn-E','btn-F') }}" title="Editar"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-pencil-simple"></i></button>
+            <button class="{{ classe }} {{ 'delete' if classe in ('btn-D','btn-E','btn-F') else 'danger' }}" title="Excluir"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-trash"></i></button>
+        </div>
+        <div class="sample-row">
+            <span class="sample-row__text">📄 D20-14 R01 — Relatório de Acompanhamento Abril/2026</span>
+            <button class="{{ classe }} {{ 'view' if classe in ('btn-D','btn-E','btn-F') }}" title="Visualizar"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-eye"></i></button>
+            <button class="{{ classe }} {{ 'open' if classe in ('btn-D','btn-E','btn-F') }}" title="Abrir"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-arrow-square-out"></i></button>
+            <button class="{{ classe }} {{ 'edit' if classe in ('btn-D','btn-E','btn-F') }}" title="Editar"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-pencil-simple"></i></button>
+            <button class="{{ classe }} {{ 'delete' if classe in ('btn-D','btn-E','btn-F') else 'danger' }}" title="Excluir"><i class="{{ 'ph-fill' if classe in ('btn-D','btn-E') else ('ph-bold' if classe == 'btn-F' else 'ph') }} ph-trash"></i></button>
+        </div>
+    </div>
+    {% endfor %}
+
+    {# ============================================================
+       SECAO 4: Recomendacao
+       ============================================================ #}
+    <h2><span class="num">4</span> Minha recomendação</h2>
+
+    <div class="choices-grid">
+        <div class="choice-card" style="border-color:#1971c2">
+            <h3>🥇 Estilo E · Tinted</h3>
+            <div class="preview">
+                <button class="btn-E view" title="Visualizar"><i class="ph-fill ph-eye"></i></button>
+                <button class="btn-E open" title="Abrir"><i class="ph-fill ph-arrow-square-out"></i></button>
+                <button class="btn-E edit" title="Editar"><i class="ph-fill ph-pencil-simple"></i></button>
+                <button class="btn-E delete" title="Excluir"><i class="ph-fill ph-trash"></i></button>
+            </div>
+            <p>
+                Cada função tem cor própria (memorável) sem ser agressivo.
+                Hover suave. Padrão moderno (GitHub, Linear, Notion usam).
+            </p>
+        </div>
+
+        <div class="choice-card">
+            <h3>🥈 Estilo G · Card</h3>
+            <div class="preview">
+                <button class="btn-G" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-G" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-G" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-G danger" title="Excluir"><i class="ph ph-trash"></i></button>
+            </div>
+            <p>
+                Sensação de "botão físico" que você pediu. Mais conservador,
+                neutro. Foco é a hierarquia, não a cor.
+            </p>
+        </div>
+
+        <div class="choice-card">
+            <h3>🥉 Estilo B · Pill</h3>
+            <div class="preview">
+                <button class="btn-B" title="Visualizar"><i class="ph ph-eye"></i></button>
+                <button class="btn-B" title="Abrir"><i class="ph ph-arrow-square-out"></i></button>
+                <button class="btn-B" title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-B danger" title="Trash"><i class="ph ph-trash"></i></button>
+            </div>
+            <p>
+                Círculo suave. Visual mais leve, ideal se sua tabela
+                já tem muito texto e você não quer "competir" visualmente.
+            </p>
+        </div>
+    </div>
+
+    <div style="margin-top:1.5rem;padding:1rem;background:#fff3bf;border-radius:8px;font-size:0.85rem;color:#5c4700">
+        💡 <strong>Como escolher?</strong> Me diz qual letra prefere
+        (A–G) e eu aplico imediatamente em todas as tabelas. Pode também
+        combinar: <em>"estilo E para visualizar/editar, mas mantém o vermelho
+        sólido só para excluir"</em>.
+    </div>
+
+</div>
+{% endblock %}

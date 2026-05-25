@@ -1,0 +1,59 @@
+{#
+  ============================================================
+  Macro padronizada para botoes de ACAO no painel do coordenador.
+  Le um item devolvido por `servico_acoes_relatorio.listar_por_grupo`:
+
+      {'acao': Acao(...), 'disponivel': bool, 'motivo': str}
+
+  Renderiza um form POST que aponta para a rota universal
+  `acoes.executar` — o id da acao + id do relatorio identificam
+  o que fazer no servidor. Nao ha URL hardcoded.
+
+  Uso no template:
+      {% from 'components/_botao_acao.html' import botao_acao %}
+      {{ botao_acao(item, id_relatorio, classe='minha-classe-extra') }}
+  ============================================================
+#}
+
+{% macro botao_acao(item, id_relatorio, classe='') %}
+{% set acao = item.acao %}
+{% set tem_confirmacao = acao.confirmacao | length > 0 %}
+<form method="POST"
+      action="{{ url_for('acoes.executar', id_rel=id_relatorio, acao_id=acao.id) }}"
+      class="acao-form"
+      {% if tem_confirmacao %}
+      onsubmit='return confirm({{ acao.confirmacao | tojson }});'
+      {% endif %}>
+    <button type="submit"
+            class="acao-btn {{ classe }} {% if not item.disponivel %}acao-btn--disabled{% endif %}"
+            {% if not item.disponivel %}disabled{% endif %}
+            title="{{ acao.descricao }}{% if not item.disponivel %} — {{ item.motivo }}{% endif %}">
+        <i class="ph ph-{{ acao.icone }}" aria-hidden="true"></i>
+        <span class="acao-btn__label">{{ acao.label }}</span>
+    </button>
+</form>
+{% endmacro %}
+
+
+{#
+  Versao agrupada: recebe o dict completo de `listar_por_grupo`,
+  renderiza todos os grupos em sequencia com cabecalhos.
+  Pode ser usada como atalho quando se quer mostrar tudo de uma vez.
+#}
+{% macro painel_acoes(grupos, id_relatorio) %}
+{% set rotulos = {
+    'pre_textuais': 'Elementos Pré-textuais',
+    'numeracao': 'Numeração e Referências',
+    'finalizacao': 'Finalização'
+} %}
+{% for grupo_id, itens in grupos.items() %}
+<section class="acao-grupo acao-grupo--{{ grupo_id }}">
+    <h3 class="acao-grupo__title">{{ rotulos[grupo_id] | default(grupo_id) }}</h3>
+    <div class="acao-grupo__items">
+        {% for item in itens %}
+            {{ botao_acao(item, id_relatorio) }}
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% endmacro %}

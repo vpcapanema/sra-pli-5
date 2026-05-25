@@ -142,8 +142,20 @@ class ServicoEnvioAutor:
                          id_capitulo_destino=None):
         """Persiste o arquivo e gera registros de envio + prévias.
 
+        O `id_capitulo_destino` é OBRIGATÓRIO no novo fluxo: o
+        autor sempre acessa o upload via uma URL específica de
+        capítulo (`/capitulo/<id>/upload`), e todo o conteúdo do
+        DOCX upado será mesclado naquele capítulo (preservando o
+        heading e sobrescrevendo o conteúdo antigo) na confirmação.
+
         Retorna o `EnvioConteudo` criado, já com prévias associadas.
         """
+        if not id_capitulo_destino:
+            raise ValueError(
+                'id_capitulo_destino é obrigatório no fluxo atual de '
+                'envio do autor — o destino do conteúdo é fixado pela '
+                'URL de upload.'
+            )
         dir_destino = cls.diretorio_uploads(base_dir, id_relatorio)
         os.makedirs(dir_destino, exist_ok=True)
 
@@ -163,6 +175,7 @@ class ServicoEnvioAutor:
             nome_arquivo=nome,
             caminho_arquivo=caminho_final,
             status_envio='em_previa',
+            id_capitulo_destino=id_capitulo_destino,
         )
         db.session.add(envio)
         db.session.flush()
@@ -341,9 +354,13 @@ class ServicoEnvioAutor:
     def confirmar(cls, *, envio, acao):
         """Aplica a decisão do autor sobre o envio.
 
-        - acao='importar': lê o DOCX e fragmenta em DOCX-por-capítulo,
-          salvando em `CapituloDocumento.conteudo_docx`.
-        - acao='rejeitar': marca como rejeitado e não altera capítulos.
+        - acao='importar': mescla o DOCX do autor IN-PLACE no DOCX
+          em produção (caminho_template do relatório), substituindo
+          o conteúdo do capítulo destino preservando o heading.
+        - acao='rejeitar': marca como rejeitado e não altera DOCX.
+
+        Implementação: delega para `servico_merge_docx.substituir_capitulo`,
+        que usa docxcompose para preservar imagens, estilos e numeração.
         """
         if acao == 'rejeitar':
             envio.status_envio = 'rejeitado'
@@ -353,74 +370,130 @@ class ServicoEnvioAutor:
         if acao != 'importar':
             return {'ok': False, 'erro': 'Ação inválida'}
 
-        # Importar: gerar um DOCX por capítulo destino
-        capitulos = CapituloDocumento.query.filter_by(
-            id_relatorio=envio.id_relatorio,
-            ativo=True,
-        ).order_by(CapituloDocumento.ordem_capitulo).all()
-        mapa = {}
-        for cap in capitulos:
-            chave = _normalizar(cap.titulo_capitulo)
-            if chave:
-                mapa.setdefault(chave, cap)
+        if not envio.id_capitulo_destino:
+            return {
+                'ok': False,
+                'erro': (
+                    'Envio sem capítulo destino — não é possível '
+                    'identificar onde mesclar o conteúdo.'
+                ),
+            }
+
+        cap_destino = CapituloDocumento.query.get(
+            envio.id_capitulo_destino
+        )
+        if not cap_destino:
+            return {'ok': False, 'erro': 'Capítulo destino não encontrado.'}
+
+        from app.models.relatorio_producao import RelatorioProducao
+        from app.services.servico_merge_docx import (
+            substituir_capitulo,
+            sincronizar_subcapitulos,
+        )
+
+        rel = RelatorioProducao.query.get(envio.id_relatorio)
+        # Gate de bloqueio: relatório finalizado não aceita merge.
+        from app.services.servico_relatorio import ServicoRelatorio
+        if ServicoRelatorio.esta_bloqueado(rel):
+            return {
+                'ok': False,
+                'erro': (
+                    'Relatório finalizado/bloqueado — não é possível '
+                    'mesclar novos conteúdos. Crie uma nova versão para '
+                    'continuar a edição.'
+                ),
+            }
+        if not rel or not rel.caminho_template:
+            return {
+                'ok': False,
+                'erro': (
+                    'Relatório de produção sem DOCX em '
+                    'caminho_template — não é possível mesclar.'
+                ),
+            }
+
+        if not os.path.exists(rel.caminho_template):
+            return {
+                'ok': False,
+                'erro': (
+                    f'DOCX de produção não encontrado em '
+                    f'{rel.caminho_template}'
+                ),
+            }
 
         try:
-            doc = Document(envio.caminho_arquivo)
-        except (OSError, ValueError) as e:
-            return {'ok': False, 'erro': f'Erro ao ler DOCX: {e}'}
+            ok = substituir_capitulo(
+                caminho_master=rel.caminho_template,
+                capitulo=cap_destino,
+                caminho_autor=envio.caminho_arquivo,
+                preservar_heading=True,
+            )
+        except (OSError, ValueError, RuntimeError) as e:
+            return {
+                'ok': False,
+                'erro': f'Falha ao mesclar no DOCX em produção: {e}',
+            }
 
-        # Estratégia simples e segura:
-        # Para cada heading que casa com um capítulo, abrir um novo
-        # documento e copiar parágrafos até o próximo heading casado.
-        cap_atual = None
-        docs_por_cap = {}
+        if not ok:
+            return {
+                'ok': False,
+                'erro': (
+                    f'Capítulo "{cap_destino.titulo_capitulo}" não foi '
+                    f'localizado no DOCX em produção. Verifique se o '
+                    f'heading correspondente existe no arquivo.'
+                ),
+            }
 
-        def _novo_doc():
-            return Document()
-
-        for para in doc.paragraphs:
-            estilo = para.style.name or ''
-            texto = para.text.strip()
-            nivel = _heading_nivel(estilo)
-            if nivel is not None and texto:
-                norm = _normalizar(texto)
-                if norm in mapa:
-                    cap_atual = mapa[norm]
-                    if (cap_atual.id_capitulo_documento
-                            not in docs_por_cap):
-                        docs_por_cap[
-                            cap_atual.id_capitulo_documento
-                        ] = _novo_doc()
-                    continue
-            if cap_atual is None:
-                continue
-            cap_id = cap_atual.id_capitulo_documento
-            destino = docs_por_cap.setdefault(cap_id, _novo_doc())
-            novo_para = destino.add_paragraph()
-            for run in para.runs:
-                r = novo_para.add_run(run.text)
-                if run.bold:
-                    r.bold = True
-                if run.italic:
-                    r.italic = True
-                if run.underline:
-                    r.underline = True
-
-        # Persistir bytes nos capítulos
-        atualizados = 0
-        for cap_id, d in docs_por_cap.items():
-            buf = BytesIO()
-            d.save(buf)
-            cap = CapituloDocumento.query.get(cap_id)
-            if cap:
-                cap.conteudo_docx = buf.getvalue()
-                cap.status_capitulo = 'em_edicao'
-                atualizados += 1
-
+        cap_destino.status_capitulo = 'em_edicao'
         envio.status_envio = 'importado'
+
+        # Sincronizar subcapítulos no banco a partir dos subheadings
+        # que o autor enviou no DOCX. Isso garante que a árvore na UI
+        # reflita a estrutura recém-mesclada (cada Heading 2/3/4 do
+        # upload vira CapituloDocumento filho de cap_destino).
+        try:
+            sync = sincronizar_subcapitulos(
+                db.session, cap_destino, rel.caminho_template
+            )
+        except (OSError, ValueError, RuntimeError) as e:
+            # Merge já foi escrito em disco — falha de sincronização
+            # não deve reverter o conteúdo. Logamos e seguimos.
+            sync = {'erro': str(e)}
+
+        # Fase 2 — Captioning + cross-references:
+        # 1) reindexar_captions: numera figuras/tabelas/equações
+        #    hierarquicamente e devolve mapa_labels.
+        # 2) substituir_referencias: troca {{fig:x}}, {{tab:x}},
+        #    {{eq:x}}, {{ref:x}} no corpo pelos números.
+        captions = {}
+        cross_refs = {}
+        try:
+            from app.services.servico_captioning import reindexar_captions
+            from app.services.servico_cross_refs import substituir_referencias
+            from app.services.servico_perfil_formatacao import (
+                PerfilFormatacao,
+            )
+            perfil = PerfilFormatacao.de_relatorio(rel)
+            captions = reindexar_captions(
+                rel.caminho_template, perfil=perfil
+            )
+            mapa = captions.get('mapa_labels', {}) if isinstance(
+                captions, dict
+            ) else {}
+            cross_refs = substituir_referencias(
+                rel.caminho_template, mapa
+            )
+        except (OSError, ValueError, RuntimeError) as e:
+            captions = captions or {'erro': str(e)}
+            cross_refs = {'erro': str(e)}
+
         db.session.commit()
         return {
             'ok': True,
             'acao': 'importado',
-            'capitulos_atualizados': atualizados,
+            'capitulos_atualizados': 1,
+            'capitulo_destino_id': cap_destino.id_capitulo_documento,
+            'subcapitulos_sync': sync,
+            'captions': captions,
+            'cross_refs': cross_refs,
         }

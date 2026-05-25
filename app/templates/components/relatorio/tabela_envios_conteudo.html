@@ -1,4 +1,5 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar %}
 
 {% macro tabela_envios_conteudo(envios) %}
 {% set linhas = [] %}
@@ -10,12 +11,15 @@
         {% if envio.criado_em %}{{ envio.criado_em.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}
     {% endset %}
     {% set acoes %}
-        <a href="#" class="sra-btn-icon" title="Visualizar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </a>
-        <a href="#" class="sra-btn-icon" title="Editar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-        </a>
+        {{ btn_visualizar('#') }}
+        {{ btn_editar(
+            classe='btn-editar-envio',
+            dados={
+                'id': envio.id_envio_conteudo,
+                'nome': envio.nome_arquivo,
+                'status': envio.status_envio
+            }
+        ) }}
     {% endset %}
     {% set _ = linhas.append([
         envio.id_envio_conteudo,
@@ -29,10 +33,76 @@
     ]) %}
 {% endfor %}
 {{ tabela(
-    colunas=['ID', 'Relatório', 'Usuário', 'Nome do Arquivo', 'Caminho do Arquivo', 'Status do Envio', 'Criado Em', 'Ações'],
+    colunas=['Relatório', 'Usuário', 'Nome do Arquivo', 'Caminho', 'Status', 'Data', 'Ações'],
     linhas=linhas,
     vazio='Nenhum envio de conteúdo encontrado.'
 ) }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-editar-envio').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const nome = this.getAttribute('data-nome');
+            const status = this.getAttribute('data-status');
+
+            Swal.fire({
+                title: 'Editar Envio de Conteúdo',
+                html:
+                    '<div class="sra-swal-form">' +
+                    '<label class="sra-swal-form__label">Nome do Arquivo</label>' +
+                    '<input id="swal-nome" class="swal2-input" value="' + nome + '">' +
+                    '<label class="sra-swal-form__label">Status</label>' +
+                    '<select id="swal-status" class="swal2-input">' +
+                    '<option value="pendente"' + (status === 'pendente' ? ' selected' : '') + '>Pendente</option>' +
+                    '<option value="aprovado"' + (status === 'aprovado' ? ' selected' : '') + '>Aprovado</option>' +
+                    '<option value="rejeitado"' + (status === 'rejeitado' ? ' selected' : '') + '>Rejeitado</option>' +
+                    '</select>' +
+                    '</div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2a9450',
+                cancelButtonColor: '#6b7280',
+                preConfirm: () => {
+                    return {
+                        nome_arquivo: document.getElementById('swal-nome').value,
+                        status_envio: document.getElementById('swal-status').value
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/relatorio/envio/${id}/editar-inline`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(result.value)
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.erro) {
+                            Swal.fire({ icon: 'error', title: 'Erro', text: data.erro });
+                        } else {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Salvo',
+                                text: data.mensagem,
+                                timer: 1200,
+                                showConfirmButton: false
+                            }).then(() => {
+                                htmx.ajax('GET', '/', {target: '#main-content', swap: 'innerHTML'});
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Erro de conexão', text: String(err) });
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
 {% endmacro %}
 
 {% if envios is defined %}

@@ -1,0 +1,1 @@
+export{b as PIXELS_PER_INCH,a as TWIPS_PER_INCH,o as clamp,m as eighthsToPixels,e as emuToPixels,g as emuToTwips,p as formatPx,j as halfPointsToPixels,k as halfPointsToPoints,f as pixelsToEmu,d as pixelsToTwips,l as pointsToHalfPoints,i as pointsToPixels,n as roundPixels,h as twipsToEmu,c as twipsToPixels}from'../chunk-VW22RZ6C.mjs';import'../chunk-QYUPLKLP.mjs';

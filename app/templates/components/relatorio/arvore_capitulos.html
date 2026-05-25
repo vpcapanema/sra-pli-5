@@ -1,4 +1,21 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar, btn_salvar, btn_excluir, btn_subir, btn_descer, btn_substituir, btn_custom %}
+
+<!-- Bundle do editor DOCX (eigenpal) usado no modal de visualização -->
+<link rel="stylesheet" href="{{ url_for('static', filename='js/docx-editor-bundle.css') }}?v={{ static_v('js/docx-editor-bundle.css') }}">
+<script src="{{ url_for('static', filename='js/docx-editor-bundle.js') }}?v={{ static_v('js/docx-editor-bundle.js') }}"></script>
+
+{# Pré-cálculo: ids dos capítulos que possuem filhos (para renderizar o
+   caret de colapso com visibilidade correta direto no servidor) #}
+{% set ids_com_filhos = capitulos_flat
+    | selectattr('id_capitulo_pai')
+    | map(attribute='id_capitulo_pai')
+    | list %}
+{# Subconjunto textual (usado no Painel de Edição — Coordenador) #}
+{% set capitulos_textuais = capitulos_flat
+    | selectattr('tipo_elemento', 'equalto', 'textual')
+    | list %}
 
 <!-- Header com seletor de relatórios -->
 <div class="sra-page-header">
@@ -18,9 +35,19 @@
             <span class="sra-text--muted">&middot; Versão: {{ versao_trabalho.versao_atual }}</span>
         </div>
         <div class="sra-page-header__actions">
-            <a href="{{ url_for('relatorio.gerar_final', id_relatorio=versao_trabalho.id) }}"
+            {# Acoes operacionais (Sumario, Listas, Reindexar, Gerar Final)
+               agora vivem no editor do coordenador, via catálogo central
+               (servico_acoes_relatorio.py). Aqui só expomos o atalho
+               para abrir o editor completo. #}
+            <button type="button"
+                    class="sra-button sra-button--secondary sra-button--sm"
+                    id="btn-adicionar-capitulo"
+                    data-versao-id="{{ versao_trabalho.id }}">
+                <i class="ph ph-plus"></i> Adicionar capítulo
+            </button>
+            <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}"
                class="sra-button sra-button--primary sra-button--sm">
-                <i class="ph ph-download-simple"></i> Gerar Relatório Final
+                <i class="ph ph-pencil-line"></i> Abrir Editor do Coordenador
             </a>
         </div>
     </div>
@@ -30,10 +57,8 @@
 <div class="sra-grid sra-grid--2 sra-grid--capitulos">
     <!-- Coluna 1: Árvore de Capítulos -->
     <div class="sra-capitulos-tree">
-        <div class="sra-card sra-card--compact">
-            <div class="sra-card__header">
-                <h3 class="sra-card__title">Estrutura do Documento</h3>
-            </div>
+        <div class="sra-card sra-card--compact sigma-pli-conteiner">
+            {{ cabecalho_pli('list-tree', '', 'Estrutura do Documento') }}
             <div class="sra-card__content">
                 {% if capitulos_flat %}
                 <!-- Colapso 1: Elementos Pré-textuais -->
@@ -44,21 +69,41 @@
                     </summary>
                     <div class="sra-collapse__content">
                         {% set pre_textuais = capitulos_flat | selectattr('tipo_elemento', 'equalto', 'pre_textual') | list %}
-                        {% if pre_textuais %}
-                        <div class="sra-tree">
-                            {% for cap in pre_textuais %}
-                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}">
+                        {% set titulos_pre = pre_textuais | map(attribute='titulo_capitulo') | map('lower') | list %}
+                        <div class="sra-tree sra-tree--pre-textual">
+                            <!-- Elementos fixos inerentes ao relatório -->
+                            {% if 'capa' not in titulos_pre %}
+                            <div class="sra-tree__item sra-tree__item--level-1">
                                 <span class="sra-tree__label">
-                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '' }}</span>
+                                    <span class="sra-tree__index"></span>
+                                    <span class="sra-tree__title">Capa</span>
+                                    <span class="sra-badge sra-badge--gerado sra-badge--xs">Gerado</span>
+                                </span>
+                            </div>
+                            {% endif %}
+                            {% if 'folha de rosto' not in titulos_pre %}
+                            <div class="sra-tree__item sra-tree__item--level-1">
+                                <span class="sra-tree__label">
+                                    <span class="sra-tree__index"></span>
+                                    <span class="sra-tree__title">Folha de Rosto</span>
+                                    <span class="sra-badge sra-badge--gerado sra-badge--xs">Gerado</span>
+                                </span>
+                            </div>
+                            {% endif %}
+                            {% for cap in pre_textuais %}
+                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}{% if cap.nivel_capitulo > 1 %} sra-tree__item--hidden{% endif %}"
+                                 data-cap-id="{{ cap.id_capitulo_documento }}"
+                                 data-cap-parent="{{ cap.id_capitulo_pai or '' }}"
+                                 data-cap-level="{{ cap.nivel_capitulo }}">
+                                <span class="sra-tree__label">
+                                    <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
+                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
                                     <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
                                 </span>
                             </div>
                             {% endfor %}
                         </div>
-                        {% else %}
-                        <p class="sra-text--muted">Nenhum elemento pré-textual.</p>
-                        {% endif %}
                     </div>
                 </details>
 
@@ -71,11 +116,15 @@
                     <div class="sra-collapse__content">
                         {% set textuais = capitulos_flat | selectattr('tipo_elemento', 'equalto', 'textual') | list %}
                         {% if textuais %}
-                        <div class="sra-tree">
+                        <div class="sra-tree sra-tree--textual">
                             {% for cap in textuais %}
-                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}">
+                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}{% if cap.nivel_capitulo > 1 %} sra-tree__item--hidden{% endif %}"
+                                 data-cap-id="{{ cap.id_capitulo_documento }}"
+                                 data-cap-parent="{{ cap.id_capitulo_pai or '' }}"
+                                 data-cap-level="{{ cap.nivel_capitulo }}">
                                 <span class="sra-tree__label">
-                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '' }}</span>
+                                    <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
+                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
                                     <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
                                 </span>
@@ -97,11 +146,15 @@
                     <div class="sra-collapse__content">
                         {% set pos_textuais = capitulos_flat | selectattr('tipo_elemento', 'equalto', 'pos_textual') | list %}
                         {% if pos_textuais %}
-                        <div class="sra-tree">
+                        <div class="sra-tree sra-tree--pos-textual">
                             {% for cap in pos_textuais %}
-                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}">
+                            <div class="sra-tree__item sra-tree__item--level-{{ cap.nivel_capitulo }}{% if cap.nivel_capitulo > 1 %} sra-tree__item--hidden{% endif %}"
+                                 data-cap-id="{{ cap.id_capitulo_documento }}"
+                                 data-cap-parent="{{ cap.id_capitulo_pai or '' }}"
+                                 data-cap-level="{{ cap.nivel_capitulo }}">
                                 <span class="sra-tree__label">
-                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '' }}</span>
+                                    <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
+                                    <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
                                     <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
                                 </span>
@@ -119,15 +172,25 @@
             </div>
         </div>
 
-        <div class="sra-card sra-card--compact">
-            <div class="sra-card__header">
-                <h3 class="sra-card__title">Adicionar Capítulo</h3>
-            </div>
+        <div class="sra-card sra-card--compact sigma-pli-conteiner">
+            {{ cabecalho_pli('plus-circle', '', 'Adicionar Capítulo') }}
             <div class="sra-card__content">
                 <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_capitulo', id_versao=versao_trabalho.id) }}">
                     <div class="sra-input">
                         <label class="sra-input__label" for="titulo_capitulo">Título</label>
                         <input class="sra-input__field" type="text" id="titulo_capitulo" name="titulo_capitulo" required>
+                    </div>
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="indice_capitulo">Índice (ex: 5.1.2)</label>
+                        <input class="sra-input__field" type="text" id="indice_capitulo" name="indice_capitulo" placeholder="Ex: 1, 2.1, 5.4.3">
+                    </div>
+                    <div class="sra-input">
+                        <label class="sra-input__label" for="tipo_elemento">Tipo de Elemento</label>
+                        <select class="sra-input__field" id="tipo_elemento" name="tipo_elemento">
+                            <option value="pre_textual">Pré-textual</option>
+                            <option value="textual" selected>Textual</option>
+                            <option value="pos_textual">Pós-textual</option>
+                        </select>
                     </div>
                     <div class="sra-input">
                         <label class="sra-input__label" for="ordem_capitulo">Ordem</label>
@@ -139,6 +202,7 @@
                             <option value="1">1 — Capítulo</option>
                             <option value="2">2 — Subcapítulo</option>
                             <option value="3">3 — Subseção</option>
+                            <option value="4">4 — Sub-subseção</option>
                         </select>
                     </div>
                     <div class="sra-input">
@@ -158,59 +222,109 @@
 
     <!-- Coluna 2: Painel de Edição Coordenador -->
     <div class="sra-capitulos-panel">
-        <div class="sra-card sra-card--compact sra-card--full-height">
+        <div class="sra-card sra-card--compact sra-card--full-height sigma-pli-conteiner">
             <div class="sra-card__header">
-                <h3 class="sra-card__title">Painel de Edição — Coordenador</h3>
+                <h3 class="sra-card__title">
+                    <span class="sigma-pli-conteiner__icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                    <span>Painel de Edição — Coordenador</span>
+                </h3>
                 <div class="sra-card__actions">
+                    <button type="button" id="btn-visualizar-relatorio-completo" class="sra-button sra-button--sm sra-button--outline" data-versao-id="{{ versao_trabalho.id }}">
+                        <i class="ph ph-file-doc"></i> Visualizar relatório completo
+                    </button>
                     <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-button sra-button--sm sra-button--secondary">
                         <i class="ph ph-eye"></i> Abrir Revisão
                     </a>
                 </div>
             </div>
             <div class="sra-card__content">
-                {% if capitulos %}
-                    {% set linhas_cap = [] %}
-                    {% for cap in capitulos_flat %}
-                        {% set badge_status %}
-                            <span class="sra-badge sra-badge--{{ cap.status_capitulo }}">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
-                        {% endset %}
-                        {% set responsavel_nome = cap.responsavel.nome if cap.responsavel else '—' %}
-                        {% set acoes %}
-                            <button type="button" class="sra-btn-icon btn-inspecionar" title="Inspecionar no DOCX" data-cap-id="{{ cap.id_capitulo_documento }}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </button>
-                            <a href="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-btn-icon" title="Enviar conteúdo (autor)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            </a>
-                            <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-btn-icon" title="Editar">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                            </a>
-                            <form method="POST" action="{{ url_for('relatorio.atribuir_responsavel', id_versao=versao_trabalho.id, id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
-                                <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
-                                    <option value="">Sem responsável</option>
-                                    {% for u in autores_disponiveis %}
-                                    <option value="{{ u.id }}" {{ 'selected' if cap.id_usuario_responsavel == u.id else '' }}>{{ u.nome }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="submit" class="sra-btn-icon" title="Salvar">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                </button>
-                            </form>
-                        {% endset %}
-                        {% set _ = linhas_cap.append([
-                            cap.id_capitulo_documento,
-                            cap.indice_capitulo or '—',
-                            cap.titulo_capitulo,
-                            badge_status,
-                            responsavel_nome,
-                            acoes
-                        ]) %}
-                    {% endfor %}
-                    {{ tabela(
-                        colunas=['ID', 'Índice', 'Título', 'Status', 'Responsável', 'Ações'],
-                        linhas=linhas_cap,
-                        vazio='Nenhum capítulo cadastrado.'
-                    ) }}
+                {% if capitulos_textuais %}
+                    <div class="sra-table-container" data-table-id="tbl-capitulos">
+                        <table class="sra-table sra-table--cap-collapsible" id="tbl-capitulos">
+                            <thead>
+                                <tr>
+                                    <th class="sra-table__header sra-table__header--select">
+                                        <input type="checkbox" class="sra-table__select-all" title="Selecionar todos">
+                                    </th>
+                                    <th class="sra-table__header">Índice</th>
+                                    <th class="sra-table__header sra-table__header--left">Título</th>
+                                    <th class="sra-table__header">Status</th>
+                                    <th class="sra-table__header">Responsável</th>
+                                    <th class="sra-table__header sra-table__header--actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cap in capitulos_textuais %}
+                                {% set tem_filhos = cap.id_capitulo_documento in ids_com_filhos %}
+                                <tr class="sra-cap-row sra-cap-row--level-{{ cap.nivel_capitulo }}{% if cap.nivel_capitulo and cap.nivel_capitulo > 1 %} sra-cap-row--hidden{% endif %}"
+                                    data-row-id="{{ cap.id_capitulo_documento }}"
+                                    data-cap-id="{{ cap.id_capitulo_documento }}"
+                                    data-cap-parent="{{ cap.id_capitulo_pai or '' }}"
+                                    data-cap-level="{{ cap.nivel_capitulo or 1 }}">
+                                    <td class="sra-table__cell sra-table__cell--select">
+                                        <input type="checkbox" class="sra-table__row-select" value="{{ cap.id_capitulo_documento }}" title="Selecionar linha">
+                                    </td>
+                                    <td class="sra-table__cell sra-cap-cell--index">
+                                        <button type="button" class="sra-cap-toggle" {% if not tem_filhos %}hidden{% endif %} aria-label="Expandir">
+                                            <i class="ph ph-caret-right"></i>
+                                        </button>
+                                        <span class="sra-cap-index-value">{{ cap.indice_capitulo or '—' }}</span>
+                                    </td>
+                                    <td class="sra-table__cell sra-cap-cell--title sra-cap-cell--title-level-{{ cap.nivel_capitulo or 1 }}">
+                                        {{ cap.titulo_capitulo }}
+                                    </td>
+                                    <td class="sra-table__cell">
+                                        <span class="sra-badge sra-badge--{{ cap.status_capitulo }}">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                                    </td>
+                                    <td class="sra-table__cell sra-cap-cell--responsavel">
+                                        <form method="POST" action="{{ url_for('capitulos.salvar', id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
+                                            <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
+                                                <option value="">Sem responsável</option>
+                                                {% for u in autores_disponiveis %}
+                                                <option value="{{ u.id }}" {{ 'selected' if cap.id_usuario_responsavel == u.id else '' }}>{{ u.nome }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            {{ btn_salvar(titulo='Salvar capitulo') }}
+                                        </form>
+                                    </td>
+                                    <td class="sra-table__cell sra-table__cell--actions">
+                                        {% set perfil_ativo = session.get('perfil_ativo') %}
+                                        {% set rel_bloqueado = versao_trabalho.bloqueio_edicao or (versao_trabalho.status and versao_trabalho.status.codigo == 'finalizado') %}
+                                        {% set eh_coordenador = perfil_ativo in ('coordenador', 'admin') %}
+                                        {% set pode_enviar = (not rel_bloqueado) and (eh_coordenador or (current_user.is_authenticated and cap.id_usuario_responsavel == current_user.id)) %}
+
+                                        {# Visualizar: inspeciona o capítulo no DOCX (modal) #}
+                                        {{ btn_custom(icone='eye', titulo='Visualizar capítulo no DOCX',
+                                                      classe='btn-inspecionar',
+                                                      dados={'cap-id': cap.id_capitulo_documento}) }}
+
+                                        {# Substituir conteúdo: upload de DOCX (autor ou coordenador) #}
+                                        {% if pode_enviar %}
+                                            {{ btn_substituir(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
+                                                              titulo='Substituir conteúdo (upload DOCX)') }}
+                                        {% endif %}
+
+                                        {% if eh_coordenador and not rel_bloqueado %}
+                                            {# Subir / Descer ordem dentro do mesmo nível #}
+                                            {{ btn_subir(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
+                                            {{ btn_descer(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
+
+                                            {# Abrir editor (nova aba) #}
+                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id),
+                                                          icone='arrow-square-out',
+                                                          titulo='Abrir editor (nova aba)',
+                                                          classe='') }}
+
+                                            {# Excluir capítulo (com confirmação) #}
+                                            {{ btn_excluir(url_for('capitulos.excluir', id_capitulo=cap.id_capitulo_documento),
+                                                           confirmacao='Excluir o capítulo "' ~ cap.titulo_capitulo ~ '" e seus subcapítulos? O range no DOCX também será removido.') }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% else %}
                     <p class="sra-text--muted">Nenhum capítulo nesta versão.</p>
                 {% endif %}
@@ -219,86 +333,377 @@
     </div>
 </div>
 
-<!-- Modal de Visualização DOCX -->
-{% if versao_trabalho.caminho_template %}
+<!-- Modal de Visualização DOCX (eigenpal docx-editor) -->
 <div id="modal-docx" class="sra-modal sra-modal--hidden">
-    <div class="sra-modal__overlay" onclick="fecharModalDocx()"></div>
+    <div class="sra-modal__overlay" data-action="fechar-modal-docx"></div>
     <div class="sra-modal__content sra-modal__content--large">
         <div class="sra-modal__header">
-            <h3 class="sra-modal__title">Visualizador DOCX</h3>
-            <button type="button" class="sra-modal__close" onclick="fecharModalDocx()" title="Fechar">
+            <h3 class="sra-modal__title" id="modal-docx-titulo">Visualizador DOCX</h3>
+            <button type="button" class="sra-modal__close" data-action="fechar-modal-docx" title="Fechar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
         <div class="sra-modal__body">
-            <div id="docx-viewer" class="sra-docx-viewer"></div>
+            <div id="docx-viewer-mount" class="sra-docx-viewer"></div>
         </div>
         <div class="sra-modal__footer">
-            <a href="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) }}" class="sra-button sra-button--secondary">
+            {% if versao_trabalho.caminho_template %}
+            <a id="link-baixar-docx" href="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) }}" class="sra-button sra-button--secondary">
                 <i class="ph ph-download-simple"></i> Baixar
             </a>
-            <button type="button" class="sra-button sra-button--primary" onclick="fecharModalDocx()">Fechar</button>
+            {% endif %}
+            <button type="button" class="sra-button sra-button--primary" data-action="fechar-modal-docx">Fechar</button>
         </div>
     </div>
 </div>
-{% endif %}
 
-{% if versao_trabalho.caminho_template %}
 <script>
-let docxLoaded = false;
+(function () {
+    'use strict';
 
-function abrirModalDocx(capId) {
-    const modal = document.getElementById('modal-docx');
-    const viewerContainer = document.getElementById('docx-viewer');
+    // ============================================================
+    // Configuração de URLs
+    // ============================================================
+    var URLS = {
+        relatorioCompleto: {% if versao_trabalho.caminho_template %}{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) | tojson }}{% else %}null{% endif %},
+        capituloDocx: function (capId) { return '/api/capitulos/' + capId + '/conteudo'; }
+    };
 
-    modal.classList.remove('sra-modal--hidden');
+    // ============================================================
+    // Modal DOCX (eigenpal)
+    // ============================================================
+    var modal = document.getElementById('modal-docx');
+    var modalTitulo = document.getElementById('modal-docx-titulo');
+    var mountEl = document.getElementById('docx-viewer-mount');
+    var editorHandle = null;
 
-    // Carregar DOCX apenas na primeira abertura
-    if (!docxLoaded && viewerContainer && typeof docx !== 'undefined') {
-        fetch("{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) }}")
-            .then(response => response.arrayBuffer())
-            .then(arrayBuffer => {
-                docx.renderAsync(arrayBuffer, viewerContainer, null, {
-                    className: 'docx-preview-container',
-                    inWrapper: true,
-                    ignoreWidth: false,
-                    ignoreHeight: false,
-                    ignoreFonts: false,
-                    breakPages: true,
-                    useBase64URL: true
-                });
-                docxLoaded = true;
-            })
-            .catch(error => {
-                console.error('Erro ao carregar DOCX:', error);
-                viewerContainer.innerHTML = '<p class="sra-text--muted">Erro ao carregar documento.</p>';
+    function abrirModal(titulo, url) {
+        if (!modal || !mountEl) return;
+        if (!url) {
+            alert('Documento DOCX não disponível para este item.');
+            return;
+        }
+        modalTitulo.textContent = titulo || 'Visualizador DOCX';
+        modal.classList.remove('sra-modal--hidden');
+        // Limpar mount anterior
+        if (editorHandle && window.SRADocxEditor && window.SRADocxEditor.unmountFullViewer) {
+            try { window.SRADocxEditor.unmountFullViewer(editorHandle); } catch (e) {}
+            editorHandle = null;
+        }
+        mountEl.innerHTML = '<div class="sra-docx-viewer__loading"><i class="ph ph-spinner ph-spin"></i> Carregando documento...</div>';
+
+        if (window.SRADocxEditor && window.SRADocxEditor.mountFullViewer) {
+            editorHandle = window.SRADocxEditor.mountFullViewer('docx-viewer-mount', {
+                url: url,
+                mode: 'viewing'
             });
+        } else if (typeof docx !== 'undefined') {
+            // Fallback docx-preview se o bundle eigenpal ainda não estiver carregado
+            fetch(url)
+                .then(function (r) { return r.arrayBuffer(); })
+                .then(function (buf) {
+                    mountEl.innerHTML = '';
+                    return docx.renderAsync(buf, mountEl, null, {
+                        className: 'docx-preview-container',
+                        inWrapper: true,
+                        breakPages: true,
+                        useBase64URL: true
+                    });
+                })
+                .catch(function (err) {
+                    mountEl.innerHTML = '<p class="sra-text--muted">Erro ao carregar documento.</p>';
+                    console.error(err);
+                });
+        } else {
+            mountEl.innerHTML = '<p class="sra-text--muted">Editor DOCX não carregado.</p>';
+        }
     }
 
-    // TODO: Implementar navegação até o capítulo específico
-    // Isso requer integração com docx-preview para mapear bookmarks
-}
-
-function fecharModalDocx() {
-    const modal = document.getElementById('modal-docx');
-    modal.classList.add('sra-modal--hidden');
-}
-
-// Fechar modal com ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        fecharModalDocx();
+    function fecharModal() {
+        if (!modal) return;
+        modal.classList.add('sra-modal--hidden');
+        if (editorHandle && window.SRADocxEditor && window.SRADocxEditor.unmountFullViewer) {
+            try { window.SRADocxEditor.unmountFullViewer(editorHandle); } catch (e) {}
+            editorHandle = null;
+        }
+        if (mountEl) mountEl.innerHTML = '';
     }
-});
 
-// Adicionar event listeners aos botões de inspeção
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.btn-inspecionar').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const capId = this.getAttribute('data-cap-id');
-            abrirModalDocx(capId);
-        });
+    // ============================================================
+    // Delegated event handlers (sobrevivem a HTMX swaps)
+    // ============================================================
+    document.addEventListener('click', function (e) {
+        var target = e.target;
+
+        // Fechar modal
+        if (target.closest('[data-action="fechar-modal-docx"]')) {
+            fecharModal();
+            return;
+        }
+
+        // Botão "Visualizar relatório completo"
+        var btnFull = target.closest('#btn-visualizar-relatorio-completo');
+        if (btnFull) {
+            abrirModal('Relatório Completo', URLS.relatorioCompleto);
+            return;
+        }
+
+        // Botão "Inspecionar capítulo no DOCX" — abre o DOCX de produção
+        // (mesmo arquivo do "Relatório Completo"); o título do modal
+        // identifica qual seção o usuário queria inspecionar.
+        var btnInsp = target.closest('.btn-inspecionar');
+        if (btnInsp) {
+            var capId = btnInsp.getAttribute('data-cap-id');
+            var row = btnInsp.closest('[data-cap-id]');
+            var tituloEl = row ? row.querySelector('.sra-cap-title-text, .sra-tree__title') : null;
+            var indiceEl = row ? row.querySelector('.sra-cap-index-value, .sra-tree__index') : null;
+            var indice = indiceEl ? indiceEl.textContent.trim() : '';
+            var titulo = tituloEl ? tituloEl.textContent.trim() : ('ID ' + capId);
+            var rotulo = (indice && indice !== '—' ? indice + ' ' : '') + titulo;
+            if (!URLS.relatorioCompleto) {
+                alert('DOCX de produção indisponível para este relatório.');
+                return;
+            }
+            abrirModal('Capítulo: ' + rotulo, URLS.relatorioCompleto);
+            return;
+        }
+
+        // Toggle de colapso (ícones em cells de índice / tree items)
+        var capToggle = target.closest('.sra-cap-toggle');
+        if (capToggle) {
+            var row = capToggle.closest('.sra-cap-row');
+            if (row) toggleCapRow(row);
+            return;
+        }
+        var treeToggle = target.closest('.sra-tree__toggle');
+        if (treeToggle) {
+            var item = treeToggle.closest('.sra-tree__item');
+            if (item) toggleTreeItem(item);
+            return;
+        }
     });
-});
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') fecharModal();
+    });
+
+    // ============================================================
+    // Modal: Adicionar capitulo (SweetAlert)
+    // ============================================================
+    var btnAddCap = document.getElementById('btn-adicionar-capitulo');
+    if (btnAddCap) {
+        btnAddCap.addEventListener('click', function () {
+            var versaoId = this.getAttribute('data-versao-id');
+            Swal.fire({
+                title: 'Adicionar capitulo',
+                html:
+                    '<div class="sra-swal-form">' +
+                    '<label class="sra-swal-form__label">Titulo do capitulo *</label>' +
+                    '<input id="swal-titulo" class="swal2-input" placeholder="Ex: Introducao">' +
+                    '<label class="sra-swal-form__label">Indice (opcional)</label>' +
+                    '<input id="swal-indice" class="swal2-input" placeholder="Ex: 1 ou 2.1">' +
+                    '<label class="sra-swal-form__label">Nivel</label>' +
+                    '<select id="swal-nivel" class="swal2-input">' +
+                    '<option value="1">1 (capitulo)</option>' +
+                    '<option value="2">2 (subcapitulo)</option>' +
+                    '<option value="3">3 (subsubcapitulo)</option>' +
+                    '</select>' +
+                    '<label class="sra-swal-form__label">Tipo</label>' +
+                    '<select id="swal-tipo" class="swal2-input">' +
+                    '<option value="textual" selected>Textual</option>' +
+                    '<option value="pre_textual">Pre-textual</option>' +
+                    '<option value="pos_textual">Pos-textual</option>' +
+                    '</select>' +
+                    '</div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Adicionar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2a9450',
+                cancelButtonColor: '#6b7280',
+                preConfirm: function () {
+                    var titulo = document.getElementById('swal-titulo').value.trim();
+                    if (!titulo) {
+                        Swal.showValidationMessage('O titulo e obrigatorio.');
+                        return false;
+                    }
+                    return {
+                        titulo: titulo,
+                        indice: document.getElementById('swal-indice').value.trim(),
+                        nivel: document.getElementById('swal-nivel').value,
+                        tipo: document.getElementById('swal-tipo').value
+                    };
+                }
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+                // Submete via form POST tradicional (segue padrao do sistema)
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/relatorio/capitulo/novo-em/' + versaoId;
+
+                function addField(name, value) {
+                    var inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = name;
+                    inp.value = value;
+                    form.appendChild(inp);
+                }
+                addField('titulo_capitulo', result.value.titulo);
+                addField('indice_capitulo', result.value.indice);
+                addField('nivel_capitulo', result.value.nivel);
+                addField('tipo_elemento', result.value.tipo);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+    }
+
+    // ============================================================
+    // Lógica de colapso — Tabela de capítulos
+    // ============================================================
+    /**
+     * Constrói mapa de filhos para itens hierárquicos.
+     * Estratégia primária: usar data-cap-parent (FK no DB).
+     * Fallback: inferir hierarquia por data-cap-level (assumindo que
+     * a lista está ordenada por índice hierárquico).
+     */
+    function buildChildMap(items) {
+        var map = {};
+        var hasAnyParent = false;
+        items.forEach(function (r) {
+            var p = r.getAttribute('data-cap-parent');
+            if (p) {
+                hasAnyParent = true;
+                (map[p] = map[p] || []).push(r);
+            }
+        });
+        if (hasAnyParent) return map;
+        // Fallback por nível
+        var stack = [];
+        items.forEach(function (r) {
+            var lvl = parseInt(r.getAttribute('data-cap-level') || '1', 10);
+            while (stack.length && parseInt(stack[stack.length - 1].getAttribute('data-cap-level') || '1', 10) >= lvl) {
+                stack.pop();
+            }
+            if (stack.length) {
+                var parent = stack[stack.length - 1];
+                var pid = parent.getAttribute('data-cap-id');
+                (map[pid] = map[pid] || []).push(r);
+                r.setAttribute('data-cap-parent', pid);
+            }
+            stack.push(r);
+        });
+        return map;
+    }
+
+    function setupCollapsibleTable() {
+        var rows = Array.prototype.slice.call(
+            document.querySelectorAll('#tbl-capitulos .sra-cap-row')
+        );
+        if (!rows.length) return;
+        var children = buildChildMap(rows);
+        rows.forEach(function (r) {
+            var id = r.getAttribute('data-cap-id');
+            var btn = r.querySelector('.sra-cap-toggle');
+            if (!btn) return;
+            if (children[id] && children[id].length) {
+                btn.hidden = false;
+            } else {
+                btn.hidden = true;
+            }
+        });
+        // Esconder linhas com nível > 1 (estado inicial)
+        rows.forEach(function (r) {
+            var lvl = parseInt(r.getAttribute('data-cap-level') || '1', 10);
+            if (lvl > 1) r.classList.add('sra-cap-row--hidden');
+        });
+        // Salvar mapa em window para o handler
+        window.__capChildMap = children;
+    }
+
+    function toggleCapRow(row) {
+        var children = window.__capChildMap || {};
+        var id = row.getAttribute('data-cap-id');
+        var expanded = row.classList.toggle('sra-cap-row--expanded');
+        var icon = row.querySelector('.sra-cap-toggle i');
+        if (icon) icon.className = expanded ? 'ph ph-caret-down' : 'ph ph-caret-right';
+        var kids = children[id] || [];
+        kids.forEach(function (k) {
+            if (expanded) {
+                k.classList.remove('sra-cap-row--hidden');
+            } else {
+                hideCapRowRecursive(k, children);
+            }
+        });
+    }
+
+    function hideCapRowRecursive(row, children) {
+        row.classList.add('sra-cap-row--hidden');
+        row.classList.remove('sra-cap-row--expanded');
+        var ic = row.querySelector('.sra-cap-toggle i');
+        if (ic) ic.className = 'ph ph-caret-right';
+        var kids = children[row.getAttribute('data-cap-id')] || [];
+        kids.forEach(function (k) { hideCapRowRecursive(k, children); });
+    }
+
+    // ============================================================
+    // Lógica de colapso — Árvore (esquerda)
+    // ============================================================
+    function setupCollapsibleTree() {
+        // Processa cada agrupamento (.sra-tree) separadamente — pré, textual, pós
+        var trees = Array.prototype.slice.call(document.querySelectorAll('.sra-tree'));
+        var globalMap = {};
+        trees.forEach(function (tree) {
+            var items = Array.prototype.slice.call(
+                tree.querySelectorAll('.sra-tree__item[data-cap-id]')
+            );
+            if (!items.length) return;
+            var map = buildChildMap(items);
+            items.forEach(function (it) {
+                var id = it.getAttribute('data-cap-id');
+                var btn = it.querySelector('.sra-tree__toggle');
+                if (!btn) return;
+                btn.hidden = !(map[id] && map[id].length);
+                if (map[id]) globalMap[id] = map[id];
+            });
+            // Esconde itens com nível > 1
+            items.forEach(function (it) {
+                var lvl = parseInt(it.getAttribute('data-cap-level') || '1', 10);
+                if (lvl > 1) it.classList.add('sra-tree__item--hidden');
+            });
+        });
+        window.__treeChildMap = globalMap;
+    }
+
+    function toggleTreeItem(item) {
+        var map = window.__treeChildMap || {};
+        var id = item.getAttribute('data-cap-id');
+        var expanded = item.classList.toggle('sra-tree__item--expanded');
+        var icon = item.querySelector('.sra-tree__toggle i');
+        if (icon) icon.className = expanded ? 'ph ph-caret-down' : 'ph ph-caret-right';
+        var kids = map[id] || [];
+        kids.forEach(function (k) {
+            if (expanded) {
+                k.classList.remove('sra-tree__item--hidden');
+            } else {
+                hideTreeItemRecursive(k, map);
+            }
+        });
+    }
+
+    function hideTreeItemRecursive(item, map) {
+        item.classList.add('sra-tree__item--hidden');
+        item.classList.remove('sra-tree__item--expanded');
+        var ic = item.querySelector('.sra-tree__toggle i');
+        if (ic) ic.className = 'ph ph-caret-right';
+        var kids = map[item.getAttribute('data-cap-id')] || [];
+        kids.forEach(function (k) { hideTreeItemRecursive(k, map); });
+    }
+
+    // ============================================================
+    // Init (executa imediatamente — funciona em fragments HTMX)
+    // ============================================================
+    setupCollapsibleTable();
+    setupCollapsibleTree();
+})();
 </script>
-{% endif %}

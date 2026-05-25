@@ -29,7 +29,7 @@
 }
 
 body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
     background-color: var(--sra-color-bg-alt);
     color: var(--sra-color-text);
 }
@@ -92,6 +92,23 @@ body {
 
 .sidebar-menu__link:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-menu__link--active {
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 3px 0 0 #ffd43b;
+}
+
+.sidebar-menu__link--active:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.sidebar-menu__toggle--active {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-menu__toggle--active + .sidebar-submenu {
+    max-height: 200px;
 }
 
 .sidebar-menu__link--logout {
@@ -213,7 +230,7 @@ body {
 
 .conteudo-principal {
     flex: 1;
-    padding: 2rem;
+    padding: 0.75rem 1.5rem;
 }
 
 .pagina-acesso {
@@ -235,7 +252,7 @@ body {
 }
 
 .card-acesso h2 {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     text-align: center;
 }
 
@@ -311,8 +328,8 @@ body {
 .painel {
     background: var(--sra-color-bg);
     border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -322,11 +339,11 @@ body {
 
 .sra-text--center {
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 0.75rem;
 }
 
 .conteudo-principal .sra-card {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .sra-text--muted {
@@ -394,6 +411,16 @@ body {
     color: #991b1b;
 }
 
+.sra-badge--gerado {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.sra-badge--producao {
+    background: #fef3c7;
+    color: #92400e;
+}
+
 .sra-badge--xs {
     font-size: 0.7rem;
     padding: 1px 6px;
@@ -456,30 +483,89 @@ body {
     stroke-linejoin: round;
 }
 
-/* ---------- Icon buttons (table actions) ---------- */
+/* ---------- Utility: visually-hidden (a11y) ----------
+   Esconde o texto visualmente mantendo-o acessivel para leitores
+   de tela. Usado pelas macros _acoes_tabela.html. */
+.sra-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- Icon buttons (table actions) ----------
+   Botoes-icone semanticos. Padrao: borda permanente colorida +
+   icone fill na mesma cor + fundo branco. No hover, vira solido
+   (fundo na cor + icone branco).
+
+   Tamanho fixo 32x32, sem texto visivel (apenas tooltip via `title`
+   + texto a11y via .sra-sr-only). */
 .sra-btn-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    border: none;
-    background: transparent;
-    color: var(--sra-color-text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1.5px solid var(--btn-color, #868e96);
+    background: #fff;
+    color: var(--btn-color, #495057);
     cursor: pointer;
     text-decoration: none;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s ease, color 0.15s ease,
+                border-color 0.15s ease, transform 0.1s ease,
+                box-shadow 0.15s ease;
+    flex-shrink: 0;
+    padding: 0;
+    line-height: 1;
 }
 
+.sra-btn-icon i.ph,
+.sra-btn-icon i.ph-fill,
+.sra-btn-icon i.ph-bold {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+/* Hover universal: vira solido na cor do botao */
 .sra-btn-icon:hover {
-    background: #e5e7eb;
-    color: var(--sra-color-text);
+    background: var(--btn-color, #495057);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
-.sra-btn-icon--danger:hover {
-    background: #fee2e2;
-    color: #dc2626;
+.sra-btn-icon:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Modifiers semanticos: definem --btn-color */
+.sra-btn-icon--view    { --btn-color: #228be6; }  /* azul    */
+.sra-btn-icon--open    { --btn-color: #0c8599; }  /* cyan    */
+.sra-btn-icon--edit    { --btn-color: #2f9e44; }  /* verde   */
+.sra-btn-icon--save    { --btn-color: #f08c00; }  /* laranja */
+.sra-btn-icon--delete,
+.sra-btn-icon--danger  { --btn-color: #e03131; }  /* vermelho */
+.sra-btn-icon--move    { --btn-color: #6741d9; }  /* roxo    */
+.sra-btn-icon--upload  { --btn-color: #ae3ec9; }  /* magenta */
+.sra-btn-icon--neutral { --btn-color: #495057; }  /* cinza   */
+
+.sra-btn-icon--disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+    pointer-events: auto;
+}
+
+.sra-btn-icon--disabled:hover {
+    background: #fff;
+    color: var(--btn-color, #495057);
+    box-shadow: none;
+    transform: none;
 }
 
 .sra-btn-icon svg {

@@ -19,8 +19,19 @@ class EnvioConteudo(db.Model, AuditoriaMixin):
     nome_arquivo = db.Column(db.String(300), nullable=False)
     caminho_arquivo = db.Column(db.String(500), nullable=False)
     status_envio = db.Column(db.String(50), nullable=False, default='pendente')
+    # Capítulo destino do upload — fixo no momento do envio (autor
+    # acessa via /capitulo/<id>/upload). Usado pelo merge in-place
+    # para localizar o range correto no DOCX em produção.
+    id_capitulo_destino = db.Column(
+        db.Integer,
+        db.ForeignKey('capitulos_documento.id_capitulo_documento'),
+        nullable=True,
+    )
 
     relatorio = db.relationship('RelatorioProducao', back_populates='envios')
+    capitulo_destino = db.relationship(
+        'CapituloDocumento', foreign_keys=[id_capitulo_destino]
+    )
     previsualizacoes = db.relationship(
         'PrevisualizacaoConteudo', back_populates='envio'
     )

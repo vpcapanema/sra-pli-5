@@ -1,43 +1,136 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar, btn_excluir %}
 
 {% macro lista_relatorios_base(relatorios_finalizados) %}
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Relatórios Finalizados (Biblioteca)</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('archive', '2.', 'Relatórios Finalizados') }}
     <div class="sra-card__content">
         {% set linhas = [] %}
         {% for r in relatorios_finalizados %}
+            {% set badge_status %}
+                <span class="sra-badge sra-badge--{{ r.status.codigo if r.status else 'neutral' }} sra-badge--xs">{{ r.status.codigo | replace('_', ' ') | capitalize if r.status else '—' }}</span>
+            {% endset %}
+            {% set periodo %}
+                {% if r.periodo_inicio and r.periodo_fim %}
+                    {{ r.periodo_inicio.strftime('%d/%m/%Y') }} — {{ r.periodo_fim.strftime('%d/%m/%Y') }}
+                {% else %}—{% endif %}
+            {% endset %}
             {% set acoes %}
-                <a href="{{ url_for('configuracoes.visualizar_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('configuracoes.visualizar_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
-                <form method="POST" action="{{ url_for('configuracoes.excluir_relatorio_finalizado', id_relatorio=r.id) }}" class="sra-inline-form" onsubmit="return confirm('Excluir relatório &quot;{{ r.titulo }}&quot;?');">
-                    <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
-                </form>
+                {{ btn_visualizar(url_for('configuracoes.visualizar_relatorio_finalizado', id_relatorio=r.id)) }}
+                {{ btn_editar(
+                    classe='btn-editar-relatorio-finalizado',
+                    dados={
+                        'id': r.id,
+                        'titulo': r.titulo or '',
+                        'codigo': r.codigo or '',
+                        'versao': r.versao,
+                        'medicao': r.numero_medicao or '',
+                        'periodo-inicio': r.periodo_inicio.strftime('%Y-%m-%d') if r.periodo_inicio else '',
+                        'periodo-fim': r.periodo_fim.strftime('%Y-%m-%d') if r.periodo_fim else ''
+                    }
+                ) }}
+                {{ btn_excluir(
+                    url_for('configuracoes.excluir_relatorio_finalizado', id_relatorio=r.id),
+                    confirmacao='Excluir relatório "' ~ (r.titulo or r.codigo or '') ~ '" e seu arquivo associado?'
+                ) }}
             {% endset %}
             {% set _ = linhas.append([
                 r.id,
-                r.codigo or '-',
-                r.titulo or '-',
+                r.codigo or '—',
+                r.titulo or '—',
+                r.numero_medicao or '—',
+                periodo,
                 r.versao,
-                r.numero_medicao,
-                r.mes_referencia.strftime('%m/%Y') if r.mes_referencia else '-',
-                r.ano_referencia or '-',
-                r.data_finalizacao.strftime('%d/%m/%Y') if r.data_finalizacao else '-',
+                badge_status,
+                r.data_finalizacao.strftime('%d/%m/%Y') if r.data_finalizacao else '—',
+                r.finalizador.nome if r.finalizador else '—',
                 acoes
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Código', 'Título', 'Versão', 'Medição', 'Mês Referência', 'Ano', 'Finalizado em', 'Ações'],
+            colunas=['Código', 'Título', 'Medição', 'Período', 'Versão', 'Status', 'Finalizado em', 'Finalizado por', 'Ações'],
             linhas=linhas,
             vazio='Nenhum relatório finalizado.'
         ) }}
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-editar-relatorio-finalizado').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const titulo = this.getAttribute('data-titulo');
+            const codigo = this.getAttribute('data-codigo');
+            const versao = this.getAttribute('data-versao');
+            const medicao = this.getAttribute('data-medicao');
+            const pInicio = this.getAttribute('data-periodo-inicio');
+            const pFim = this.getAttribute('data-periodo-fim');
+
+            Swal.fire({
+                title: 'Editar Relatório Finalizado',
+                html:
+                    '<div class="sra-swal-form">' +
+                    '<label class="sra-swal-form__label">Código</label>' +
+                    '<input id="swal-codigo" class="swal2-input" value="' + codigo + '">' +
+                    '<label class="sra-swal-form__label">Título</label>' +
+                    '<input id="swal-titulo" class="swal2-input" value="' + titulo + '">' +
+                    '<label class="sra-swal-form__label">Nº Medição</label>' +
+                    '<input id="swal-medicao" class="swal2-input" type="number" value="' + medicao + '">' +
+                    '<label class="sra-swal-form__label">Período Início</label>' +
+                    '<input id="swal-periodo-inicio" class="swal2-input" type="date" value="' + pInicio + '">' +
+                    '<label class="sra-swal-form__label">Período Fim</label>' +
+                    '<input id="swal-periodo-fim" class="swal2-input" type="date" value="' + pFim + '">' +
+                    '<label class="sra-swal-form__label">Versão</label>' +
+                    '<input id="swal-versao" class="swal2-input" value="' + versao + '">' +
+                    '</div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2a9450',
+                cancelButtonColor: '#6b7280',
+                preConfirm: () => {
+                    return {
+                        titulo: document.getElementById('swal-titulo').value,
+                        codigo: document.getElementById('swal-codigo').value,
+                        versao: document.getElementById('swal-versao').value,
+                        numero_medicao: document.getElementById('swal-medicao').value,
+                        periodo_inicio: document.getElementById('swal-periodo-inicio').value,
+                        periodo_fim: document.getElementById('swal-periodo-fim').value
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/configuracoes/relatorio-finalizado/${id}/editar-inline`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(result.value)
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.erro) {
+                            Swal.fire({ icon: 'error', title: 'Erro', text: data.erro });
+                        } else {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Salvo',
+                                text: data.mensagem,
+                                timer: 1200,
+                                showConfirmButton: false
+                            }).then(() => {
+                                htmx.ajax('GET', '/', {target: '#main-content', swap: 'innerHTML'});
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Erro de conexão', text: String(err) });
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
 {% endmacro %}

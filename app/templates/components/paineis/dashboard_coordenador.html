@@ -10,8 +10,16 @@
 </div>
 
 <!-- Container 1: Criar novo relatório mensal de atividades -->
-<div class="sra-section sra-section--bordered">
-    <h2 class="sra-section__title">1. Criar novo relatório mensal de atividades</h2>
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    <div class="sra-section__header">
+        <h2 class="sra-section__title">
+            <span class="sigma-pli-conteiner__icon sigma-pli-conteiner__icon--lg">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </span>
+            <span>1. Criar novo relatório mensal de atividades</span>
+        </h2>
+    </div>
+    <div class="sra-section__body">
     <p class="sra-section__description">
         Utilize este formulário para criar um novo relatório de produção a partir de um modelo da biblioteca.
         Preencha as informações cadastrais, selecione o relatório base e clique em "Criar Relatório de Produção".
@@ -93,11 +101,20 @@
             <button type="button" class="sra-button sra-button--primary" onclick="clonarDaBiblioteca()">Criar Relatório de Produção</button>
         </div>
     </div>
+    </div>
 </div>
 
 <!-- Container 2: Quadro de Relatórios por situação -->
-<div class="sra-section sra-section--bordered">
-    <h2 class="sra-section__title">2. Quadro de Relatórios por situação</h2>
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    <div class="sra-section__header">
+        <h2 class="sra-section__title">
+            <span class="sigma-pli-conteiner__icon sigma-pli-conteiner__icon--lg">
+                <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <span>2. Quadro de Relatórios por situação</span>
+        </h2>
+    </div>
+    <div class="sra-section__body">
     <p class="sra-section__description">
         Visualize e gerencie todos os relatórios do sistema. Os relatórios em produção são aqueles atualmente em elaboração,
         enquanto os relatórios finalizados estão armazenados na biblioteca para uso como modelos em futuras clonagens.
@@ -123,6 +140,7 @@
             {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
             {{ lista_relatorios_base(relatorios_finalizados) }}
         </div>
+    </div>
     </div>
 </div>
 

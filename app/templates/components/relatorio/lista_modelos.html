@@ -1,25 +1,20 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar, btn_excluir %}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">1. Modelos de Relatório</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('file-text', '1.', 'Modelos de Relatório') }}
     <div class="sra-card__content">
         {% set linhas = [] %}
         {% for m in modelos %}
             {% set status = 'Ativo' if m.ativo else 'Inativo' %}
             {% set acoes %}
-                <a href="{{ url_for('configuracoes.visualizar_modelo', id_modelo=m.id_modelo_relatorio) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('configuracoes.editar_modelo', id_modelo=m.id_modelo_relatorio) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
-                <form method="POST" action="{{ url_for('configuracoes.excluir_modelo', id_modelo=m.id_modelo_relatorio) }}" class="sra-inline-form" onsubmit="return confirm('Excluir modelo &quot;{{ m.nome_modelo }}&quot;?');">
-                    <button type="submit" class="sra-btn-icon sra-btn-icon--danger" title="Excluir">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
-                </form>
+                {{ btn_visualizar(url_for('configuracoes.visualizar_modelo', id_modelo=m.id_modelo_relatorio)) }}
+                {{ btn_editar(href=url_for('configuracoes.editar_modelo', id_modelo=m.id_modelo_relatorio)) }}
+                {{ btn_excluir(
+                    url_for('configuracoes.excluir_modelo', id_modelo=m.id_modelo_relatorio),
+                    confirmacao='Excluir modelo "' ~ m.nome_modelo ~ '" e seu arquivo associado?'
+                ) }}
             {% endset %}
             {% set _ = linhas.append([
                 m.id_modelo_relatorio,
@@ -30,17 +25,15 @@
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Nome', 'Descrição', 'Status', 'Ações'],
+            colunas=['Nome', 'Descrição', 'Status', 'Ações'],
             linhas=linhas,
             vazio='Nenhum modelo cadastrado.'
         ) }}
     </div>
 </div>
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Novo Modelo</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('plus-circle', '', 'Novo Modelo') }}
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_modelo') }}">
             <div class="sra-input">

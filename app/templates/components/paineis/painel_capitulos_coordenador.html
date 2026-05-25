@@ -1,8 +1,12 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
 
-<div class="sra-card">
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+<div class="sra-card sigma-pli-conteiner">
     <div class="sra-card__header">
-        <h3 class="sra-card__title">Painel de Edição — Coordenador</h3>
+        <h3 class="sra-card__title">
+            <span class="sigma-pli-conteiner__icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+            <span>Painel de Edição — Coordenador</span>
+        </h3>
         <div class="sra-card__actions">
             <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}" class="sra-button sra-button--sm sra-button--secondary">
                 <i class="ph ph-eye"></i> Abrir Revisão
@@ -46,7 +50,7 @@
                 ]) %}
             {% endfor %}
             {{ tabela(
-                colunas=['ID', 'Índice', 'Título', 'Status', 'Responsável', 'Atribuir'],
+                colunas=['Índice', 'Título', 'Status', 'Responsável', 'Atribuir'],
                 linhas=linhas_cap,
                 vazio='Nenhum capítulo cadastrado.'
             ) }}

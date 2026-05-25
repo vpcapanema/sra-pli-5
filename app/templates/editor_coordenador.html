@@ -1,120 +1,195 @@
 {% extends "layouts/base.html" %}
 
+{#
+  Editor do Coordenador — interface principal das etapas finais.
+
+  Componentes:
+  1. Header: voltar + título + seletor de biblioteca canônica de formatação.
+  2. Sidebar esquerda — Painel de Comandos:
+     - Pré-textuais: Inserir Sumário, Lista de Figuras, Lista de Tabelas
+     - Atualizações: Reindexar Captions + Cross-refs
+     - Finalização: Gerar Relatório Final
+  3. Coluna central — Visualizador do DOCX em produção
+     (@eigenpal/docx-editor-react em modo `editing` com toolbar completa).
+  4. Sidebar direita — Lista de capítulos com status (referência rápida).
+
+  Tudo opera sobre o DOCX em `relatorio.caminho_template`. Toda ação
+  pré-textual ou de reindexação é POST + redirect (flash messages),
+  garantindo idempotência e simplicidade — sem AJAX desnecessário.
+#}
+
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_workspace.css') }}">
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_coordenador.css') }}">
 {% endblock %}
 
+{% from "components/_botao_acao.html" import painel_acoes %}
+
 {% block conteudo %}
-<div class="ew">
-    <header class="ew__header">
-        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=versao.id) }}" class="ew__back" title="Voltar">
+<div class="ec">
+
+    {# ============================================================
+       Header
+       ============================================================ #}
+    <header class="ec__header">
+        <a href="{{ url_for('relatorio.detalhe_versao', id_versao=versao.id) }}"
+           class="ec__back" title="Voltar para detalhe do relatório">
             <i class="ph ph-arrow-left"></i>
         </a>
-        <div class="ew__header-text">
-            <h1 class="ew__title">{{ versao.titulo }}</h1>
-            <span class="ew__subtitle">Revisão e Edição — Coordenador</span>
+
+        <div class="ec__header-text">
+            {# Seletor de relatorio (troca em 1 click via JS) #}
+            <div class="ec__rel-selector">
+                <label for="ec-rel-select" class="sra-sr-only">Relatório:</label>
+                <select id="ec-rel-select" class="ec__rel-select"
+                        onchange="if(this.value){window.location.href=this.value;}"
+                        title="Escolher outro relatório">
+                    {% for rel in todos_relatorios %}
+                    <option value="{{ url_for('relatorio.editor_coordenador', id_versao=rel.id) }}"
+                            {{ 'selected' if rel.id == versao.id else '' }}>
+                        {{ rel.codigo_d20 or 'D-?' }} —
+                        {{ rel.titulo_curto or rel.titulo or 'Sem título' }}
+                        {% if rel.id == versao.id %}(atual){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="ec__subtitle">
+                <span>Revisão e Editoração — Coordenador</span>
+                <span class="ec__pill ec__pill--{{ 'bloqueado' if rel_bloqueado else 'ativo' }}">
+                    {% if rel_bloqueado %}
+                        <i class="ph ph-lock"></i> Finalizado / Bloqueado
+                    {% else %}
+                        <i class="ph ph-pencil-line"></i>
+                        {{ versao.status.codigo if versao.status else 'em revisão' }}
+                    {% endif %}
+                </span>
+            </div>
         </div>
-        <div class="ew__header-actions">
-        </div>
+
+        {# Seletor de biblioteca canônica de formatação #}
+        <form method="post"
+              action="{{ url_for('relatorio.vincular_biblioteca', id_versao=versao.id) }}"
+              class="ec__biblioteca-form">            <label for="id_biblioteca" class="ec__biblioteca-label">
+                <i class="ph ph-books"></i> Biblioteca de formatação
+            </label>
+            <select name="id_biblioteca" id="id_biblioteca"
+                    class="ec__biblioteca-select"
+                    {{ 'disabled' if rel_bloqueado else '' }}>
+                <option value="">— Nenhuma (defaults genéricos) —</option>
+                {% for bib in bibliotecas %}
+                <option value="{{ bib.id_biblioteca_formatacao_canonica }}"
+                        {{ 'selected' if biblioteca_atual and biblioteca_atual.id_biblioteca_formatacao_canonica == bib.id_biblioteca_formatacao_canonica else '' }}>
+                    {{ bib.nome_biblioteca }}
+                    {% if not bib.extraida %} (não extraída){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="ec__biblioteca-apply"
+                    {{ 'disabled' if rel_bloqueado else '' }}>
+                <i class="ph ph-check"></i> Aplicar
+            </button>
+        </form>
     </header>
 
-    <div class="ew__body">
-        <!-- Sidebar: capítulos com status -->
-        <aside class="ew__sidebar">
-            <h2 class="ew__sidebar-title">Capítulos</h2>
-            <div class="ew__cap-list" id="capList"></div>
+    {# ============================================================
+       Corpo: 3 colunas
+       ============================================================ #}
+    <div class="ec__body">
+
+        {# ---------- Sidebar Esquerda: Painel de Comandos ---------- #}
+        <aside class="ec__commands">
+            <h2 class="ec__commands-title">
+                <i class="ph ph-toolbox"></i> Painel de Comandos
+            </h2>
+
+            {% if rel_bloqueado %}
+            <div class="ec__commands-locked">
+                <i class="ph ph-info"></i>
+                Relatório finalizado. Comandos desativados.
+            </div>
+            {% endif %}
+
+            {# Todos os botões vêm do CATÁLOGO em
+               app/services/servico_acoes_relatorio.py. Para adicionar
+               um botão novo: 1 entrada no catálogo + 1 handler. Nenhuma
+               mudança aqui. #}
+            {{ painel_acoes(grupos_acoes, versao.id) }}
         </aside>
 
-        <!-- Main: preview/edit area -->
-        <main class="ew__main">
-            <!-- Seção: Visualizador de Conteúdo Completo -->
-            <div class="ew__section">
-                <h3 class="ew__section-title">Visualizador de Conteúdo</h3>
-                <div class="ew__toolbar">
-                    <span class="ew__cap-titulo" id="capTitulo">Documento Completo</span>
-                    <div class="ew__toolbar-actions">
-                        <button class="btn btn--sm btn--outline" id="btnPreviewFull" type="button">
-                            <i class="ph ph-eye"></i> Preview Completo
-                        </button>
-                        <button class="btn btn--sm btn--primary" id="btnExportar" type="button">
-                            <i class="ph ph-download"></i> Exportar DOCX
-                        </button>
-                    </div>
-                </div>
-                <div class="ew__editor-area" id="editorArea">
-                    <div class="ew__placeholder">
-                        <i class="ph ph-file-doc"></i>
-                        <p>Selecione um capítulo para revisar ou clique "Preview Completo" para ver o documento renderizado.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Seção: Ferramentas de Revisão -->
-            <div class="ew__section">
-                <h3 class="ew__section-title">Ferramentas de Revisão</h3>
-                <div class="ew__review-panel">
-                    <div class="ew__review-info">
-                        <h4>Capítulo em Revisão</h4>
-                        <p id="reviewCapituloInfo">Nenhum capítulo selecionado</p>
-                    </div>
-                    <div class="ew__review-actions">
-                        <button class="btn btn--sm btn--outline" id="btnEditarInline" type="button" disabled>
-                            <i class="ph ph-pencil-simple"></i> Editar Inline
-                        </button>
-                        <button class="btn btn--sm btn--outline" id="btnVerHistorico" type="button" disabled>
-                            <i class="ph ph-clock-counter-clockwise"></i> Ver Histórico
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Seção: Aprovação/Reprovação -->
-            <div class="ew__section">
-                <h3 class="ew__section-title">Decisão de Revisão</h3>
-                <div class="ew__review-bar ew__hidden" id="reviewBar">
-                    <div class="ew__review-obs-group">
-                        <label class="ew__label" for="obsInput">Observação (obrigatório para reprovação)</label>
-                        <textarea class="ew__review-obs" id="obsInput" placeholder="Descreva o motivo da reprovação ou sugestões de correção..."></textarea>
-                    </div>
-                    <div class="ew__review-buttons">
-                        <button class="btn btn--sm btn--success" id="btnAprovar" type="button" disabled>
-                            <i class="ph ph-check"></i> Aprovar Capítulo
-                        </button>
-                        <button class="btn btn--sm btn--danger" id="btnReprovar" type="button" disabled>
-                            <i class="ph ph-x"></i> Reprovar com Feedback
-                        </button>
-                    </div>
-                </div>
-                <div class="ew__finalizar-area">
-                    <button class="btn btn--success" id="btnFinalizarRelatorio" type="button" disabled>
-                        <i class="ph ph-check-circle"></i> Finalizar Relatório Completo
+        {# ---------- Coluna Central: Visualizador DOCX ---------- #}
+        <main class="ec__viewer">
+            <div class="ec__viewer-header">
+                <h2 class="ec__viewer-title">
+                    <i class="ph ph-file-doc"></i>
+                    DOCX em produção
+                </h2>
+                <div class="ec__viewer-actions">
+                    <button type="button" class="ec__viewer-action"
+                            id="btnRecarregarViewer"
+                            title="Recarregar visualização do servidor">
+                        <i class="ph ph-arrow-clockwise"></i> Recarregar
                     </button>
+                    <a href="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao.id) }}"
+                       class="ec__viewer-action"
+                       download="{{ versao.codigo_d20 or 'relatorio' }}.docx"
+                       title="Baixar DOCX atual">
+                        <i class="ph ph-download-simple"></i> Baixar
+                    </a>
                 </div>
             </div>
 
-            <!-- React editor mount point -->
-            <div id="reactEditorMount"></div>
+            <div class="ec__viewer-mount" id="docxEditorMount">
+                <div class="ec__viewer-loading">
+                    <i class="ph ph-spinner ph-spin"></i>
+                    Carregando editor...
+                </div>
+            </div>
+
+            <p class="ec__viewer-hint">
+                Editor: <strong>@eigenpal/docx-editor-react</strong>
+                em modo {{ 'somente leitura' if rel_bloqueado else 'edição' }}.
+                Use a toolbar do editor para fazer ajustes finais inline.
+            </p>
         </main>
+
+        {# ---------- Sidebar Direita: Capítulos ---------- #}
+        <aside class="ec__capitulos">
+            <h2 class="ec__capitulos-title">
+                <i class="ph ph-list-checks"></i>
+                Capítulos
+                <span class="ec__capitulos-count">{{ capitulos|length }}</span>
+            </h2>
+
+            <div class="ec__capitulos-list">
+                {% for cap in capitulos %}
+                <div class="ec__cap ec__cap--{{ cap.status_capitulo or 'pendente' }}
+                            ec__cap--nivel-{{ cap.nivel_capitulo or 1 }}">
+                    <span class="ec__cap-idx">
+                        {{ cap.indice_capitulo or '—' }}
+                    </span>
+                    <span class="ec__cap-titulo">
+                        {{ cap.titulo_capitulo }}
+                    </span>
+                    <span class="ec__cap-status">
+                        {{ (cap.status_capitulo or 'pendente') | replace('_', ' ') }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="ec__cap-empty">Nenhum capítulo cadastrado.</div>
+                {% endfor %}
+            </div>
+        </aside>
+
     </div>
 </div>
 
-<div id="editor-data"
+{# Dados para o JS #}
+<div id="editor-coord-data"
      data-id-versao="{{ versao.id }}"
-     data-id-usuario="{{ current_user.id }}"
-     data-api-base="/api"
+     data-docx-url="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao.id) }}"
+     data-mode="{{ 'viewing' if rel_bloqueado else 'editing' }}"
      hidden></div>
-<script>
-(function() {
-    var el = document.getElementById('editor-data');
-    window.EDITOR_DATA = {
-        idVersao: Number(el.dataset.idVersao),
-        idUsuario: Number(el.dataset.idUsuario),
-        apiBase: el.dataset.apiBase
-    };
-})();
-</script>
 {% endblock %}
 
 {% block scripts %}

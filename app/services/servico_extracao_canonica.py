@@ -6,8 +6,33 @@ de formatação, gerando um JSON canônico pronto para consumo.
 
 import json
 import os
+import re
 
 from docx import Document
+
+
+# Regex para detectar prefixo de numeração hierárquica no início do
+# título de um capítulo no DOCX. Aceita formas como:
+#   "1 Introdução", "1. Introdução", "5.4.6.1 Sistema",
+#   "5.4.6.1. Sistema", "12.1 — Declaração", "5.4.1.1) Tema".
+# Captura o índice (grupo 1) e o título limpo (grupo 2).
+_INDICE_PREFIXO_RE = re.compile(
+    r'^\s*(\d+(?:\.\d+)*)\s*[\.\)\-–—:]?\s+(.+?)\s*$'
+)
+
+
+def extrair_indice_e_titulo(texto):
+    """Detecta prefixo numérico hierárquico no título de um heading.
+
+    Retorna (indice, titulo_limpo) — `indice` é uma string como
+    "5.4.6.1" ou None se não houver prefixo numérico.
+    """
+    if not texto:
+        return None, texto
+    m = _INDICE_PREFIXO_RE.match(texto)
+    if not m:
+        return None, texto.strip()
+    return m.group(1), m.group(2).strip()
 
 
 NSMAP = {
@@ -148,6 +173,17 @@ class ServicoExtracaoCanonica:
             secao['tipo_quebra'] = tipo.get(
                 f'{{{w_ns}}}val', ''
             )
+
+        # Formato de numeração de páginas — sinal forte para distinguir
+        # pré-textual (lowerRoman/upperRoman) de textual (decimal)
+        pg_num = sect_pr.find('w:pgNumType', NSMAP)
+        if pg_num is not None:
+            fmt = pg_num.get(f'{{{w_ns}}}fmt')
+            if fmt:
+                secao['formato_numero_pagina'] = fmt
+            inicio = pg_num.get(f'{{{w_ns}}}start')
+            if inicio:
+                secao['inicio_numero_pagina'] = inicio
 
         return secao
 
@@ -465,9 +501,40 @@ class ServicoExtracaoCanonica:
         if secoes is None:
             secoes = cls._extrair_secoes(doc)
 
+        # Sinal por seções DOCX: quando uma seção transiciona de numeração
+        # romana (lowerRoman/upperRoman) para decimal, é forte indicador de
+        # que a parte textual começa no primeiro parágrafo dessa seção.
+        indice_textual_por_secao = None
+        formato_anterior = None
+        for sec in secoes:
+            fmt = (sec.get('formato_numero_pagina') or '').lower()
+            if (formato_anterior in ('lowerroman', 'upperroman')
+                    and fmt in ('decimal', '')):
+                indice_textual_por_secao = sec.get('inicio_paragrafo')
+                break
+            if fmt:
+                formato_anterior = fmt
+
         primeiro_heading1_encontrado = False
         indice_inicio_textual = None
         indice_inicio_pos = None
+
+        # Títulos canônicos pré-textuais (match exato) usados para descartar
+        # Heading 1 que na verdade rotulam Sumário, Resumo, Listas, etc.
+        pre_textuais_titulos_exatos = cls._PRE_TEXTUAIS_TITULOS
+
+        def _eh_titulo_pre_textual(texto_lower, style_lower):
+            """Verifica se um parágrafo (ainda que com estilo Heading) deve
+            ser tratado como pré-textual e portanto ignorado para fins
+            de detecção do início do conteúdo textual."""
+            if 'toc' in style_lower:
+                return True
+            if texto_lower in pre_textuais_titulos_exatos:
+                return True
+            for kw in pre_textuais_kw:
+                if kw == texto_lower or texto_lower.startswith(kw + ' '):
+                    return True
+            return False
 
         for i, para in enumerate(doc.paragraphs):
             style_name = (para.style.name or '').lower()
@@ -475,6 +542,10 @@ class ServicoExtracaoCanonica:
 
             if (style_name.startswith('heading 1') or
                     style_name == 'heading 1'):
+                # Pula Heading 1 que rotula elemento pré-textual
+                # (Sumário, Resumo, Lista de Figuras, etc.)
+                if _eh_titulo_pre_textual(texto, style_name):
+                    continue
                 if not primeiro_heading1_encontrado:
                     primeiro_heading1_encontrado = True
                     indice_inicio_textual = i
@@ -485,6 +556,17 @@ class ServicoExtracaoCanonica:
                         if kw in texto:
                             indice_inicio_pos = i
                             break
+
+        # Refinar com sinal de seções DOCX:
+        # - Se nenhum Heading 1 textual foi encontrado, usar a seção com
+        #   numeração decimal como início textual.
+        # - Se o Heading 1 detectado vem ANTES da transição decimal, ainda
+        #   pode ser ruído; preferir o índice da seção, que é mais confiável.
+        if indice_textual_por_secao is not None:
+            if indice_inicio_textual is None:
+                indice_inicio_textual = indice_textual_por_secao
+            elif indice_inicio_textual < indice_textual_por_secao:
+                indice_inicio_textual = indice_textual_por_secao
 
         macro = []
         for i, para in enumerate(doc.paragraphs):
@@ -558,17 +640,34 @@ class ServicoExtracaoCanonica:
         ordem = ['capa', 'pre_textual', 'textual', 'pos_textual']
         return [resultado[t] for t in ordem if t in resultado]
 
-    # Conjunto canônico de títulos pré-textuais para detecção rigorosa
-    _PRE_TEXTUAIS_TITULOS = {
-        'sumário', 'sumario', 'resumo', 'abstract',
+    # Pré-textuais AUTO-GERADOS: NUNCA viram capítulos no banco.
+    # São produzidos a partir do conteúdo dos demais capítulos
+    # (Sumário lista os capítulos; Lista de Figuras lista as figuras
+    # dos capítulos; etc.). A camada de geração final do DOCX é que
+    # monta esses elementos. Tratá-los como capítulo no banco
+    # geraria recursão de conteúdo (capítulo "Sumário" listaria a si
+    # mesmo) e duplicação visual.
+    _PRE_TEXTUAIS_AUTO_GERADOS = {
+        'sumário', 'sumario', 'table of contents',
         'lista de figuras', 'lista de tabelas',
         'lista de abreviaturas', 'lista de siglas',
         'lista de quadros', 'lista de gráficos',
-        'lista de símbolos', 'dedicatória', 'dedicatoria',
-        'agradecimentos', 'epígrafe', 'epigrafe',
+        'lista de símbolos',
         'folha de rosto', 'folha de aprovação',
-        'table of contents',
+        'capa',
     }
+    # Pré-textuais AUTORAIS: o autor escreve conteúdo livre dentro
+    # deles. Esses sim viram capítulos (tipo='pre_textual').
+    _PRE_TEXTUAIS_AUTORAIS = {
+        'resumo', 'abstract',
+        'dedicatória', 'dedicatoria',
+        'agradecimentos',
+        'epígrafe', 'epigrafe',
+    }
+    # União para verificação rápida (compatibilidade interna).
+    _PRE_TEXTUAIS_TITULOS = (
+        _PRE_TEXTUAIS_AUTO_GERADOS | _PRE_TEXTUAIS_AUTORAIS
+    )
     _POS_TEXTUAIS_PREFIXOS = (
         'referências', 'referencias', 'bibliography',
         'apêndice', 'apendice', 'appendix',
@@ -608,6 +707,12 @@ class ServicoExtracaoCanonica:
                 continue
             tipo_elemento = tipo_por_indice.get(i, 'textual')
             texto_lower = texto.lower()
+            style_lower = style_name.lower()
+
+            # Estilos do Sumário gerados pelo Word (TOC 1..9) NUNCA são
+            # capítulos — são entradas do índice do próprio sumário.
+            if style_lower.startswith('toc'):
+                continue
 
             nivel = None
             incluir = False
@@ -619,13 +724,26 @@ class ServicoExtracaoCanonica:
                 except ValueError:
                     nivel = None
 
-            # Pré-textuais: apenas títulos canônicos exatos
-            if (not incluir and tipo_elemento == 'pre_textual'
-                    and texto_lower in cls._PRE_TEXTUAIS_TITULOS):
-                nivel = 1
-                incluir = True
+            # No bloco pré-textual:
+            #   - títulos AUTO-GERADOS (Sumário, Listas de Figuras/Tabelas,
+            #     Capa, Folha de Rosto) NUNCA viram capítulo. Eles são
+            #     produzidos pela camada de renderização final a partir
+            #     do conteúdo dos próprios capítulos.
+            #   - títulos AUTORAIS (Resumo, Dedicatória, Agradecimentos,
+            #     Epígrafe) viram capítulo de tipo 'pre_textual'.
+            #   - qualquer outro Heading no bloco pré-textual é ignorado
+            #     (parágrafos espúrios marcados como heading não devem
+            #     gerar capítulos fantasmas).
+            if tipo_elemento == 'pre_textual':
+                if texto_lower in cls._PRE_TEXTUAIS_AUTO_GERADOS:
+                    incluir = False
+                elif texto_lower in cls._PRE_TEXTUAIS_AUTORAIS:
+                    nivel = 1
+                    incluir = True
+                else:
+                    incluir = False
 
-            # Pós-textuais: apenas se prefixo conhecido
+            # Pós-textuais: apenas se prefixo conhecido (além de Heading)
             if (not incluir and tipo_elemento == 'pos_textual'
                     and any(texto_lower.startswith(p)
                             for p in cls._POS_TEXTUAIS_PREFIXOS)):
@@ -635,9 +753,24 @@ class ServicoExtracaoCanonica:
             if not incluir or nivel is None:
                 continue
 
+            # Tentar extrair prefixo numérico do título no DOCX
+            # ("5.4.6.1 Sistema SIGMA-PLI" -> indice="5.4.6.1",
+            #  titulo="Sistema SIGMA-PLI"). Se houver, o nível
+            # vira o número de níveis do índice (mais confiável que
+            # o estilo Heading, que pode estar inconsistente no DOCX).
+            indice_extraido, titulo_limpo = extrair_indice_e_titulo(texto)
+            if indice_extraido:
+                titulo_final = titulo_limpo
+                nivel_pelo_indice = indice_extraido.count('.') + 1
+                nivel_final = nivel_pelo_indice
+            else:
+                titulo_final = texto
+                nivel_final = nivel
+
             headings_flat.append({
-                'titulo': texto,
-                'nivel': nivel,
+                'titulo': titulo_final,
+                'indice': indice_extraido,
+                'nivel': nivel_final,
                 'estilo': style_name,
                 'tipo_elemento': tipo_elemento,
                 'filhos': [],

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from flask import (
     Blueprint, redirect, url_for, request, flash,
-    render_template, send_file
+    render_template, send_file, jsonify
 )
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -355,6 +355,54 @@ def arquivo_relatorio_finalizado(id_relatorio):
         ),
         as_attachment=False,
     )
+
+
+@configuracoes_bp.route(
+    '/relatorio-finalizado/<int:id_relatorio>/editar-inline',
+    methods=['PUT']
+)
+@login_required
+def editar_relatorio_finalizado_inline(id_relatorio):
+    """Edição inline de campos do relatório finalizado."""
+    relatorio = RelatorioFinalizado.query.get_or_404(id_relatorio)
+    dados = request.get_json(silent=True) or {}
+
+    campos_texto = ['titulo', 'codigo', 'versao']
+
+    try:
+        for campo in campos_texto:
+            if campo in dados:
+                setattr(relatorio, campo, dados[campo])
+
+        if 'numero_medicao' in dados and dados['numero_medicao']:
+            relatorio.numero_medicao = int(
+                dados['numero_medicao']
+            )
+        if 'periodo_inicio' in dados and dados['periodo_inicio']:
+            relatorio.periodo_inicio = datetime.strptime(
+                dados['periodo_inicio'], '%Y-%m-%d'
+            ).date()
+        if 'periodo_fim' in dados and dados['periodo_fim']:
+            relatorio.periodo_fim = datetime.strptime(
+                dados['periodo_fim'], '%Y-%m-%d'
+            ).date()
+
+        db.session.commit()
+        return jsonify({
+            'mensagem': 'Relatório atualizado.',
+            'dados': {
+                'id': relatorio.id,
+                'titulo': relatorio.titulo or '',
+                'codigo': relatorio.codigo or '',
+                'versao': relatorio.versao,
+                'numero_medicao': relatorio.numero_medicao,
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(
+            {'erro': f'Erro ao atualizar: {e}'}
+        ), 500
 
 
 @configuracoes_bp.route(

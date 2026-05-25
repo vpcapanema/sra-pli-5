@@ -8,6 +8,7 @@ alembic==1.13.1
 python-docx==1.1.2
 lxml==5.2.2
 docxtpl==0.18.0
+docxcompose==2.1.0
 mammoth==1.8.0
 beautifulsoup4==4.12.3
 openpyxl==3.1.5

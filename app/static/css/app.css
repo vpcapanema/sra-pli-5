@@ -37,13 +37,15 @@
 
   --sra-spacing-xs: 0.25rem;
   --sra-spacing-sm: 0.5rem;
-  --sra-spacing-md: 1rem;
-  --sra-spacing-lg: 1.5rem;
-  --sra-spacing-xl: 2rem;
+  --sra-spacing-md: 0.75rem;
+  --sra-spacing-lg: 1rem;
+  --sra-spacing-xl: 1.5rem;
+  --sra-spacing-section: 0.75rem;
+  /* Espaçamento vertical padronizado entre containers de PRIMEIRO NÍVEL
+     (seções e cards top-level diretamente no conteúdo da página) */
+  --sra-spacing-primary-gap: 1.75rem;
 
-  --sra-font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+  --sra-font-family: Verdana, Geneva, Tahoma, sans-serif;
   --sra-font-size: 14px;
   --sra-line-height: 1.5;
 }
@@ -55,11 +57,16 @@
 *::after {
   box-sizing: border-box;
 }
+html {
+  /* Redução global de 20% na escala de toda a interface */
+  font-size: 80%;
+}
 html,
 body {
   margin: 0;
   padding: 0;
 }
+body,
 body.sra-body {
   font-family: var(--sra-font-family);
   font-size: var(--sra-font-size);
@@ -75,6 +82,31 @@ a {
 button {
   font: inherit;
   cursor: pointer;
+}
+
+/* Hierarquia tipográfica global — correspondência por nível
+   ========================================================================== */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--sra-font-family);
+  margin: 0;
+  line-height: 1.3;
+  color: var(--sra-color-primary);
+  font-weight: 700;
+}
+h1 { font-size: 1.5rem; letter-spacing: 0.01em; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; }
+h4 { font-size: 0.9375rem; color: var(--sra-color-text); }
+h5 { font-size: 0.875rem; color: var(--sra-color-text); font-weight: 600; }
+h6 {
+  font-size: 0.8125rem;
+  color: var(--sra-color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+p, label, span, td, th, li, dt, dd {
+  font-family: var(--sra-font-family);
 }
 ul {
   list-style: none;
@@ -192,7 +224,7 @@ ul {
   gap: var(--sra-spacing-sm);
 }
 .sra-content {
-  padding: var(--sra-spacing-lg) var(--sra-spacing-xl);
+  padding: var(--sra-spacing-md) var(--sra-spacing-xl);
   flex: 1;
 }
 
@@ -346,6 +378,37 @@ ul {
   border-color: var(--sra-color-danger);
 }
 
+/* Container padrão SRA/PLI (sigma-pli-conteiner)
+   Aplica-se globalmente a TODO .sra-card: cabeçalho azul-escuro PLI,
+   ícone temático verde PLI, título em CAIXA ALTA branca, alinhado à esquerda.
+   ========================================================================== */
+.sigma-pli-conteiner {
+  margin-bottom: var(--sra-spacing-section);
+}
+.sigma-pli-conteiner__icon {
+  width: 18px;
+  height: 18px;
+  color: var(--sra-color-icon-green);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sigma-pli-conteiner__icon svg,
+.sigma-pli-conteiner__icon svg * {
+  width: 100%;
+  height: 100%;
+  stroke: var(--sra-color-icon-green);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sigma-pli-conteiner__index {
+  color: var(--sra-color-icon-green);
+  font-weight: 700;
+}
+
 /* Cards
    ========================================================================== */
 .sra-card {
@@ -356,24 +419,51 @@ ul {
   display: flex;
   flex-direction: column;
 }
+/* Cabeçalho padrão aplicado a TODOS os .sra-card */
 .sra-card__header {
-  padding: var(--sra-spacing-md) var(--sra-spacing-lg);
-  border-bottom: 1px solid var(--sra-color-border-light);
+  background: var(--sra-color-primary);
+  border-bottom: none;
+  padding: 0.5rem 0.875rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  border-radius: var(--sra-radius-lg) var(--sra-radius-lg) 0 0;
 }
 .sra-card__title {
   margin: 0;
-  font-size: 1rem;
-  color: var(--sra-color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+.sra-card__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.sra-card__actions .sra-button {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+}
+.sra-card__actions .sra-button:hover:not([disabled]) {
+  background: rgba(255, 255, 255, 0.22);
 }
 .sra-card__content {
-  padding: var(--sra-spacing-lg);
+  padding: 0.625rem 0.75rem;
   overflow: visible;
 }
 .sra-card__footer {
-  padding: var(--sra-spacing-md) var(--sra-spacing-lg);
+  padding: 0.5rem 0.75rem;
   border-top: 1px solid var(--sra-color-border-light);
   display: flex;
   justify-content: flex-end;
@@ -384,7 +474,7 @@ ul {
    ========================================================================== */
 .sra-grid {
   display: grid;
-  gap: var(--sra-spacing-lg);
+  gap: var(--sra-spacing-section);
 }
 .sra-grid--2 {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -560,40 +650,112 @@ ul {
   padding: 0.375rem 0.75rem;
 }
 
-/* Section styles for dashboard hierarchy */
+/* Section styles for dashboard hierarchy
+   Containers de primeiro nível usam --sra-spacing-primary-gap */
 .sra-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--sra-spacing-primary-gap);
+}
+.sra-section:last-child {
+  margin-bottom: 0;
+}
+/* Cards/sigma-pli-conteiners diretamente no conteúdo da página (top-level)
+   também recebem o gap padronizado */
+.sra-content > .sra-card,
+.sra-content > .sigma-pli-conteiner,
+.conteudo-principal > .sra-card,
+.conteudo-principal > .sigma-pli-conteiner {
+  margin-bottom: var(--sra-spacing-primary-gap);
+}
+.sra-content > .sra-card:last-child,
+.sra-content > .sigma-pli-conteiner:last-child,
+.conteudo-principal > .sra-card:last-child,
+.conteudo-principal > .sigma-pli-conteiner:last-child {
+  margin-bottom: 0;
 }
 .sra-section--bordered {
-  border: 2px solid var(--sra-color-border);
-  border-radius: 8px;
-  padding: 1.5rem;
+  border: 1px solid var(--sra-color-border);
+  border-radius: var(--sra-radius-lg);
+  padding: 0;
   background: #fff;
+  overflow: hidden;
 }
-.sra-section__title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--sra-color-text);
+/* Cabeçalho de seção com padrão sigma-pli (azul + título branco uppercase)
+   Garante full-width independentemente do contexto */
+.sra-section__header {
+  background: var(--sra-color-primary);
+  padding: 0.625rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: var(--sra-radius-lg) var(--sra-radius-lg) 0 0;
+  margin: 0;
+}
+.sra-section--bordered > .sra-section__title,
+.sra-section__header > .sra-section__title {
+  margin: 0;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+/* Quando .sra-section__title é usado solto (sem header), aplicar padrão também */
+.sra-section--bordered > .sra-section__title {
+  background: var(--sra-color-primary);
+  padding: 0.625rem 1rem;
+  border-radius: var(--sra-radius-lg) var(--sra-radius-lg) 0 0;
+}
+/* Corpo da seção de nível 1 — introduz indentação para containers filhos
+   (nível 2) ficarem visivelmente mais estreitos */
+.sra-section__body {
+  padding: 1rem 1.25rem 1.25rem;
+}
+/* Cards aninhados em seções de nível 1 têm espaçamento entre si */
+.sra-section__body > .sra-card,
+.sra-section__body > .sigma-pli-conteiner {
   margin-bottom: 0.75rem;
+}
+.sra-section__body > .sra-card:last-child,
+.sra-section__body > .sigma-pli-conteiner:last-child {
+  margin-bottom: 0;
 }
 .sra-section__description {
   font-size: 0.9375rem;
   color: var(--sra-color-text-muted);
-  margin-bottom: 1.5rem;
+  margin: 0 0 0.75rem;
   line-height: 1.5;
+}
+/* Ícone do header da seção — ligeiramente maior que a fonte do título,
+   verde PLI forçado para garantir contraste sobre o fundo azul */
+.sigma-pli-conteiner__icon--lg {
+  width: 1.5em;
+  height: 1.5em;
+  color: var(--sra-color-icon-green);
+}
+.sigma-pli-conteiner__icon--lg svg,
+.sigma-pli-conteiner__icon--lg svg * {
+  stroke: var(--sra-color-icon-green) !important;
+  fill: none !important;
+  stroke-width: 2;
 }
 
 /* Page header styles */
 .sra-page-header {
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
+  margin-bottom: var(--sra-spacing-section);
+  padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--sra-color-border);
 }
 .sra-page-header__title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--sra-color-text);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 .sra-page-header__welcome {
   font-size: 1.125rem;
@@ -615,7 +777,7 @@ ul {
 .sra-grid--capitulos {
   display: grid;
   grid-template-columns: 350px 1fr;
-  gap: 1.5rem;
+  gap: var(--sra-spacing-section);
   align-items: start;
 }
 
@@ -623,8 +785,8 @@ ul {
   background: #fff;
   border: 1px solid var(--sra-color-border);
   border-radius: 8px;
-  padding: 1rem 1.5rem;
-  margin-bottom: 1.5rem;
+  padding: 0.625rem 1rem;
+  margin-bottom: var(--sra-spacing-section);
 }
 
 .sra-page-header__content {
@@ -653,7 +815,7 @@ ul {
 .sra-capitulos-tree {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--sra-spacing-section);
 }
 
 .sra-capitulos-panel {
@@ -702,7 +864,7 @@ ul {
 
 /* Colapsos para árvore de capítulos */
 .sra-collapse {
-  margin-bottom: 1rem;
+  margin-bottom: 0.375rem;
   border: 1px solid var(--sra-color-border);
   border-radius: 4px;
   overflow: hidden;
@@ -712,10 +874,11 @@ ul {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   background: var(--sra-color-bg-alt);
   cursor: pointer;
   font-weight: 500;
+  font-size: 0.875rem;
   user-select: none;
 }
 
@@ -732,8 +895,24 @@ details[open] .sra-collapse__header i {
 }
 
 .sra-collapse__content {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   background: #fff;
+}
+
+.sra-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.sra-tree__item {
+  padding: 0.375rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.sra-tree__item:hover {
+  background: var(--sra-color-bg-alt);
 }
 
 .sra-tree__link {
@@ -749,7 +928,7 @@ details[open] .sra-collapse__header i {
 }
 
 .sra-tree__item--level-1 {
-  padding-left: 0;
+  padding-left: 0.5rem;
 }
 
 .sra-tree__item--level-2 {
@@ -782,12 +961,20 @@ details[open] .sra-collapse__header i {
   text-align: left;
 }
 
-.sra-tree__item--level-1 .sra-tree__title {
+/* Bold de nível 1/2 SOMENTE em capítulos textuais (sra-tree--textual).
+   Itens de pré/pós-textuais são listas neutras, sem hierarquia visual de
+   "Título 1". */
+.sra-tree--textual .sra-tree__item--level-1 .sra-tree__title {
   font-weight: 700;
 }
 
-.sra-tree__item--level-2 .sra-tree__title {
+.sra-tree--textual .sra-tree__item--level-2 .sra-tree__title {
   font-weight: 600;
+}
+
+.sra-tree--pre-textual .sra-tree__title,
+.sra-tree--pos-textual .sra-tree__title {
+  font-weight: 400;
 }
 
 /* Modal styles */
@@ -1155,4 +1342,127 @@ details[open] .sra-collapse__header i {
   margin-top: var(--sra-spacing-md);
   text-align: center;
   font-size: 0.875rem;
+}
+
+/* SweetAlert2 form helpers */
+.sra-swal-form {
+  text-align: left;
+  padding: 0 0.5rem;
+}
+.sra-swal-form__label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sra-color-text-muted);
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.sra-swal-log {
+  text-align: left;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+/* ============================================================
+   Árvore de capítulos + tabela colapsável (Painel Coordenador)
+   ============================================================ */
+
+/* Reduzir título dos cards "Estrutura do Documento" e
+   "Painel de Edição — Coordenador" */
+.sra-capitulos-tree .sra-card__title,
+.sra-capitulos-panel .sra-card__title,
+.sra-card__title--sm {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* --- Árvore (esquerda): toggle e itens ocultos --- */
+.sra-tree__item {
+  position: relative;
+}
+.sra-tree__item--hidden {
+  display: none !important;
+}
+.sra-tree__toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0.25rem 0 -0.4rem;
+  cursor: pointer;
+  color: var(--sra-color-text-muted);
+  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  width: 0.9rem;
+  opacity: 0.65;
+  transition: opacity 0.15s, color 0.15s;
+}
+.sra-tree__toggle:hover {
+  opacity: 1;
+  color: var(--sra-color-primary);
+}
+.sra-tree__toggle[hidden] {
+  display: none !important;
+}
+
+/* --- Tabela colapsável de capítulos --- */
+.sra-table--cap-collapsible .sra-cap-row--hidden {
+  display: none !important;
+}
+.sra-table__header--left {
+  text-align: left !important;
+}
+
+/* Coluna índice: posição relativa para ancorar o caret */
+.sra-cap-cell--index {
+  position: relative;
+  white-space: nowrap;
+  text-align: center;
+}
+.sra-cap-toggle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: var(--sra-color-primary);
+  font-size: 0.85rem;
+  line-height: 1;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.sra-cap-toggle:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+.sra-cap-toggle[hidden] {
+  display: none !important;
+}
+.sra-cap-index-value {
+  display: inline-block;
+}
+
+/* Coluna Título: alinhada à esquerda + indentação por nível */
+.sra-cap-cell--title {
+  text-align: left !important;
+}
+.sra-cap-cell--title-level-1 { padding-left: 0.5rem; font-weight: 600; }
+.sra-cap-cell--title-level-2 { padding-left: 1.75rem; font-weight: 500; }
+.sra-cap-cell--title-level-3 { padding-left: 3rem; }
+.sra-cap-cell--title-level-4 { padding-left: 4.25rem; }
+.sra-cap-cell--title-level-5 { padding-left: 5.5rem; }
+
+/* Loading do modal DOCX */
+.sra-docx-viewer__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 3rem;
+  color: var(--sra-color-text-muted);
+  font-size: 0.95rem;
 }

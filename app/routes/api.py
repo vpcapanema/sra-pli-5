@@ -4,7 +4,6 @@ Consumida pelo editor React (docx-editor) embedado nas telas
 de autor e coordenador.
 """
 
-import io
 import os
 import secrets
 import time
@@ -14,18 +13,18 @@ from bs4 import BeautifulSoup
 from docx import Document
 from flask import Blueprint, abort, jsonify, request, send_file, session
 from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
 
 from app import db
 from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
-from app.models.relatorio_finalizado import RelatorioFinalizado
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.biblioteca_formatacao import (
     BibliotecaFormatacaoCanonica
 )
 from app.models.notificacao import Notificacao
-from app.services.servico_motor_renderizacao import MotorRenderizacao
+# servico_motor_renderizacao removido pos Fase 1: o DOCX em producao
+# (caminho_template) e a fonte unica; nao ha mais reconstrucao a
+# partir de capitulos + conteudo_docx.
 from app.utils.logger import sra_log_handler
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -279,10 +278,17 @@ def salvar_envio_segmento_docx(id_envio, id_capitulo):
                 {'erro': f'Erro ao converter HTML para DOCX: {e}'}
             ), 400
 
-    # Persiste como conteúdo do capítulo (fonte da verdade na importação)
-    cap.conteudo_docx = dados
-    db.session.commit()
-    return jsonify({'ok': True, 'size': len(dados)})
+    # DEPRECATED: pos-Fase 1, edicoes inline foram substituidas por
+    # upload + merge in-place (servico_merge_docx). Este endpoint nao
+    # persiste mais nada. Mantido por compatibilidade do frontend ate
+    # que `editor_autor.js` e `editor_coordenador.js` migrem para o
+    # fluxo de upload completo.
+    return jsonify({
+        'erro': (
+            'Endpoint depreciado. Use o fluxo de upload de DOCX por '
+            'capitulo (rota /relatorio/.../capitulo/<id>/upload).'
+        ),
+    }), 410
 
 
 # ==============================================================
@@ -292,71 +298,62 @@ def salvar_envio_segmento_docx(id_envio, id_capitulo):
 @api_bp.route('/capitulos/<int:id_cap>/conteudo', methods=['PUT'])
 @login_required
 def salvar_conteudo(id_cap):
+    """DEPRECATED (pos-Fase 1).
+
+    Salvar conteudo de capitulo via API foi substituido pelo fluxo de
+    upload de DOCX completo + merge in-place. O frontend deve enviar
+    um arquivo `.docx` para
+    `POST /relatorio/versao-trabalho/<id>/capitulo/<id_cap>/upload`
+    e confirmar na tela de previa.
+
+    Mantemos a rota retornando 410 Gone para que o frontend antigo
+    receba mensagem clara em vez de salvar em coluna que ja foi
+    removida do banco.
     """
-    Salva o conteúdo do capítulo.
-    Aceita:
-    - application/octet-stream: DOCX binário (upload original)
-    - text/html: HTML editado (converte para DOCX)
-    """
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    # Permissão: só o responsável pode enviar conteúdo
-    if (cap.id_usuario_responsavel
-            and cap.id_usuario_responsavel
-            != current_user.id):
-        _exigir_perfil('coordenador')
-
-    content_type = request.content_type or ''
-    dados = request.get_data()
-
-    if len(dados) > MAX_UPLOAD_BYTES:
-        return jsonify({
-            'erro': 'Arquivo excede limite de 50 MB'
-        }), 413
-
-    # Se for HTML editado, converte para DOCX
-    if 'text/html' in content_type:
-        try:
-            # Parse HTML
-            soup = BeautifulSoup(dados.decode('utf-8'), 'html.parser')
-
-            # Criar novo DOCX
-            doc = Document()
-
-            # Extrair parágrafos do HTML
-            for p in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-                text = p.get_text(strip=True)
-                if text:
-                    if p.name.startswith('h'):
-                        # Títulos
-                        level = int(p.name[1])
-                        doc.add_heading(text, level=min(level, 3))
-                    else:
-                        # Parágrafos
-                        doc.add_paragraph(text)
-
-            # Salvar em bytes
-            buffer = io.BytesIO()
-            doc.save(buffer)
-            dados = buffer.getvalue()
-        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-            return jsonify({
-                'erro': f'Erro ao converter HTML para DOCX: {str(e)}'
-            }), 400
-
-    cap.conteudo_docx = dados
-    db.session.commit()
-    return jsonify({'ok': True, 'size': len(cap.conteudo_docx)})
+    _ = id_cap
+    return jsonify({
+        'erro': (
+            'Endpoint depreciado. Use o fluxo de upload completo de '
+            'DOCX (rota /relatorio/.../capitulo/<id>/upload).'
+        ),
+    }), 410
 
 
 @api_bp.route('/capitulos/<int:id_cap>/conteudo')
 @login_required
 def obter_conteudo(id_cap):
-    """Retorna o DOCX binário do capítulo."""
+    """Retorna o DOCX binario do capitulo isolado.
+
+    Pos-Fase 1: extraido em tempo real do DOCX em producao
+    (caminho_template do relatorio) via
+    `servico_merge_docx.extrair_capitulo_como_docx`. Nao usa mais
+    `cap.conteudo_docx` (coluna em vias de ser removida).
+    """
+    from app.services.servico_sanitizar_docx import sanitizar_docx_bytes
+    from app.services.servico_merge_docx import (
+        extrair_capitulo_como_docx,
+    )
+
     cap = CapituloDocumento.query.get_or_404(id_cap)
-    if not cap.conteudo_docx:
-        return ('', 204)
+    rel = RelatorioProducao.query.get(cap.id_relatorio)
+    if not rel or not rel.caminho_template:
+        return ('Relatorio sem DOCX em producao', 404)
+    if not os.path.exists(rel.caminho_template):
+        return ('Arquivo DOCX em producao nao encontrado', 404)
+
+    try:
+        conteudo = extrair_capitulo_como_docx(
+            rel.caminho_template, cap
+        )
+    except (ValueError, OSError, RuntimeError) as e:
+        return (f'Erro ao extrair capitulo: {e}', 500)
+    if not conteudo:
+        return ('Capitulo nao localizado no DOCX em producao', 404)
+
+    bytes_sanitizados = sanitizar_docx_bytes(conteudo)
+    saida = bytes_sanitizados or conteudo
     return send_file(
-        BytesIO(cap.conteudo_docx),
+        BytesIO(saida),
         mimetype=(
             'application/vnd.openxmlformats-officedocument'
             '.wordprocessingml.document'
@@ -376,128 +373,32 @@ def obter_conteudo(id_cap):
 )
 @login_required
 def finalizar_relatorio(id_rp):
-    """Coordenador finaliza o relatório de produção."""
+    """Coordenador finaliza o relatório de produção.
+
+    Pos-Fase 1: delega para `servico_finalizar_relatorio.finalizar`,
+    que cria snapshot do `caminho_template` (fonte unica) em
+    `storage/relatorios_finalizados/`, calcula checksum, persiste
+    `RelatorioFinalizado` e avanca status para 'finalizado'.
+
+    Nao monta mais o DOCX a partir de `conteudo_docx` por capitulo.
+    """
+    from app.services.servico_finalizar_relatorio import (
+        finalizar,
+        FinalizacaoError,
+    )
     _exigir_perfil('coordenador')
-    relatorio = RelatorioProducao.query.get_or_404(id_rp)
-
-    if relatorio.bloqueio_edicao:
-        return jsonify({'erro': 'Relatório já finalizado'}), 400
-
-    # Gerar snapshot completo de todos os dados
-    snapshot = {
-        'relatorio': {
-            'id': relatorio.id,
-            'codigo_d20': relatorio.codigo_d20,
-            'numero_medicao': relatorio.numero_medicao,
-            'mes_referencia': (
-                relatorio.mes_referencia.isoformat()
-                if relatorio.mes_referencia else None
-            ),
-            'periodo_inicio': (
-                relatorio.periodo_inicio.isoformat()
-                if relatorio.periodo_inicio else None
-            ),
-            'periodo_fim': (
-                relatorio.periodo_fim.isoformat()
-                if relatorio.periodo_fim else None
-            ),
-            'titulo_curto': relatorio.titulo_curto,
-            'versao_atual': relatorio.versao_atual,
-            'ano_referencia': relatorio.ano_referencia,
-        },
-        'capitulos': [],
-        'revisoes': [],
-        'envios': [],
-    }
-
-    # Capturar capítulos
-    capitulos = CapituloDocumento.query.filter_by(
-        id_relatorio=id_rp
-    ).all()
-    for cap in capitulos:
-        snapshot['capitulos'].append({
-            'id': cap.id_capitulo_documento,
-            'titulo': cap.titulo_capitulo,
-            'indice': cap.indice_capitulo,
-            'ordem': cap.ordem_capitulo,
-            'nivel': cap.nivel_capitulo,
-            'status': cap.status_capitulo,
-            'id_responsavel': cap.id_usuario_responsavel,
-            'conteudo_docx': (
-                cap.conteudo_docx.hex() if cap.conteudo_docx else None
-            ),
-            'observacao_coordenador': cap.observacao_coordenador,
-        })
-
-    # Capturar revisões
-    for rev in relatorio.revisoes:
-        snapshot['revisoes'].append({
-            'id': rev.id_revisao,
-            'id_usuario_coordenador': rev.id_usuario_coordenador,
-            'status': rev.status_revisao,
-            'observacao': rev.observacao,
-        })
-
-    # Capturar envios
-    for env in relatorio.envios:
-        snapshot['envios'].append({
-            'id': env.id_envio_conteudo,
-            'id_usuario': env.id_usuario,
-            'nome_arquivo': env.nome_arquivo,
-            'status': env.status_envio,
-        })
-
-    # Gerar DOCX final — usa biblioteca canônica quando disponível,
-    # senão usa o fallback de montagem direta a partir dos capítulos.
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     try:
-        docx_bytes = _gerar_docx_versao(relatorio)
-    except (ValueError, TypeError, RuntimeError, OSError) as e:
-        return jsonify({'erro': f'Erro ao gerar DOCX: {str(e)}'}), 500
-
-    # Salvar arquivo em storage/relatorios_base
-    nome_arquivo = f"relatorio_{relatorio.id}_R{relatorio.versao_atual}.docx"
-    dir_relatorios_base = os.path.join(
-        base_dir, 'storage', 'relatorios_base'
-    )
-    os.makedirs(dir_relatorios_base, exist_ok=True)
-    caminho_arquivo = os.path.join(dir_relatorios_base, nome_arquivo)
-    with open(caminho_arquivo, 'wb') as f:
-        f.write(docx_bytes)
-
-    # Criar registro em relatorios_finalizados
-    relatorio_finalizado = RelatorioFinalizado(
-        relatorio_id=relatorio.id,
-        modelo_id=relatorio.modelo_id,
-        biblioteca_id=relatorio.biblioteca_id,
-        status_id=relatorio.status_id,
-        snapshot_conteudo=snapshot,
-        artefato_docx=docx_bytes,
-        nome_arquivo=nome_arquivo,
-        caminho_arquivo=caminho_arquivo,
-        finalizado_por=current_user.id,
-        data_finalizacao=db.func.now(),
-        codigo=relatorio.codigo_d20,
-        titulo=relatorio.titulo_curto,
-        mes_referencia=relatorio.mes_referencia,
-        ano_referencia=relatorio.ano_referencia,
-        periodo_inicio=relatorio.periodo_inicio,
-        periodo_fim=relatorio.periodo_fim,
-        numero_medicao=relatorio.numero_medicao,
-        versao=relatorio.versao_atual,
-    )
-
-    db.session.add(relatorio_finalizado)
-
-    # Bloquear edição no relatório de produção
-    relatorio.bloqueio_edicao = True
-
-    db.session.commit()
-
+        rf = finalizar(id_relatorio=id_rp, id_usuario=current_user.id)
+    except FinalizacaoError as e:
+        return jsonify({'erro': str(e)}), 400
+    except (OSError, RuntimeError) as e:
+        return jsonify({'erro': f'Erro inesperado: {e}'}), 500
     return jsonify({
-        'mensagem': 'Relatório finalizado com sucesso',
-        'id_finalizado': relatorio_finalizado.id,
-        'versao': relatorio_finalizado.versao,
+        'mensagem': 'Relatorio finalizado com sucesso',
+        'id_finalizado': rf.id,
+        'versao': rf.versao,
+        'checksum': rf.checksum_docx,
+        'nome_arquivo': rf.nome_arquivo,
     }), 201
 
 
@@ -581,86 +482,40 @@ def reprovar_capitulo(id_cap):
 
 
 # ==============================================================
-# RENDERIZAÇÃO — gera DOCX completo com formatação canônica
+# RENDERIZAÇÃO — serve o DOCX em producao direto
 # ==============================================================
+# Pos-Fase 1: o DOCX em `RelatorioProducao.caminho_template` JA E o
+# documento final montado (autores fizeram merge in-place via
+# `servico_merge_docx`). Nao ha mais reconstrucao do zero. As rotas
+# legadas abaixo apenas servem esse arquivo (com sanitizacao para o
+# eigenpal). `_gerar_docx_versao` e `MotorRenderizacao` foram
+# removidos.
 
-def _gerar_docx_versao(vt):
-    """Gera o DOCX final para a versão de trabalho.
 
-    Estratégia:
-    - Se a versão tem biblioteca canônica vinculada com extração feita,
-      usa o `MotorRenderizacao` (caminho ideal).
-    - Caso contrário, faz um *fallback funcional*: constrói o DOCX
-      capítulo a capítulo a partir dos `conteudo_docx` salvos (e dos
-      títulos quando o capítulo ainda não tem conteúdo).
-    """
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+def _servir_docx_producao(vt, *, as_attachment: bool, nome: str):
+    """Helper comum para servir o DOCX em producao com sanitizacao."""
+    from app.services.servico_sanitizar_docx import sanitizar_docx
 
-    # 1. Caminho com biblioteca canônica
-    dir_canonicos = os.path.join(base_dir, 'storage', 'canonicos')
-    if vt.biblioteca:
-        caminho_bib = os.path.join(
-            dir_canonicos,
-            secure_filename(vt.biblioteca.nome_biblioteca)
-        )
-        if os.path.exists(caminho_bib):
-            motor = MotorRenderizacao(caminho_biblioteca=caminho_bib)
-            return motor.renderizar_versao(vt.id)
-
-    # 2. Fallback sem biblioteca canônica
-    from docx import Document
-    doc = Document()
-
-    titulo_doc = (
-        vt.titulo_curto or vt.codigo_d20 or f'Relatório {vt.id}'
+    if not vt.caminho_template or not os.path.exists(vt.caminho_template):
+        return jsonify({'erro': 'DOCX em producao indisponivel'}), 404
+    mimetype = (
+        'application/vnd.openxmlformats-officedocument'
+        '.wordprocessingml.document'
     )
-    doc.add_heading(titulo_doc, level=0)
-
-    capitulos = CapituloDocumento.query.filter_by(
-        id_relatorio=vt.id,
-        id_capitulo_pai=None,
-        ativo=True,
-    ).order_by(CapituloDocumento.ordem_capitulo).all()
-
-    def _renderizar(cap, nivel):
-        doc.add_heading(
-            f"{cap.indice_capitulo or ''} {cap.titulo_capitulo}".strip(),
-            level=min(max(nivel, 1), 9),
+    bytes_sanitizados = sanitizar_docx(vt.caminho_template)
+    if bytes_sanitizados is None:
+        return send_file(
+            vt.caminho_template,
+            as_attachment=as_attachment,
+            download_name=nome,
+            mimetype=mimetype,
         )
-        if cap.conteudo_docx:
-            try:
-                autor_doc = Document(BytesIO(cap.conteudo_docx))
-                for p in autor_doc.paragraphs:
-                    if p.text.strip():
-                        novo = doc.add_paragraph()
-                        for run in p.runs:
-                            r = novo.add_run(run.text)
-                            if run.bold:
-                                r.bold = True
-                            if run.italic:
-                                r.italic = True
-                            if run.underline:
-                                r.underline = True
-            except (ValueError, OSError, RuntimeError):
-                doc.add_paragraph(
-                    '[Conteúdo do autor não pôde ser lido]'
-                )
-        else:
-            doc.add_paragraph('[Sem conteúdo enviado]')
-
-        filhos = CapituloDocumento.query.filter_by(
-            id_capitulo_pai=cap.id_capitulo_documento,
-            ativo=True,
-        ).order_by(CapituloDocumento.ordem_capitulo).all()
-        for f in filhos:
-            _renderizar(f, nivel + 1)
-
-    for cap in capitulos:
-        _renderizar(cap, 1)
-
-    buf = BytesIO()
-    doc.save(buf)
-    return buf.getvalue()
+    return send_file(
+        BytesIO(bytes_sanitizados),
+        as_attachment=as_attachment,
+        download_name=nome,
+        mimetype=mimetype,
+    )
 
 
 @api_bp.route(
@@ -668,23 +523,19 @@ def _gerar_docx_versao(vt):
 )
 @login_required
 def renderizar_versao(id_vt):
-    """
-    Monta o DOCX final (com ou sem biblioteca canônica).
-    Retorna o DOCX binário inline para download.
+    """Serve o DOCX em producao (fonte unica) como download.
+
+    Rota mantida por compatibilidade do frontend; pos-Fase 1 nao
+    monta mais nada — simplesmente devolve `caminho_template`. Para
+    finalizar (snapshot + bloqueio), use
+    `POST /api/relatorios-producao/<id>/finalizar` ou a rota web
+    `/relatorio/producao/<id>/gerar-final`.
     """
     vt = RelatorioProducao.query.get_or_404(id_vt)
-    try:
-        docx_bytes = _gerar_docx_versao(vt)
-    except (ValueError, RuntimeError, OSError) as e:
-        return jsonify({'erro': f'Erro ao gerar DOCX: {e}'}), 500
-    return send_file(
-        BytesIO(docx_bytes),
+    return _servir_docx_producao(
+        vt,
         as_attachment=True,
-        download_name=f'relatorio_{vt.id}_{vt.versao_atual}.docx',
-        mimetype=(
-            'application/vnd.openxmlformats-officedocument'
-            '.wordprocessingml.document'
-        ),
+        nome=f'relatorio_{vt.id}_{vt.versao_atual}.docx',
     )
 
 
@@ -693,20 +544,12 @@ def renderizar_versao(id_vt):
 )
 @login_required
 def preview_versao(id_vt):
-    """Versão preview (inline, não-download) do DOCX gerado."""
+    """Preview inline do DOCX em producao (sem download)."""
     vt = RelatorioProducao.query.get_or_404(id_vt)
-    try:
-        docx_bytes = _gerar_docx_versao(vt)
-    except (ValueError, RuntimeError, OSError) as e:
-        return jsonify({'erro': f'Erro ao gerar DOCX: {e}'}), 500
-    return send_file(
-        BytesIO(docx_bytes),
+    return _servir_docx_producao(
+        vt,
         as_attachment=False,
-        download_name=f'preview_{vt.id}.docx',
-        mimetype=(
-            'application/vnd.openxmlformats-officedocument'
-            '.wordprocessingml.document'
-        ),
+        nome=f'preview_{vt.id}.docx',
     )
 
 
@@ -804,7 +647,15 @@ def _serializar_capitulo(cap):
             cap.responsavel.nome
             if cap.responsavel else None
         ),
-        'tem_conteudo': cap.conteudo_docx is not None,
+        # Pos-Fase 1: 'tem_conteudo' deixa de espelhar a coluna
+        # `conteudo_docx` (em vias de remocao). O conteudo agora vive
+        # no DOCX em producao; o capitulo "tem conteudo" se for
+        # localizavel naquele DOCX, mas verificar isso no serializer
+        # seria caro. Devolvemos True para preservar o comportamento
+        # do frontend antigo (que so usa este flag para escolher entre
+        # "exibir preview" vs "exibir placeholder"). Pos-migracao
+        # completa, este campo pode ser removido.
+        'tem_conteudo': True,
         'observacao_coordenador': cap.observacao_coordenador,
         'filhos': [_serializar_capitulo(f) for f in filhos],
     }

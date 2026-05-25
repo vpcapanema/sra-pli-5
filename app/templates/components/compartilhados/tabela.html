@@ -25,7 +25,7 @@
                     <td class="sra-table__cell sra-table__cell--select">
                         <input type="checkbox" class="sra-table__row-select" value="{{ linha[0] }}" title="Selecionar linha">
                     </td>
-                    {% for celula in linha %}
+                    {% for celula in linha[1:] %}
                     <td class="sra-table__cell{% if loop.last %} sra-table__cell--actions{% endif %}">{{ celula|safe }}</td>
                     {% endfor %}
                 </tr>

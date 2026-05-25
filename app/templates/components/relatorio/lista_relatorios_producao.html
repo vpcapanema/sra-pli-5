@@ -1,35 +1,66 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_abrir, btn_editar, btn_custom %}
 
 {% macro lista_relatorios_producao(relatorios_producao) %}
-<div class="sra-card" id="relatorios-producao-container">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Relatórios em Produção</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner" id="relatorios-producao-container">
+    {{ cabecalho_pli('file-edit', '1.', 'Relatórios em Produção') }}
     <div class="sra-card__content">
         {% set linhas = [] %}
         {% for rel in relatorios_producao %}
+            {% set badge_status %}
+                <span class="sra-badge sra-badge--{{ rel.status.codigo if rel.status else 'neutral' }} sra-badge--xs">{{ rel.status.codigo | replace('_', ' ') | capitalize if rel.status else '—' }}</span>
+            {% endset %}
+            {% set periodo %}
+                {% if rel.periodo_inicio and rel.periodo_fim %}
+                    {{ rel.periodo_inicio.strftime('%d/%m/%Y') }} — {{ rel.periodo_fim.strftime('%d/%m/%Y') }}
+                {% else %}—{% endif %}
+            {% endset %}
+            {% set edicao %}
+                {% if rel.bloqueio_edicao %}
+                    <span class="sra-badge sra-badge--danger sra-badge--xs">Bloqueado</span>
+                {% else %}
+                    <span class="sra-badge sra-badge--success sra-badge--xs">Liberado</span>
+                {% endif %}
+            {% endset %}
             {% set acoes %}
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('relatorio.detalhe_versao', id_versao=rel.id) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
-                <button type="button" class="sra-btn-icon sra-btn-icon--danger btn-excluir-relatorio" title="Excluir" data-id="{{ rel.id }}" data-titulo="{{ rel.titulo_curto or rel.codigo_d20 }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
+                {{ btn_visualizar(url_for('relatorio.detalhe_versao', id_versao=rel.id)) }}
+                {{ btn_abrir(url_for('relatorio.abrir_editor', id_relatorio=rel.id)) }}
+                {{ btn_editar(
+                    classe='btn-editar-relatorio-producao',
+                    dados={
+                        'id': rel.id,
+                        'titulo': rel.titulo_curto or '',
+                        'codigo': rel.codigo_d20,
+                        'versao': rel.versao_atual,
+                        'medicao': rel.numero_medicao or '',
+                        'periodo-inicio': rel.periodo_inicio.strftime('%Y-%m-%d') if rel.periodo_inicio else '',
+                        'periodo-fim': rel.periodo_fim.strftime('%Y-%m-%d') if rel.periodo_fim else ''
+                    }
+                ) }}
+                {{ btn_custom(
+                    icone='trash',
+                    titulo='Excluir',
+                    classe='sra-btn-icon--danger btn-excluir-relatorio',
+                    dados={'id': rel.id, 'titulo': rel.titulo_curto or rel.codigo_d20}
+                ) }}
             {% endset %}
             {% set _ = linhas.append([
                 rel.id,
-                rel.titulo_curto or '—',
                 rel.codigo_d20,
+                rel.titulo_curto or '—',
+                rel.numero_medicao or '—',
+                periodo,
                 rel.versao_atual,
-                rel.status.codigo if rel.status else '—',
+                badge_status,
+                edicao,
+                rel.criador.nome if rel.criador else '—',
+                rel.criado_em.strftime('%d/%m/%Y %H:%M:%S') if rel.criado_em else '—',
                 acoes
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Título', 'Código D-20', 'Versão', 'Status', 'Ações'],
+            colunas=['Código', 'Título', 'Medição', 'Período', 'Versão', 'Status', 'Edição', 'Criado por', 'Criado em', 'Ações'],
             linhas=linhas,
             vazio='Nenhum relatório em produção.'
         ) }}
@@ -38,6 +69,82 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Editar inline ---
+    document.querySelectorAll('.btn-editar-relatorio-producao').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const titulo = this.getAttribute('data-titulo');
+            const codigo = this.getAttribute('data-codigo');
+            const versao = this.getAttribute('data-versao');
+            const medicao = this.getAttribute('data-medicao');
+            const pInicio = this.getAttribute('data-periodo-inicio');
+            const pFim = this.getAttribute('data-periodo-fim');
+
+            Swal.fire({
+                title: 'Editar Relatório em Produção',
+                html:
+                    '<div class="sra-swal-form">' +
+                    '<label class="sra-swal-form__label">Código D-20</label>' +
+                    '<input id="swal-codigo" class="swal2-input" value="' + codigo + '">' +
+                    '<label class="sra-swal-form__label">Título Curto</label>' +
+                    '<input id="swal-titulo" class="swal2-input" value="' + titulo + '">' +
+                    '<label class="sra-swal-form__label">Nº Medição</label>' +
+                    '<input id="swal-medicao" class="swal2-input" type="number" value="' + medicao + '">' +
+                    '<label class="sra-swal-form__label">Período Início</label>' +
+                    '<input id="swal-periodo-inicio" class="swal2-input" type="date" value="' + pInicio + '">' +
+                    '<label class="sra-swal-form__label">Período Fim</label>' +
+                    '<input id="swal-periodo-fim" class="swal2-input" type="date" value="' + pFim + '">' +
+                    '<label class="sra-swal-form__label">Versão</label>' +
+                    '<input id="swal-versao" class="swal2-input" value="' + versao + '">' +
+                    '</div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Salvar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#2a9450',
+                cancelButtonColor: '#6b7280',
+                preConfirm: () => {
+                    return {
+                        titulo_curto: document.getElementById('swal-titulo').value,
+                        codigo_d20: document.getElementById('swal-codigo').value,
+                        versao_atual: document.getElementById('swal-versao').value,
+                        numero_medicao: document.getElementById('swal-medicao').value,
+                        periodo_inicio: document.getElementById('swal-periodo-inicio').value,
+                        periodo_fim: document.getElementById('swal-periodo-fim').value
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/relatorio/producao/${id}/editar-inline`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(result.value)
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.erro) {
+                            Swal.fire({ icon: 'error', title: 'Erro', text: data.erro });
+                        } else {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Salvo',
+                                text: data.mensagem,
+                                timer: 1200,
+                                showConfirmButton: false
+                            }).then(() => {
+                                htmx.ajax('GET', '/', {target: '#main-content', swap: 'innerHTML'});
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({ icon: 'error', title: 'Erro de conexão', text: String(err) });
+                    });
+                }
+            });
+        });
+    });
+
+    // --- Excluir ---
     document.querySelectorAll('.btn-excluir-relatorio').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = this.getAttribute('data-id');
@@ -54,20 +161,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonColor: '#6b7280'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Mostrar modal de progresso
                     Swal.fire({
                         title: 'Excluindo Relatório',
-                        html: '<div id="exclusao-log" style="text-align: left; font-family: monospace; font-size: 0.875rem;"></div>',
+                        html: '<div id="exclusao-log" class="sra-swal-log"></div>',
                         allowOutsideClick: false,
                         showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
+                        didOpen: () => { Swal.showLoading(); }
                     });
 
                     const logContainer = document.getElementById('exclusao-log');
-
-                    function addLog(message, status = 'pending') {
+                    function addLog(message, status) {
                         const icons = { pending: '⏳', success: '✓', error: '✗' };
                         const colors = { pending: '#666', success: '#2a9450', error: '#7a1212' };
                         const div = document.createElement('div');
@@ -79,53 +182,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     addLog('Validando permissões...', 'pending');
 
-                    // Fazer requisição para excluir
                     fetch(`/relatorio/producao/${id}/excluir`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
+                        headers: { 'Content-Type': 'application/json' }
                     })
                     .then(response => response.json())
                     .then(data => {
                         if (data.erro) {
                             addLog('Erro: ' + data.erro, 'error');
-                            Swal.update({
-                                icon: 'error',
-                                title: 'Erro na Exclusão',
-                                html: logContainer.outerHTML,
-                                showConfirmButton: true,
-                                confirmButtonColor: '#7a1212'
-                            });
+                            Swal.update({ icon: 'error', title: 'Erro na Exclusão', showConfirmButton: true });
                         } else {
                             addLog('Validando permissões...', 'success');
                             addLog('Removendo arquivo do storage...', 'success');
                             addLog('Excluindo registro do banco...', 'success');
-
                             setTimeout(() => {
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Exclusão Concluída',
-                                    text: 'Relatório excluído com sucesso!',
                                     timer: 1500,
                                     showConfirmButton: false,
                                     timerProgressBar: true
                                 }).then(() => {
-                                    // Recarregar a tabela via HTMX
-                                    htmx.ajax('GET', '/dashboard-coordenador', {target: '#main-content', swap: 'innerHTML'});
+                                    htmx.ajax('GET', '/', {target: '#main-content', swap: 'innerHTML'});
                                 });
                             }, 500);
                         }
                     })
                     .catch(error => {
                         addLog('Erro de conexão: ' + error, 'error');
-                        Swal.update({
-                            icon: 'error',
-                            title: 'Erro de Conexão',
-                            html: logContainer.outerHTML,
-                            showConfirmButton: true,
-                            confirmButtonColor: '#7a1212'
-                        });
+                        Swal.update({ icon: 'error', title: 'Erro de Conexão', showConfirmButton: true });
                     });
                 }
             });

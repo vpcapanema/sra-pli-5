@@ -1,9 +1,8 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Bibliotecas de Formatação Canônica</h3>
-    </div>
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('book', '1.', 'Bibliotecas de Formatação Canônica') }}
     <div class="sra-card__content">
         {% set linhas_bib = [] %}
         {% for b in bibliotecas %}
@@ -33,17 +32,15 @@
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Nome', 'Descrição', 'Extraída', 'Status', 'Ações'],
+            colunas=['Nome', 'Descrição', 'Extraída', 'Status', 'Ações'],
             linhas=linhas_bib,
             vazio='Nenhuma biblioteca cadastrada.'
         ) }}
     </div>
 </div>
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Cadastrar Nova Biblioteca</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('plus-circle', '', 'Cadastrar Nova Biblioteca') }}
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" enctype="multipart/form-data"
               action="{{ url_for('configuracoes.criar_biblioteca_formatacao') }}">

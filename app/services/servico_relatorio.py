@@ -115,6 +115,26 @@ class ServicoRelatorio:
     # --- Relatório de produção (substitui versão de trabalho) ---
 
     @staticmethod
+    def esta_bloqueado(rel):
+        """Retorna `True` se o relatório está bloqueado para edição.
+
+        Bloqueio ocorre quando:
+        - `bloqueio_edicao=True` (flag explícita do coordenador), OU
+        - `status.codigo == 'finalizado'` (relatório já fechado em
+          snapshot na biblioteca de finalizados).
+
+        Aceita tanto a instância de `RelatorioProducao` quanto `None`
+        (devolve `True` por segurança).
+        """
+        if rel is None:
+            return True
+        if rel.bloqueio_edicao:
+            return True
+        if rel.status and rel.status.codigo == 'finalizado':
+            return True
+        return False
+
+    @staticmethod
     def listar_relatorios_producao():
         return RelatorioProducao.query.all()
 
@@ -261,7 +281,8 @@ class ServicoRelatorio:
                        ordem_capitulo, nivel_capitulo=1,
                        id_capitulo_pai=None,
                        nome_capitulo=None,
-                       indice_capitulo=None):
+                       indice_capitulo=None,
+                       tipo_elemento='textual'):
         capitulo = CapituloDocumento(
             id_relatorio=id_relatorio,
             titulo_capitulo=titulo_capitulo,
@@ -269,7 +290,8 @@ class ServicoRelatorio:
             nivel_capitulo=nivel_capitulo,
             id_capitulo_pai=id_capitulo_pai,
             nome_capitulo=nome_capitulo,
-            indice_capitulo=indice_capitulo
+            indice_capitulo=indice_capitulo,
+            tipo_elemento=tipo_elemento
         )
         db.session.add(capitulo)
         db.session.commit()

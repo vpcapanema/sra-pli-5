@@ -1,9 +1,9 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar, btn_custom %}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">1. Gestão de Usuários</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('users', '1.', 'Gestão de Usuários') }}
     <div class="sra-card__content">
         {% set linhas_usuarios = [] %}
         {% for u in usuarios %}
@@ -15,23 +15,28 @@
                 {% set status = 'Inativo' %}
             {% endif %}
             {% set acoes %}
-                <a href="{{ url_for('admin.editar_usuario', id=u.id) }}" class="sra-btn-icon" title="Visualizar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-                <a href="{{ url_for('admin.editar_usuario', id=u.id) }}" class="sra-btn-icon" title="Editar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                </a>
+                {{ btn_visualizar(url_for('admin.editar_usuario', id_usuario=u.id)) }}
+                {{ btn_editar(href=url_for('admin.editar_usuario', id_usuario=u.id)) }}
                 {% if not u.ativo and u.token_convite %}
-                <form method="POST" action="{{ url_for('admin.reenviar_convite', id=u.id) }}" class="sra-inline-form">
-                    <button type="submit" class="sra-btn-icon" title="Reenviar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <form method="POST" action="{{ url_for('admin.reenviar_convite', id_usuario=u.id) }}" class="sra-inline-form">
+                    <button type="submit" class="sra-btn-icon sra-btn-icon--upload" title="Reenviar convite">
+                        <i class="ph-fill ph-envelope-simple" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Reenviar convite</span>
                     </button>
                 </form>
                 {% endif %}
-                <form method="POST" action="{{ url_for('admin.alternar_ativo', id=u.id) }}" class="sra-inline-form">
-                    <button type="submit" class="sra-btn-icon {{ 'sra-btn-icon--danger' if u.ativo else '' }}" title="{{ 'Desativar' if u.ativo else 'Ativar' }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                <form method="POST" action="{{ url_for('admin.alternar_ativo', id_usuario=u.id) }}" class="sra-inline-form">
+                    {% if u.ativo %}
+                    <button type="submit" class="sra-btn-icon sra-btn-icon--delete" title="Desativar usuário">
+                        <i class="ph-fill ph-power" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Desativar</span>
                     </button>
+                    {% else %}
+                    <button type="submit" class="sra-btn-icon sra-btn-icon--edit" title="Ativar usuário">
+                        <i class="ph-fill ph-power" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Ativar</span>
+                    </button>
+                    {% endif %}
                 </form>
             {% endset %}
             {% set _ = linhas_usuarios.append([
@@ -46,17 +51,15 @@
             ]) %}
         {% endfor %}
         {{ tabela(
-            colunas=['ID', 'Nome', 'E-mail', 'E-mail Secundário', 'Nome de Usuário', 'Perfil', 'Status', 'Ações'],
+            colunas=['Nome', 'E-mail', 'E-mail Sec.', 'Usuário', 'Perfil', 'Status', 'Ações'],
             linhas=linhas_usuarios,
             vazio='Nenhum usuário cadastrado.'
         ) }}
     </div>
 </div>
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">Convidar Novo Usuário</h3>
-    </div>
+<div class="sra-card sigma-pli-conteiner">
+    {{ cabecalho_pli('user-plus', '', 'Convidar Novo Usuário') }}
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" action="{{ url_for('admin.criar_usuario') }}">
             <div class="sra-input">
