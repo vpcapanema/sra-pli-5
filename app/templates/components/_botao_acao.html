@@ -51,6 +51,17 @@
     <h3 class="acao-grupo__title">{{ rotulos[grupo_id] | default(grupo_id) }}</h3>
     <div class="acao-grupo__items">
         {% for item in itens %}
+            {% if item.acao.id == 'gerar_final' %}
+                <a href="{{ url_for(
+                        'relatorio.exportar_preview',
+                        id_relatorio=id_relatorio
+                    ) }}"
+                   class="acao-btn"
+                   title="Gera um DOCX de preview com as mesmas rotinas finais, sem alterar status ou bloquear edições.">
+                    <i class="ph ph-download-simple" aria-hidden="true"></i>
+                    <span class="acao-btn__label">Exportar Preview</span>
+                </a>
+            {% endif %}
             {{ botao_acao(item, id_relatorio) }}
         {% endfor %}
     </div>

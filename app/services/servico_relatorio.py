@@ -165,9 +165,9 @@ class ServicoRelatorio:
         from datetime import date
         from app.models.dominio import DomStatusRelatorio
 
-        # Buscar status 'rascunho' ou usar o primeiro ativo
+        # Buscar status 'em_producao' ou usar o primeiro ativo
         status = DomStatusRelatorio.query.filter_by(
-            codigo='rascunho'
+            codigo='em_producao'
         ).first()
         if not status:
             status = DomStatusRelatorio.query.filter_by(
@@ -275,6 +275,72 @@ class ServicoRelatorio:
             id_relatorio=id_relatorio,
             id_capitulo_pai=None
         ).order_by(CapituloDocumento.ordem_capitulo).all()
+
+    # Buckets de ordenacao por tipo_elemento.
+    # Pre-textuais aparecem PRIMEIRO (capa, folha de rosto, sumario,
+    # listas de figuras/tabelas), depois os textuais (numerados de 1
+    # em diante), e por fim os pos-textuais (apendices, anexos).
+    _BUCKET_TIPO = {
+        'pre_textual': 0,
+        'textual': 1,
+        'pos_textual': 2,
+    }
+
+    @staticmethod
+    def chave_ordem_indice(cap):
+        """Chave de ordenacao global de capitulos.
+
+        Critérios (na ordem):
+          1. Bucket por `tipo_elemento` (pre < textual < pos).
+          2. Indice hierarquico `indice_capitulo` como tupla numerica:
+             '5.4.7.1' -> (5, 4, 7, 1).
+          3. `ordem_capitulo` como tie-breaker.
+
+        Sem o bucket por tipo, o SUMARIO (pre-textual com indice "1")
+        apareceria antes de APRESENTACAO (textual com indice "2"),
+        mas eles pertencem a sub-listas diferentes do relatorio.
+        """
+        bucket = ServicoRelatorio._BUCKET_TIPO.get(
+            cap.tipo_elemento or 'textual', 1
+        )
+        idx = (cap.indice_capitulo or '').strip()
+        partes = []
+        if idx:
+            for p in idx.split('.'):
+                p = p.strip()
+                if not p:
+                    continue
+                try:
+                    partes.append(int(p))
+                except ValueError:
+                    partes.append(10000)
+        if not partes:
+            partes = [9999]
+        return (bucket, tuple(partes), cap.ordem_capitulo or 0)
+
+    @staticmethod
+    def listar_capitulos_ordenados(id_relatorio, incluir_inativos=False):
+        """Lista capitulos do relatorio em ordem natural:
+        pre-textuais -> textuais (1, 1.1, 1.2, 2, ...) -> pos-textuais.
+
+        Por padrao filtra `ativo=True` — capitulos inativados pela
+        sincronizacao (sumiram do DOCX mas foram preservados) nao
+        aparecem na sidebar. Use `incluir_inativos=True` para
+        debugging / telas de recuperacao.
+        """
+        query = CapituloDocumento.query.filter_by(
+            id_relatorio=id_relatorio,
+        )
+        if not incluir_inativos:
+            query = query.filter(
+                # SQLite/Postgres: ativo IS NULL conta como ativo
+                # (legado pre-flag); IS False so quando explicitamente
+                # inativado por sincronizacao.
+                (CapituloDocumento.ativo.is_(True))
+                | (CapituloDocumento.ativo.is_(None))
+            )
+        caps = query.all()
+        return sorted(caps, key=ServicoRelatorio.chave_ordem_indice)
 
     @staticmethod
     def criar_capitulo(id_relatorio, titulo_capitulo,

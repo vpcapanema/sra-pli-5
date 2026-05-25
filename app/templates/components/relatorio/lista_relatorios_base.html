@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 timer: 1200,
                                 showConfirmButton: false
                             }).then(() => {
-                                htmx.ajax('GET', '/', {target: '#main-content', swap: 'innerHTML'});
+                                window.location.href = '/';
                             });
                         }
                     })

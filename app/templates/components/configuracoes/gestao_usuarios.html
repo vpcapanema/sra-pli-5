@@ -53,7 +53,8 @@
         {{ tabela(
             colunas=['Nome', 'E-mail', 'E-mail Sec.', 'Usuário', 'Perfil', 'Status', 'Ações'],
             linhas=linhas_usuarios,
-            vazio='Nenhum usuário cadastrado.'
+            vazio='Nenhum usuário cadastrado.',
+            id_tabela='tabela-usuarios'
         ) }}
     </div>
 </div>
@@ -61,7 +62,7 @@
 <div class="sra-card sigma-pli-conteiner">
     {{ cabecalho_pli('user-plus', '', 'Convidar Novo Usuário') }}
     <div class="sra-card__content">
-        <form class="sra-auth__form" method="POST" action="{{ url_for('admin.criar_usuario') }}">
+        <form class="sra-auth__form" method="POST" action="{{ url_for('admin.criar_usuario') }}" id="form-convidar-usuario">
             <div class="sra-input">
                 <label class="sra-input__label" for="nome_completo">Nome completo</label>
                 <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" required>
@@ -83,3 +84,246 @@
         </form>
     </div>
 </div>
+
+<script>
+(function() {
+    const tabelaUsuarios = document
+        .querySelector('[data-table-id="tabela-usuarios"] table');
+    if (tabelaUsuarios) {
+        const style = document.createElement('style');
+        style.textContent = `
+            [data-table-id="tabela-usuarios"] th:nth-child(2),
+            [data-table-id="tabela-usuarios"] th:nth-child(3),
+            [data-table-id="tabela-usuarios"] th:nth-child(4),
+            [data-table-id="tabela-usuarios"] th:nth-child(5),
+            [data-table-id="tabela-usuarios"] td:nth-child(2),
+            [data-table-id="tabela-usuarios"] td:nth-child(3),
+            [data-table-id="tabela-usuarios"] td:nth-child(4),
+            [data-table-id="tabela-usuarios"] td:nth-child(5) {
+                text-align: left;
+            }
+            [data-table-id="tabela-usuarios"] th.sra-table__header--sortable {
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+            }
+            [data-table-id="tabela-usuarios"] .sra-table__sort-indicator {
+                display: inline-block;
+                margin-left: 0.35rem;
+                color: #4f5d6e;
+                font-size: 0.75rem;
+            }
+        `;
+        document.head.appendChild(style);
+
+        const headers = Array.from(
+            tabelaUsuarios.querySelectorAll('thead th')
+        );
+        const sortableHeaders = headers.slice(1, -1);
+
+        sortableHeaders.forEach((header, index) => {
+            const columnIndex = index + 1;
+            const indicator = document.createElement('span');
+            indicator.className = 'sra-table__sort-indicator';
+            indicator.textContent = '↕';
+            header.classList.add('sra-table__header--sortable');
+            header.appendChild(indicator);
+            header.setAttribute('title', 'Ordenar coluna');
+
+            header.addEventListener('click', () => {
+                const tbody = tabelaUsuarios.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const currentDirection = header.dataset.sortDirection;
+                const nextDirection = currentDirection === 'asc'
+                    ? 'desc'
+                    : 'asc';
+
+                sortableHeaders.forEach(h => {
+                    h.dataset.sortDirection = '';
+                    const span = h.querySelector(
+                        '.sra-table__sort-indicator'
+                    );
+                    if (span) span.textContent = '↕';
+                });
+
+                rows.sort((a, b) => {
+                    const valueA = (
+                        a.children[columnIndex]?.textContent || ''
+                    ).trim().toLocaleLowerCase('pt-BR');
+                    const valueB = (
+                        b.children[columnIndex]?.textContent || ''
+                    ).trim().toLocaleLowerCase('pt-BR');
+                    const result = valueA.localeCompare(
+                        valueB,
+                        'pt-BR',
+                        { numeric: true, sensitivity: 'base' }
+                    );
+                    return nextDirection === 'asc' ? result : -result;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+                header.dataset.sortDirection = nextDirection;
+                indicator.textContent = nextDirection === 'asc'
+                    ? '↑'
+                    : '↓';
+            });
+        });
+    }
+
+    const form = document.getElementById('form-convidar-usuario');
+    if (!form) return;
+
+    function criarLog(container, mensagem, status) {
+        const icons = {
+            pending: '⏳',
+            success: '✓',
+            error: '✗',
+            warning: '!'
+        };
+        const colors = {
+            pending: '#666',
+            success: '#2a9450',
+            error: '#7a1212',
+            warning: '#c88000'
+        };
+        const linha = document.createElement('div');
+        linha.style.marginBottom = '4px';
+        linha.style.color = colors[status] || colors.pending;
+        linha.textContent = `${icons[status] || icons.pending} ${mensagem}`;
+        container.appendChild(linha);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const nome = form.nome_completo.value;
+        const email = form.email.value;
+
+        Swal.fire({
+            title: 'Enviando Convite',
+            html: `
+                <div style="text-align:left;">
+                    <div id="convite-progress" style="margin-bottom:16px;">
+                        <div style="background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden;">
+                            <div id="progress-bar" style="background:#2a9450;height:100%;width:0%;transition:width 0.3s ease;"></div>
+                        </div>
+                        <div id="progress-text" style="font-size:0.875rem;color:#666;margin-top:8px;">Iniciando...</div>
+                    </div>
+                    <div id="convite-log" style="font-family:monospace;font-size:0.875rem;max-height:200px;overflow-y:auto;background:#f5f5f5;padding:12px;border-radius:4px;"></div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const logContainer = document.getElementById('convite-log');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+
+        function atualizarProgresso(percentual, texto) {
+            progressBar.style.width = `${percentual}%`;
+            progressText.textContent = texto;
+        }
+
+        function criarLogComDelay(mensagem, status, delay) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    criarLog(logContainer, mensagem, status);
+                    resolve();
+                }, delay);
+            });
+        }
+
+        async function simularProgresso() {
+            await criarLogComDelay(`Iniciando processo para ${nome} (${email})...`, 'pending', 100);
+            atualizarProgresso(10, 'Validando dados...');
+
+            await criarLogComDelay('Validando formato do e-mail...', 'pending', 300);
+            await criarLogComDelay('Verificando disponibilidade do perfil...', 'pending', 300);
+            atualizarProgresso(25, 'Dados validados');
+
+            await criarLogComDelay('Criando cadastro de usuário pendente...', 'pending', 400);
+            atualizarProgresso(40, 'Criando usuário...');
+
+            await criarLogComDelay('Gerando nome de usuário...', 'pending', 300);
+            await criarLogComDelay('Gerando token de ativação...', 'pending', 300);
+            await criarLogComDelay('Salvando no banco de dados...', 'pending', 400);
+            atualizarProgresso(60, 'Usuário criado');
+
+            await criarLogComDelay('Preparando envio de e-mail...', 'pending', 300);
+            atualizarProgresso(75, 'Enviando e-mail...');
+
+            await criarLogComDelay('Conectando ao servidor de e-mail...', 'pending', 400);
+            await criarLogComDelay('Enviando mensagem de convite...', 'pending', 500);
+            atualizarProgresso(90, 'Finalizando...');
+
+            await criarLogComDelay('Processo concluído!', 'pending', 200);
+            atualizarProgresso(100, 'Concluído');
+        }
+
+        simularProgresso().then(() => {
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                body: new FormData(form)
+            })
+                .then(response => response.json().then(data => ({
+                    ok: response.ok,
+                    data: data
+                })))
+                .then(result => {
+                    logContainer.innerHTML = '';
+                    const data = result.data || {};
+                    const logs = data.logs || [];
+                    logs.forEach(log => {
+                        criarLog(logContainer, log.mensagem, log.status);
+                    });
+
+                    if (!result.ok || data.erro) {
+                        Swal.update({
+                            icon: 'error',
+                            title: 'Falha no Convite',
+                            html: logContainer.outerHTML,
+                            showConfirmButton: true,
+                            confirmButtonColor: '#7a1212'
+                        });
+                        return;
+                    }
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Convite Enviado',
+                        text: data.mensagem || 'Convite enviado com sucesso.',
+                        timer: 1800,
+                        showConfirmButton: false,
+                        timerProgressBar: true
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                })
+                .catch(error => {
+                    logContainer.innerHTML = '';
+                    criarLog(logContainer, `Erro de conexão: ${error}`, 'error');
+                    Swal.update({
+                        icon: 'error',
+                        title: 'Erro de Conexão',
+                        html: logContainer.outerHTML,
+                        showConfirmButton: true,
+                        confirmButtonColor: '#7a1212'
+                    });
+                });
+        });
+    });
+})();
+</script>

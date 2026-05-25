@@ -65,7 +65,7 @@ class ServicoEmail:
             method='POST',
         )
 
-        resp = urllib.request.urlopen(req)
+        resp = urllib.request.urlopen(req, timeout=20)
         return resp.status, json.loads(
             resp.read().decode('utf-8')
         )
@@ -101,21 +101,34 @@ class ServicoEmail:
                 f'(status {status}, id {body})'
             )
         except urllib.error.HTTPError as e:
+            detalhe = e.read().decode()
             current_app.logger.error(
                 f'Erro ao enviar e-mail para '
                 f'{destinatario}: {e.code} '
-                f'{e.read().decode()}'
+                f'{detalhe}'
             )
+            raise RuntimeError(
+                f'Falha no envio do convite por e-mail: {e.code}'
+            ) from e
         except Exception as e:
             current_app.logger.error(
                 f'Erro ao enviar e-mail para '
                 f'{destinatario}: {e}'
             )
+            raise RuntimeError(
+                'Falha no envio do convite por e-mail.'
+            ) from e
 
         return link
 
     @staticmethod
-    def _corpo_recuperacao(nome, link):
+    def _corpo_recuperacao(nome, nome_de_usuario, email, link, perfil):
+        perfis = {
+            'admin': 'Administrador',
+            'coordenador': 'Coordenador',
+            'autor': 'Autor',
+        }
+        perfil_label = perfis.get(perfil, perfil or '-')
         return f"""
         <div style="font-family:sans-serif;max-width:480px;
                     margin:0 auto;padding:24px;">
@@ -124,6 +137,18 @@ class ServicoEmail:
             <p>Recebemos uma solicitação para redefinir
             sua senha no Sistema de Relatórios de
             Atividades.</p>
+            <p>
+                <strong>Usuário:</strong>
+                {nome_de_usuario or email}
+            </p>
+            <p>
+                <strong>E-mail da conta:</strong>
+                {email}
+            </p>
+            <p>
+                <strong>Tipo de usuário da conta:</strong>
+                {perfil_label}
+            </p>
             <p>Clique no botão abaixo para criar uma
             nova senha:</p>
             <p style="text-align:center;margin:32px 0;">
@@ -150,7 +175,13 @@ class ServicoEmail:
         """
 
     @staticmethod
-    def enviar_recuperacao(destinatario, nome, token):
+    def enviar_recuperacao(
+        destinatario,
+        nome,
+        nome_de_usuario,
+        token,
+        perfil
+    ):
         cfg = current_app.config
         base_url = cfg['APP_BASE_URL']
         link = f"{base_url}/redefinir-senha/{token}"
@@ -165,7 +196,7 @@ class ServicoEmail:
 
         assunto = 'SRA · PLI-SP — Redefinição de senha'
         corpo = ServicoEmail._corpo_recuperacao(
-            nome, link
+            nome, nome_de_usuario, destinatario, link, perfil
         )
 
         try:

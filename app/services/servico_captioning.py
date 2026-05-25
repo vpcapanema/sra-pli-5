@@ -582,8 +582,10 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
                 i += 1
                 continue
 
+            em_regiao_textual = indice_h1_atual != '0'
+
             # Equacao inline
-            if _contem_equacao(child):
+            if em_regiao_textual and _contem_equacao(child):
                 contadores.setdefault(
                     (indice_h1_atual, 'equacao'), 0
                 )
@@ -620,7 +622,7 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
                 continue
 
             # Figura
-            if _contem_drawing_ou_pict(child):
+            if em_regiao_textual and _contem_drawing_ou_pict(child):
                 contadores.setdefault(
                     (indice_h1_atual, 'figura'), 0
                 )
@@ -654,7 +656,7 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
                 figuras_total += 1
                 continue
 
-        elif tag == f'{{{W_NS}}}tbl':
+        elif tag == f'{{{W_NS}}}tbl' and indice_h1_atual != '0':
             contadores.setdefault(
                 (indice_h1_atual, 'tabela'), 0
             )

@@ -5,11 +5,7 @@
     </label>
     <select id="seletor-relatorio"
             name="id_relatorio"
-            class="sra-form-select"
-            hx-get="/relatorio/envios-conteudo"
-            hx-target="#tabela-envios"
-            hx-swap="innerHTML"
-            hx-include="[name='id_relatorio']">
+            class="sra-form-select">
         <option value="">-- Selecione um relatório --</option>
         {% for relatorio in relatorios %}
         {% set tipo_label = 'Em Produção' if relatorio.tipo_relatorio == 'producao' else 'Base' %}

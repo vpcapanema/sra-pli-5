@@ -32,8 +32,9 @@ def login():
 def recuperar_senha():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
-        if email:
-            ServicoUsuario.solicitar_recuperacao(email)
+        perfil = request.form.get('tipo_perfil')
+        if email and perfil:
+            ServicoUsuario.solicitar_recuperacao(email, perfil)
         flash(
             'Se o e-mail estiver cadastrado, você '
             'receberá um link para redefinir a senha.',
@@ -48,7 +49,7 @@ def recuperar_senha():
     methods=['GET', 'POST']
 )
 def redefinir_senha(token):
-    usuario = ServicoUsuario.obter_por_token(token)
+    usuario = ServicoUsuario.obter_por_token_recuperacao(token)
     if not usuario or not usuario.ativo:
         flash('Link inválido ou expirado.', 'erro')
         return redirect(url_for('auth.login'))

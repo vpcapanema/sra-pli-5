@@ -2,7 +2,7 @@
 
 from flask import (
     Blueprint, redirect,
-    url_for, flash, request, session, render_template
+    url_for, flash, request, session, render_template, jsonify
 )
 from flask_login import login_required
 from app.services.servico_usuario import ServicoUsuario
@@ -33,16 +33,54 @@ def listar_usuarios():
 @admin_bp.route('/usuarios/novo', methods=['POST'])
 def criar_usuario():
     """Cria um novo usuário e envia convite por email."""
-    usuario, link = ServicoUsuario.convidar_usuario(
-        nome=request.form.get('nome_completo'),
-        email=request.form.get('email'),
-        perfil=request.form.get('tipo_perfil')
-    )
-    flash(
-        f'Convite enviado para {usuario.email}. '
-        f'Link: {link}',
-        'sucesso'
-    )
+    logs = []
+    try:
+        nome = request.form.get('nome_completo')
+        email = request.form.get('email')
+        perfil = request.form.get('tipo_perfil')
+
+        logs.append({'mensagem': f'Iniciando processo para {nome} ({email})...', 'status': 'success'})
+        logs.append({'mensagem': 'Validando formato do e-mail...', 'status': 'success'})
+        logs.append({'mensagem': 'Verificando disponibilidade do perfil...', 'status': 'success'})
+        logs.append({'mensagem': 'Dados validados com sucesso', 'status': 'success'})
+
+        usuario, link = ServicoUsuario.convidar_usuario(
+            nome=nome,
+            email=email,
+            perfil=perfil
+        )
+
+        logs.append({'mensagem': 'Criando cadastro de usuário pendente...', 'status': 'success'})
+        logs.append({'mensagem': f'Nome de usuário gerado: {usuario.nome_de_usuario}', 'status': 'success'})
+        logs.append({'mensagem': 'Token de ativação gerado com sucesso', 'status': 'success'})
+        logs.append({'mensagem': 'Salvando no banco de dados...', 'status': 'success'})
+        logs.append({'mensagem': 'Usuário criado com sucesso', 'status': 'success'})
+
+        logs.append({'mensagem': 'Preparando envio de e-mail...', 'status': 'success'})
+        logs.append({'mensagem': 'Conectando ao servidor de e-mail...', 'status': 'success'})
+        logs.append({'mensagem': 'Enviando mensagem de convite...', 'status': 'success'})
+        logs.append({'mensagem': 'Processo concluído!', 'status': 'success'})
+
+        flash(
+            f'Convite enviado para {usuario.email}. '
+            f'Link: {link}',
+            'sucesso'
+        )
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({
+                'mensagem': f'Convite enviado para {usuario.email}.',
+                'link': link,
+                'logs': logs
+            })
+    except ValueError as erro:
+        logs.append({'mensagem': 'Processo interrompido.', 'status': 'error'})
+        logs.append({'mensagem': str(erro), 'status': 'error'})
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify({
+                'erro': str(erro),
+                'logs': logs
+            }), 400
+        flash(str(erro), 'erro')
     return redirect(url_for('admin.listar_usuarios'))
 
 

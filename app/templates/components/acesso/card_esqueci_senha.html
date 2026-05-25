@@ -8,6 +8,15 @@
             <label class="sra-input__label" for="email">E-mail cadastrado</label>
             <input class="sra-input__field" type="email" id="email" name="email" required>
         </div>
+        <div class="sra-input">
+            <label class="sra-input__label" for="tipo_perfil">Tipo de perfil</label>
+            <select class="sra-input__field" id="tipo_perfil" name="tipo_perfil" required>
+                <option value="">Selecione...</option>
+                <option value="admin">Administrador</option>
+                <option value="coordenador">Coordenador</option>
+                <option value="autor">Autor</option>
+            </select>
+        </div>
         <button type="submit" class="sra-button sra-button--secondary sra-button--block">Enviar link de recuperação</button>
     </form>
     <div class="sra-auth__footer">

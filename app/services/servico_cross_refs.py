@@ -187,17 +187,35 @@ def substituir_referencias(
     # IMPORTANTE: pulamos paragrafos que ja sao legendas (estilo
     # Caption ou prefixo conhecido) — eles foram processados pelo
     # `servico_captioning` e nao devem ter cross-refs no texto.
-    from app.services.servico_captioning import _eh_paragrafo_de_caption
+    from app.services.servico_captioning import (
+        _eh_heading_paragrafo,
+        _eh_paragrafo_de_caption,
+    )
 
-    for p in list(body.iter(qn('w:p'))):
-        if _eh_paragrafo_de_caption(p):
+    em_regiao_textual = False
+    for child in list(body):
+        if child.tag == qn('w:p'):
+            if not em_regiao_textual:
+                nivel = _eh_heading_paragrafo(child)
+                if nivel == 1:
+                    em_regiao_textual = True
+                else:
+                    continue
+            paragrafos = [child]
+        elif em_regiao_textual:
+            paragrafos = list(child.iter(qn('w:p')))
+        else:
             continue
-        antes = _texto_paragrafo(p)
-        r, nr = _processar_paragrafo(p, mapa_labels)
-        if r > 0 or nr > 0 or _texto_paragrafo(p) != antes:
-            paragrafos_modificados += 1
-        total_resolvidas += r
-        total_nao_resolvidas += nr
+
+        for p in paragrafos:
+            if _eh_paragrafo_de_caption(p):
+                continue
+            antes = _texto_paragrafo(p)
+            r, nr = _processar_paragrafo(p, mapa_labels)
+            if r > 0 or nr > 0 or _texto_paragrafo(p) != antes:
+                paragrafos_modificados += 1
+            total_resolvidas += r
+            total_nao_resolvidas += nr
 
     if paragrafos_modificados > 0:
         doc.save(caminho_master)

@@ -10,40 +10,34 @@
       - capitulos_nav: lista de capítulos para navegação lateral
 #}
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">1. Upload de Conteúdo — {{ capitulo.titulo_capitulo }}</h3>
+<div class="ea__upload-card">
+    <div class="ea__upload-card__header">
+        <h3 class="ea__upload-card__title">{{ capitulo.indice_capitulo or '' }} {{ capitulo.titulo_capitulo }}</h3>
     </div>
-    <div class="sra-card__content">
-        <p class="sra-text--muted">
-            Versão de trabalho: {{ versao_trabalho.titulo }}
-            &middot; Capítulo: {{ capitulo.indice_capitulo or '' }} {{ capitulo.titulo_capitulo }}
-        </p>
-
-        {% if not envio %}
-        <form class="sra-auth__form" method="POST" enctype="multipart/form-data"
-              action="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=capitulo.id_capitulo_documento) }}">
-            <div class="sra-input">
-                <label class="sra-input__label" for="arquivo_docx">Arquivo DOCX</label>
-                <input class="sra-input__field" type="file" id="arquivo_docx" name="arquivo_docx" accept=".docx" required>
-            </div>
-            <button type="submit" class="sra-button sra-button--secondary">Enviar arquivo</button>
-        </form>
-        {% else %}
-        <p class="sra-text--muted">
+    <div class="ea__upload-card__content">
+        {% if envio %}
+        <p class="ea__upload-status">
             Arquivo enviado: <strong>{{ envio.nome_arquivo }}</strong>
             &middot; Status: <span class="sra-badge sra-badge--{{ envio.status_envio }}">{{ envio.status_envio | replace('_', ' ') | capitalize }}</span>
         </p>
         {% endif %}
+        <form class="ea__upload-form" method="POST" enctype="multipart/form-data"
+              action="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=capitulo.id_capitulo_documento) }}">
+            <div class="ea__upload-input">
+                <label class="ea__upload-label" for="arquivo_docx_{{ capitulo.id_capitulo_documento }}">Arquivo DOCX</label>
+                <input class="ea__upload-field" type="file" id="arquivo_docx_{{ capitulo.id_capitulo_documento }}" name="arquivo_docx" accept=".docx" required>
+            </div>
+            <button type="submit" class="sra-button sra-button--secondary">Enviar arquivo</button>
+        </form>
     </div>
 </div>
 
 {% if preview_html %}
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">2. Pré-visualização do Conteúdo Enviado</h3>
+<div class="ea__upload-card">
+    <div class="ea__upload-card__header">
+        <h3 class="ea__upload-card__title">Pré-visualização do Conteúdo Enviado</h3>
     </div>
-    <div class="sra-card__content">
+    <div class="ea__upload-card__content">
         {% set preview_modo = 'edicao' %}
         {% set preview_titulo = capitulo.indice_capitulo ~ ' ' ~ capitulo.titulo_capitulo %}
         {% set preview_id = envio.id_envio_conteudo | string %}
@@ -53,13 +47,13 @@
     </div>
 </div>
 
-<div class="sra-card">
-    <div class="sra-card__header">
-        <h3 class="sra-card__title">3. Confirmar Conteúdo</h3>
+<div class="ea__upload-card">
+    <div class="ea__upload-card__header">
+        <h3 class="ea__upload-card__title">Confirmar Conteúdo</h3>
     </div>
-    <div class="sra-card__content">
-        <p class="sra-text--muted">Após revisar a pré-visualização, escolha uma ação:</p>
-        <div class="sra-actions-row">
+    <div class="ea__upload-card__content">
+        <p class="ea__upload-info">Após revisar a pré-visualização, escolha uma ação:</p>
+        <div class="ea__upload-actions">
             <form method="POST" action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='importar') }}">
                 <button type="submit" class="sra-button sra-button--secondary">Importar conteúdo</button>
             </form>

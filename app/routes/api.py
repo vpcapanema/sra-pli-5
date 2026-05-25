@@ -195,6 +195,65 @@ def baixar_envio_docx(id_envio):
     )
 
 
+@api_bp.route('/envios/<int:id_envio>/estrutura')
+@login_required
+def buscar_estrutura_envio(id_envio):
+    """Retorna a estrutura completa do DOCX enviado (capítulos, figuras, tabelas)."""  # noqa: E501
+    from app.models.envio_conteudo import EnvioConteudo
+
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        return jsonify({'erro': 'Sem permissão'}), 403
+
+    try:
+        # Retornar estrutura já processada durante o upload
+        import json  # noqa: C0415
+        if envio.sugestoes_json:
+            estrutura = json.loads(envio.sugestoes_json)
+            return jsonify(estrutura)
+        else:
+            return jsonify({
+                'capitulos': [],
+                'legendas': [],
+            })
+    except Exception as e:  # noqa: W0718
+        return jsonify({'erro': f'Erro ao carregar estrutura: {e}'}), 500
+
+
+@api_bp.route('/envios/<int:id_envio>/segmentos')
+@login_required
+def buscar_segmentos_envio(id_envio):
+    """Retorna os segmentos (prévias) de um envio por capítulo."""
+    from app.models.envio_conteudo import EnvioConteudo
+    from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
+
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if (envio.id_usuario != current_user.id
+            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+        return jsonify({'erro': 'Sem permissão'}), 403
+
+    previas = PrevisualizacaoConteudo.query.filter_by(
+        id_envio_conteudo=id_envio
+    ).all()
+
+    segmentos = []
+    for prev in previas:
+        if prev.id_capitulo_destino:
+            cap = CapituloDocumento.query.get(prev.id_capitulo_destino)
+            if cap:
+                segmentos.append({
+                    'id_previsualizacao': prev.id_previsualizacao,
+                    'id_capitulo': cap.id_capitulo_documento,
+                    'titulo_capitulo': cap.titulo_capitulo,
+                    'indice_capitulo': cap.indice_capitulo,
+                    'resultado_html': prev.resultado_html,
+                    'tipo_previsualizacao': prev.tipo_previsualizacao,
+                })
+
+    return jsonify({'segmentos': segmentos})
+
+
 @api_bp.route('/envios/<int:id_envio>/capitulos/<int:id_capitulo>/docx')
 @login_required
 def baixar_envio_segmento_docx(id_envio, id_capitulo):

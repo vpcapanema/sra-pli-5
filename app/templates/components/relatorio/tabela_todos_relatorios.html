@@ -34,7 +34,7 @@
     {% set acoes %}
         {{ btn_visualizar(url_for('relatorio.detalhe_versao', id_versao=rel.id)) }}
         {% if rel.tipo_relatorio == 'producao' %}
-            {{ btn_abrir(url_for('relatorio.abrir_editor', id_relatorio=rel.id)) }}
+            {{ btn_abrir(url_for('relatorio.detalhe_versao', id_versao=rel.id)) }}
         {% endif %}
         {{ btn_editar(
             classe='btn-editar-relatorio-todos',
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 timer: 1200,
                                 showConfirmButton: false
                             }).then(() => {
-                                htmx.ajax('GET', '/relatorio/panorama', {target: '#main-content', swap: 'innerHTML'});
+                                window.location.href = '/relatorio/panorama';
                             });
                         }
                     })

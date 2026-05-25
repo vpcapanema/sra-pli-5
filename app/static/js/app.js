@@ -1,5 +1,10 @@
 // SRA - JavaScript principal
 
+// Sistema de Logging
+if (typeof SRALogger !== 'undefined') {
+    SRALogger.info('app.js carregado');
+}
+
 // SweetAlert2 — defaults em português
 if (typeof Swal !== 'undefined') {
     var _swalOrigFire = Swal.fire.bind(Swal);
@@ -14,11 +19,18 @@ if (typeof Swal !== 'undefined') {
 }
 
 function sraInit() {
+    if (typeof SRALogger !== 'undefined') {
+        SRALogger.debug('sraInit() executado');
+    }
+
     // Sidebar toggles
     document.querySelectorAll('.sidebar-menu__toggle').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var group = btn.closest('.sidebar-menu__group');
             group.classList.toggle('open');
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.click(btn, 'sidebar-toggle');
+            }
         });
     });
 
@@ -41,6 +53,9 @@ function sraInit() {
             input.type = visivel ? 'password' : 'text';
             btn.innerHTML = visivel ? iconeOlho : iconeOlhoFechado;
             btn.setAttribute('aria-label', visivel ? 'Mostrar senha' : 'Ocultar senha');
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.click(btn, 'password-toggle');
+            }
         });
 
         wrapper.appendChild(btn);
@@ -72,6 +87,9 @@ function sraInit() {
         selectAll.addEventListener('change', function () {
             getRowChecks().forEach(function (c) { c.checked = selectAll.checked; });
             updateBulk();
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.info('Selecionar todos: ' + selectAll.checked);
+            }
         });
 
         container.addEventListener('change', function (e) {
@@ -87,6 +105,10 @@ function sraInit() {
 
             var action = btn.dataset.action;
             var url = btn.dataset.url;
+
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.info('Ação em massa: ' + action + ' para ' + ids.length + ' itens');
+            }
 
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
@@ -159,6 +181,9 @@ function sraInit() {
         quill.on('text-change', function () {
             if (statusEl) statusEl.textContent = 'Modificado';
             updateWordCount();
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.debug('Quill: texto alterado');
+            }
         });
         updateWordCount();
 
@@ -170,6 +195,10 @@ function sraInit() {
                 if (!url) return;
                 if (statusEl) statusEl.textContent = 'Salvando...';
                 var html = quill.root.innerHTML;
+
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.httpRequest('POST', url, { preview_id: preview.dataset.previewId });
+                }
 
                 fetch(url, {
                     method: 'POST',

@@ -1,15 +1,18 @@
 """Script de seed para dominios do sistema SRA."""
 
 from app import create_app, db
-from app.models.dominio import Dominio
+from app.models.dominio import Dominio, DomStatusRelatorio
 
+# Status de relatório usa tabela específica dom_status_relatorios
+STATUS_RELATORIO = [
+    ('em_producao', 'Em produção', 10),
+    ('em_revisao', 'Em revisão', 20),
+    ('finalizado', 'Finalizado', 30),
+    ('cancelado', 'Cancelado', 90),
+]
+
+# Outros dominios usam tabela generica dominios
 DOMINIOS = {
-    'status_relatorio': [
-        ('rascunho', 'Relatório em elaboração'),
-        ('em_revisao', 'Relatório em revisão'),
-        ('aprovado', 'Relatório aprovado'),
-        ('publicado', 'Relatório publicado'),
-    ],
     'status_versao': [
         ('rascunho', 'Versão em elaboração'),
         ('em_revisao', 'Versão em revisão'),
@@ -77,6 +80,19 @@ app = create_app()
 with app.app_context():
     db.create_all()
     INSERIDOS = 0
+
+    # Seed de status de relatorio (tabela dom_status_relatorios)
+    for codigo, descricao, ordem in STATUS_RELATORIO:
+        existe = DomStatusRelatorio.query.filter_by(codigo=codigo).first()
+        if not existe:
+            db.session.add(DomStatusRelatorio(
+                codigo=codigo,
+                descricao=descricao,
+                ordem=ordem
+            ))
+            INSERIDOS += 1
+
+    # Seed de outros dominios (tabela dominios)
     for tipo, valores in DOMINIOS.items():
         for valor, descricao in valores:
             existe = Dominio.query.filter_by(
@@ -89,6 +105,8 @@ with app.app_context():
                     descricao=descricao
                 ))
                 INSERIDOS += 1
+
     db.session.commit()
-    total = Dominio.query.count()
-    print(f'Seed concluído: {INSERIDOS} novos, {total} total.')
+    total_status = DomStatusRelatorio.query.count()
+    total_dominios = Dominio.query.count()
+    print(f'Seed concluído: {INSERIDOS} novos, {total_status} status_relatorio, {total_dominios} dominios.')

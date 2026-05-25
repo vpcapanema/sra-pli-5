@@ -27,6 +27,8 @@ class EnvioConteudo(db.Model, AuditoriaMixin):
         db.ForeignKey('capitulos_documento.id_capitulo_documento'),
         nullable=True,
     )
+    # Sugestões extraídas do DOCX upado (títulos, figuras, tabelas)
+    sugestoes_json = db.Column(db.Text, nullable=True)
 
     relatorio = db.relationship('RelatorioProducao', back_populates='envios')
     capitulo_destino = db.relationship(

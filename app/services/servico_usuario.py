@@ -17,6 +17,22 @@ RESET_HORAS = 1
 class ServicoUsuario:
 
     @staticmethod
+    def _gerar_nome_de_usuario(email):
+        base = (email or '').split('@')[0].strip().lower()
+        base = ''.join(
+            c if c.isalnum() or c in '._-' else '.'
+            for c in base
+        ).strip('._-') or 'usuario'
+        candidato = base
+        contador = 1
+        while Usuario.query.filter_by(
+            nome_de_usuario=candidato
+        ).first():
+            contador += 1
+            candidato = f'{base}{contador}'
+        return candidato
+
+    @staticmethod
     def autenticar(email, senha, perfil):
         # Converter perfil string para ID
         perfil_obj = DomPerfilUsuario.query.filter_by(
@@ -45,14 +61,35 @@ class ServicoUsuario:
             raise ValueError(
                 f'Perfil inválido: {perfil}'
             )
+        perfil_obj = DomPerfilUsuario.query.filter_by(
+            codigo=perfil,
+            ativo=True
+        ).first()
+        if not perfil_obj:
+            raise ValueError(
+                f'Perfil não encontrado: {perfil}'
+            )
+        if Usuario.query.filter_by(
+            email=email,
+            perfil_id=perfil_obj.id
+        ).first():
+            raise ValueError(
+                f'E-mail já cadastrado para o perfil {perfil}.'
+            )
         token = secrets.token_urlsafe(48)
         expiracao = datetime.now(timezone.utc) + timedelta(
             hours=CONVITE_HORAS
         )
         usuario = Usuario(
             nome=nome,
-            perfil=perfil,
             email=email,
+            nome_de_usuario=ServicoUsuario._gerar_nome_de_usuario(
+                email
+            ),
+            senha_hash=generate_password_hash(
+                secrets.token_urlsafe(32)
+            ),
+            perfil_id=perfil_obj.id,
             ativo=False,
             token_convite=token,
             token_expiracao=expiracao,
@@ -60,15 +97,26 @@ class ServicoUsuario:
         db.session.add(usuario)
         db.session.commit()
 
-        link = ServicoEmail.enviar_convite(
-            email, nome, token
-        )
+        try:
+            link = ServicoEmail.enviar_convite(
+                email, nome, token
+            )
+        except RuntimeError as erro:
+            db.session.delete(usuario)
+            db.session.commit()
+            raise ValueError(str(erro)) from erro
         return usuario, link
 
     @staticmethod
     def obter_por_token(token):
         return Usuario.query.filter_by(
             token_convite=token
+        ).first()
+
+    @staticmethod
+    def obter_por_token_recuperacao(token):
+        return Usuario.query.filter_by(
+            token_recuperacao=token
         ).first()
 
     @staticmethod
@@ -135,27 +183,38 @@ class ServicoUsuario:
         return usuario
 
     @staticmethod
-    def solicitar_recuperacao(email):
+    def solicitar_recuperacao(email, perfil):
+        perfil_obj = DomPerfilUsuario.query.filter_by(
+            codigo=perfil
+        ).first()
+        if not perfil_obj:
+            return None
         usuario = Usuario.query.filter_by(
-            email=email, ativo=True
+            email=email,
+            perfil_id=perfil_obj.id,
+            ativo=True
         ).first()
         if not usuario:
             return None
         token = secrets.token_urlsafe(48)
-        usuario.token_convite = token
+        usuario.token_recuperacao = token
         usuario.token_expiracao = datetime.now(
             timezone.utc
         ) + timedelta(hours=RESET_HORAS)
         db.session.commit()
         ServicoEmail.enviar_recuperacao(
-            usuario.email, usuario.nome, token
+            usuario.email,
+            usuario.nome,
+            usuario.nome_de_usuario,
+            token,
+            usuario.perfil.codigo if usuario.perfil else perfil
         )
         return usuario
 
     @staticmethod
     def redefinir_senha(token, nova_senha):
         usuario = Usuario.query.filter_by(
-            token_convite=token, ativo=True
+            token_recuperacao=token, ativo=True
         ).first()
         if not usuario:
             return None, 'Token inválido.'
@@ -170,7 +229,7 @@ class ServicoUsuario:
         usuario.senha_hash = generate_password_hash(
             nova_senha
         )
-        usuario.token_convite = None
+        usuario.token_recuperacao = None
         usuario.token_expiracao = None
         db.session.commit()
         return usuario, None

@@ -9,9 +9,10 @@ Pipeline:
    - Parágrafos/tabelas entre dois headings: ficam no último heading casado.
    - Conteúdo solto (sem heading): vai para o capítulo destino indicado
      (ou o primeiro capítulo, como fallback).
-4. Gerar uma `PrevisualizacaoConteudo` por capítulo destino, com HTML
+4. Extrair sugestões do DOCX upado (títulos, figuras, tabelas com legendas).
+5. Gerar uma `PrevisualizacaoConteudo` por capítulo destino, com HTML
    básico para o autor revisar antes da confirmação.
-5. Confirmação:
+6. Confirmação:
    - 'importar' → persiste o DOCX por capítulo em `conteudo_docx` e marca
      o envio como 'importado'.
    - 'rejeitar' → descarta o envio (status 'rejeitado') sem alterar
@@ -188,7 +189,13 @@ class ServicoEnvioAutor:
 
     @classmethod
     def _gerar_previas(cls, envio, id_capitulo_destino):
-        """Lê o DOCX e gera PrevisualizacaoConteudo por capítulo destino."""
+        """Lê o DOCX e gera PrevisualizacaoConteudo por capítulo destino.
+
+        Extrai também a estrutura completa do DOCX:
+        - Árvore hierárquica de capítulos e subcapítulos
+        - Figuras com legendas organizadas por capítulo
+        - Tabelas com legendas organizadas por capítulo
+        """
         capitulos = CapituloDocumento.query.filter_by(
             id_relatorio=envio.id_relatorio,
             ativo=True,
@@ -213,6 +220,16 @@ class ServicoEnvioAutor:
             )
             db.session.add(prev)
             return
+
+        # Extrair estrutura completa do DOCX usando ServicoExtracaoCanonica
+        from app.services.servico_extracao_canonica import (  # noqa: C0415
+            ServicoExtracaoCanonica,
+        )
+        estrutura = cls._extrair_estrutura_completa(doc)
+
+        # Armazenar estrutura no envio para uso na prévia
+        import json  # noqa: C0415
+        envio.sugestoes_json = json.dumps(estrutura)
 
         # Particionar conteúdo: header (antes do primeiro heading casado)
         # + listas de "segmentos" por capítulo destino.
@@ -497,3 +514,266 @@ class ServicoEnvioAutor:
             'captions': captions,
             'cross_refs': cross_refs,
         }
+
+    @classmethod
+    def _extrair_estrutura_completa(cls, doc):
+        """Extrai estrutura completa do DOCX usando ServicoExtracaoCanonica.
+
+        Retorna dict com:
+        - capitulos: árvore hierárquica de capítulos e subcapítulos
+        - legendas: figuras e tabelas com legendas
+        """
+        from app.services.servico_extracao_canonica import (  # noqa: C0415
+            ServicoExtracaoCanonica,
+        )
+
+        # Extrair árvore de capítulos
+        capitulos_arvore = ServicoExtracaoCanonica._extrair_capitulos(  # noqa: SLF001, E501
+            doc
+        )
+
+        # Se não encontrou capítulos via Heading, tentar detecção por padrão
+        if not capitulos_arvore:
+            capitulos_arvore = cls._extrair_capitulos_por_padrao(doc)
+
+        # Extrair legendas (figuras e tabelas)
+        legendas = ServicoExtracaoCanonica._extrair_legendas(doc)  # noqa: SLF001, E501
+
+        # Organizar figuras e tabelas por capítulo
+        estrutura = {
+            'capitulos': capitulos_arvore,
+            'legendas': legendas,
+        }
+
+        return estrutura
+
+    @staticmethod
+    def _extrair_capitulos_por_padrao(doc):
+        """Extrai capítulos baseados em padrões de numeração hierárquica.
+
+        Detecta títulos que começam com numeração como "1.", "1.1", "1.1.1"
+        mesmo sem estilo Heading.
+        """
+        import re  # noqa: C0415
+
+        # Padrão para numeração hierárquica: 1, 1.1, 1.1.1, etc.
+        padrao_numeracao = re.compile(r'^\s*(\d+(?:\.\d+)*)\s+(.+)')
+
+        capitulos = []
+        for para in doc.paragraphs:
+            texto = para.text.strip()
+            if not texto:
+                continue
+
+            match = padrao_numeracao.match(texto)
+            if match:
+                indice = match.group(1)
+                titulo = match.group(2)
+                nivel = indice.count('.') + 1
+
+                capitulos.append({
+                    'titulo': titulo,
+                    'indice': indice,
+                    'nivel': nivel,
+                    'estilo': para.style.name or 'Normal',
+                    'tipo_elemento': 'textual',
+                    'filhos': [],
+                })
+
+        # Montar árvore hierárquica
+        raiz = []
+        pilha = []
+
+        for item in capitulos:
+            nv = item['nivel']
+            while pilha and pilha[-1][0] >= nv:
+                pilha.pop()
+
+            destino = pilha[-1][1]['filhos'] if pilha else raiz
+            destino.append(item)
+            pilha.append((nv, item))
+
+        return raiz
+
+    @staticmethod
+    def _extrair_sugestoes(doc):
+        """Extrai sugestões do DOCX upado de forma inteligente.
+
+        Detecta padrões que sugerem títulos, figuras e tabelas,
+        mesmo que não estejam formatados perfeitamente.
+
+        Retorna dict com:
+        - titulos: lista de headings encontrados (texto, nivel, confianca)
+        - figuras: lista de figuras com/sem legendas
+        - tabelas: lista de tabelas com/sem legendas
+        """
+        sugestoes = {
+            'titulos': [],
+            'figuras': [],
+            'tabelas': [],
+        }
+
+        # Padrões para detecção inteligente de títulos
+        padrao_numeracao = re.compile(  # noqa: E501
+            r'^\s*(\d+(?:\.\d+)*|[ivx]+|[a-z])[\.\)]\s+',
+            re.IGNORECASE
+        )
+        padrao_caixa_alta = re.compile(r'^[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ\s]{5,}$')
+
+        # Extrair títulos (headings + padrões inteligentes)
+        for para in doc.paragraphs:
+            estilo = para.style.name or ''
+            texto = para.text.strip()
+            if not texto:
+                continue
+
+            nivel = _heading_nivel(estilo)
+            confianca = 'alta'
+
+            # Detecção por estilo Heading
+            if nivel is not None:
+                sugestoes['titulos'].append({
+                    'texto': texto,
+                    'nivel': nivel,
+                    'estilo': estilo,
+                    'confianca': confianca,
+                })
+                continue
+
+            # Detecção por padrões de formatação
+            # 1. Numeração no início (1., 1.1, 2., etc.)
+            if padrao_numeracao.match(texto):
+                # Inferir nível pela profundidade da numeração
+                partes = texto.split('.')[0].split()
+                if partes:
+                    try:
+                        nivel_inferido = len(partes[0].split('.'))
+                    except Exception:  # noqa: E722
+                        nivel_inferido = 1
+                else:
+                    nivel_inferido = 1
+                sugestoes['titulos'].append({
+                    'texto': texto,
+                    'nivel': nivel_inferido,
+                    'estilo': estilo,
+                    'confianca': 'media',
+                })
+                continue
+
+            # 2. Texto em caixa alta (sugere título)
+            if padrao_caixa_alta.match(texto) and len(texto) < 100:
+                sugestoes['titulos'].append({
+                    'texto': texto,
+                    'nivel': 1,
+                    'estilo': estilo,
+                    'confianca': 'baixa',
+                })
+                continue
+
+            # 3. Texto em negrito e tamanho maior que o normal
+            if para.runs:
+                tem_negrito = any(run.bold for run in para.runs if run.bold)
+                if tem_negrito and len(texto) < 80:
+                    sugestoes['titulos'].append({
+                        'texto': texto,
+                        'nivel': 1,
+                        'estilo': estilo,
+                        'confianca': 'baixa',
+                    })
+
+        # Extrair figuras (imagens inline e flutuantes)
+        # python-docx não detecta facilmente imagens flutuantes,
+        # então focamos em imagens inline em parágrafos
+        for para in doc.paragraphs:
+            if para._element.xpath('.//pic:pic'):
+                # Parágrafo contém imagem
+                texto_legenda = para.text.strip()
+                if texto_legenda:
+                    sugestoes['figuras'].append({
+                        'legenda': texto_legenda,
+                        'tipo': 'inline',
+                        'tem_legenda': True,
+                    })
+                else:
+                    # Imagem sem legenda - sugerir adicionar
+                    sugestoes['figuras'].append({  # noqa: E501
+                        'legenda': None,
+                        'tipo': 'inline',
+                        'tem_legenda': False,
+                        'sugestao': (
+                            'Adicione uma legenda descritiva '
+                            'para esta figura.'
+                        ),
+                    })
+            else:
+                # Detectar parágrafos que mencionam figuras
+                texto_lower = para.text.lower()
+                if any(palavra in texto_lower for palavra in [  # noqa: E501
+                    'figura', 'fig.', 'imagem', 'img.'
+                ]):
+                    sugestoes['figuras'].append({
+                        'legenda': para.text.strip(),
+                        'tipo': 'referencia_texto',
+                        'tem_legenda': True,
+                    })
+
+        # Extrair tabelas e suas legendas
+        for i, table in enumerate(doc.tables):
+            # Tenta encontrar legenda no parágrafo anterior à tabela
+            # ou no primeiro parágrafo após a tabela
+            legenda = None
+            # Busca parágrafo anterior
+            for para in doc.paragraphs:
+                if table._element in para._element.xpath(  # noqa: E501
+                    'following-sibling::w:p'
+                ):
+                    if para.text.strip():
+                        legenda = para.text.strip()
+                        break
+            if not legenda:
+                # Busca parágrafo seguinte
+                for para in doc.paragraphs:
+                    if table._element in para._element.xpath(  # noqa: E501
+                        'preceding-sibling::w:p'
+                    ):
+                        if para.text.strip():
+                            legenda = para.text.strip()
+                            break
+
+            tabela_info = {
+                'indice': i + 1,
+                'linhas': len(table.rows),
+                'colunas': len(table.columns) if table.rows else 0,
+                'legenda': legenda,
+                'tem_legenda': legenda is not None,
+            }
+
+            if not legenda:
+                tabela_info['sugestao'] = (  # noqa: E501
+                    'Adicione uma legenda descritiva '
+                    'para esta tabela.'
+                )
+
+            sugestoes['tabelas'].append(tabela_info)
+
+        # Detectar referências a tabelas no texto
+        for para in doc.paragraphs:
+            texto_lower = para.text.lower()
+            if any(palavra in texto_lower for palavra in [  # noqa: E501
+                'tabela', 'tab.', 'quadro'
+            ]):
+                # Verificar se não é uma tabela já detectada
+                if not any(  # noqa: E501
+                    t.get('legenda') == para.text.strip()
+                    for t in sugestoes['tabelas']
+                ):
+                    sugestoes['tabelas'].append({
+                        'indice': len(sugestoes['tabelas']) + 1,
+                        'linhas': 0,
+                        'colunas': 0,
+                        'legenda': para.text.strip(),
+                        'tem_legenda': True,
+                        'tipo': 'referencia_texto',
+                    })
+
+        return sugestoes

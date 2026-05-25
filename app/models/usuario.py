@@ -1,13 +1,19 @@
+"""Modelo de usuário do sistema SRA."""
+
 from flask_login import UserMixin
 from app import db
 
 
 class Usuario(db.Model, UserMixin):
+    """Modelo de usuário do sistema.
+
+    Representa um usuário do SRA com autenticação, perfil e notificações.
+    """
     __tablename__ = 'usuarios'
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(200), nullable=False, unique=True)
+    email = db.Column(db.String(200), nullable=False)
     email_secundario = db.Column(db.String(200), nullable=True)
     nome_de_usuario = db.Column(db.String(100), nullable=False, unique=True)
     senha_hash = db.Column(db.String(256), nullable=False)
@@ -33,6 +39,14 @@ class Usuario(db.Model, UserMixin):
     perfil = db.relationship('DomPerfilUsuario')
     notificacoes = db.relationship(
         'Notificacao', back_populates='usuario'
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'email',
+            'perfil_id',
+            name='uq_usuarios_email_perfil'
+        ),
     )
 
     def get_id(self):

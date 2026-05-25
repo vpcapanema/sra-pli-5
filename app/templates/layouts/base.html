@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/estilo.css') }}">
     <script src="https://unpkg.com/@phosphor-icons/web@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.20/dist/docx-preview.min.js"></script>
@@ -23,6 +22,7 @@
         <script type="application/json" id="sra-flash-data">{{ mensagens | tojson }}</script>
         {% endif %}
     {% endwith %}
+    <script src="{{ url_for('static', filename='js/logger.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>

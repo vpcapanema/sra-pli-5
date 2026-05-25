@@ -20,10 +20,14 @@
 #}
 
 {% block head %}
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='js/docx-editor-bundle.css') }}">
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/editor_coordenador.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/editor_autor.css') }}">
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
 {% endblock %}
+
+{% from "components/_botao_acao.html" import botao_acao %}
 
 {% block conteudo %}
 <div class="ea">
@@ -53,7 +57,7 @@
                     onchange="if(this.value){window.location.href=this.value;}"
                     title="Escolher outro relatório em produção">
                 {% for rel in todos_relatorios %}
-                <option value="{{ url_for('relatorio.editor_autor', id_versao=rel.id) }}"
+                <option value="{{ url_for('relatorio.editor_autor') }}?id_versao={{ rel.id }}"
                         {{ 'selected' if rel.id == versao.id else '' }}>
                     {{ rel.codigo_d20 or 'D-?' }} —
                     {{ rel.titulo_curto or rel.titulo or 'Sem título' }}
@@ -84,17 +88,303 @@
         </div>
     </header>
 
-    {# ============================================================
-       Corpo: 2 colunas
-       ============================================================ #}
-    <div class="ea__body">
+    <section class="ea__top-panels">
+        <div class="ea__panel ea__panel--autor">
+            <div class="ea__panel-head">
+                <span class="ea__panel-icon">
+                    <i class="ph ph-user-circle"></i>
+                </span>
+                <div>
+                    <h2 class="ea__panel-title">Autor responsável</h2>
+                    <p class="ea__panel-subtitle">
+                        {{ current_user.nome or current_user.email }}
+                    </p>
+                </div>
+            </div>
 
-        {# ----- Sidebar esquerda: lista de capitulos --------------- #}
-        <aside class="ea__sidebar">
-            <h2 class="ea__sidebar-title">
+            {% if capitulos_do_autor_ids %}
+            <div class="ea__collapse">
+                <button type="button" class="ea__collapse-trigger"
+                        aria-expanded="false"
+                        data-collapse-target="caps-autor">
+                    <span>
+                        {{ capitulos_do_autor_ids|length }}
+                        capítulo{{ 's' if capitulos_do_autor_ids|length != 1 else '' }}
+                        sob sua responsabilidade
+                    </span>
+                    <i class="ph ph-caret-down"></i>
+                </button>
+                <div class="ea__collapse-panel" id="caps-autor" hidden>
+                    <div class="ea__chips">
+                    {% for cap in capitulos %}
+                        {% if cap.id_capitulo_documento in capitulos_do_autor_ids %}
+                        <a class="ea__chip ea__chip--clickable"
+                           href="/relatorio/versao-trabalho/{{ versao.id }}/capitulo/{{ cap.id_capitulo_documento }}/upload">
+                            {{ cap.indice_capitulo or '—' }}
+                            {{ cap.titulo_capitulo }}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% elif capitulos_livres %}
+            <form method="POST"
+                  action="/relatorio/versao-trabalho/{{ versao.id }}/editor-autor/assumir-capitulos"
+                  class="ea__assign-form">
+                <p class="ea__panel-text">
+                    Você ainda não possui capítulos neste relatório.
+                    Selecione os capítulos livres que irá produzir.
+                </p>
+                <div class="ea__collapse">
+                    <button type="button" class="ea__collapse-trigger"
+                            aria-expanded="false"
+                            data-collapse-target="caps-livres">
+                        <span>Selecionar capítulos livres</span>
+                        <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div class="ea__collapse-panel" id="caps-livres" hidden>
+                        <div class="ea__single-picker">
+                            <select id="ea-cap-livre-select"
+                                    class="ea__single-select">
+                                <option value="">Selecione um capítulo...</option>
+                                {% for cap in capitulos_livres %}
+                                <option value="{{ cap.id_capitulo_documento }}">
+                                    {{ cap.indice_capitulo or '—' }}
+                                    {{ cap.titulo_capitulo }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button"
+                                    class="ea__secondary-btn"
+                                    id="ea-add-cap-livre">
+                                <i class="ph ph-plus"></i>
+                                Adicionar
+                            </button>
+                        </div>
+                        <div class="ea__selected-box">
+                            <strong>Capítulos selecionados</strong>
+                            <ul class="ea__selected-list"
+                                id="ea-caps-selecionados">
+                                <li class="ea__selected-empty">
+                                    Nenhum capítulo adicionado.
+                                </li>
+                            </ul>
+                        </div>
+                        <div id="ea-caps-hidden-inputs"></div>
+                    </div>
+                </div>
+                <button type="submit" class="ea__primary-btn">
+                    <i class="ph ph-floppy-disk"></i>
+                    Salvar capítulos
+                </button>
+            </form>
+            {% else %}
+            <p class="ea__panel-text">
+                Você ainda não possui capítulos e não há capítulos livres
+                para seleção neste relatório.
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="ea__panel ea__panel--upload">
+            <div class="ea__panel-head">
+                <span class="ea__panel-icon">
+                    <i class="ph ph-upload-simple"></i>
+                </span>
+                <div>
+                    <h2 class="ea__panel-title">Envio de conteúdo</h2>
+                    <p class="ea__panel-subtitle">
+                        Envie um DOCX para substituir o conteúdo do capítulo.
+                    </p>
+                </div>
+            </div>
+            {% if capitulos_do_autor_ids %}
+            <div id="upload-component-container" class="ea__upload-component">
+                {% if capitulo_selecionado %}
+                    {% set versao_trabalho = versao %}
+                    {% set capitulo = capitulo_selecionado %}
+                    {% set envio = envio_pendente %}
+                    {% set preview_html = None %}
+                    {% include "components/capitulo/upload_docx.html" %}
+
+                    {# Containers de prévia/segmentos/confirmar (colapsáveis) #}
+                    {% if envio_pendente %}
+                    <div class="ea__collapse" id="ea-preview-docx-original">
+                        <button type="button" class="ea__collapse-trigger"
+                                aria-expanded="false"
+                                data-collapse-target="ea-preview-docx-original">
+                            <span><i class="ph ph-file-doc"></i> DOCX original do envio</span>
+                            <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div class="ea__collapse-panel" hidden>
+                            <div id="ea-docx-original-mount" class="ea__docx-mount"></div>
+                        </div>
+                    </div>
+
+                    <div class="ea__collapse" id="ea-preview-segmentos">
+                        <button type="button" class="ea__collapse-trigger"
+                                aria-expanded="false"
+                                data-collapse-target="ea-preview-segmentos">
+                            <span><i class="ph ph-stack"></i> Segmentos por capítulo</span>
+                            <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div class="ea__collapse-panel" hidden>
+                            <div class="ea__segmentos-layout">
+                                <div class="ea__segmentos-tree">
+                                    <h4 class="ea__segmentos-title">Estrutura proposta</h4>
+                                    <div id="ea-estrutura-tree"></div>
+                                </div>
+                                <div class="ea__segmentos-content">
+                                    <h4 class="ea__segmentos-title">Conteúdo preenchido</h4>
+                                    <div id="ea-estrutura-content"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ea__collapse" id="ea-preview-confirmar">
+                        <button type="button" class="ea__collapse-trigger"
+                                aria-expanded="false"
+                                data-collapse-target="ea-preview-confirmar">
+                            <span><i class="ph ph-check-circle"></i> Confirmar importação</span>
+                            <i class="ph ph-caret-down"></i>
+                        </button>
+                        <div class="ea__collapse-panel" hidden>
+                            <p class="ea__upload-info">
+                                Após revisar as prévias, escolha uma ação:
+                            </p>
+                            <div class="ea__upload-actions">
+                                <form method="POST"
+                                      action="{{ url_for('relatorio.confirmar_envio', id_envio=envio_pendente.id_envio_conteudo, acao='importar') }}">
+                                    <button type="submit" class="sra-button sra-button--primary">
+                                        <i class="ph ph-check"></i> Importar conteúdo
+                                    </button>
+                                </form>
+                                <form method="POST"
+                                      action="{{ url_for('relatorio.confirmar_envio', id_envio=envio_pendente.id_envio_conteudo, acao='rejeitar') }}">
+                                    <button type="submit" class="sra-button sra-button--secondary">
+                                        <i class="ph ph-x"></i> Rejeitar e reenviar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Dados para o JS carregar o conteúdo #}
+                    <div id="ea-envio-data" hidden
+                         data-id-envio="{{ envio_pendente.id_envio_conteudo }}"></div>
+                    {% endif %}
+                {% else %}
+                    <p class="ea__panel-text">Selecione um capítulo acima para iniciar o upload.</p>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="ea__panel-text">
+                Primeiro salve ao menos um capítulo como sua
+                responsabilidade para habilitar o upload.
+            </p>
+            {% endif %}
+        </div>
+    </section>
+
+    <div class="ea__body ea__body--coord-like">
+        <aside class="ec__commands ea__commands">
+            <h2 class="ec__commands-title">
+                <i class="ph ph-toolbox"></i> Painel de Comandos
+            </h2>
+
+            {% set rotulos = {
+                'pre_textuais': 'Elementos Pré-textuais',
+                'numeracao': 'Numeração e Referências',
+                'finalizacao': 'Finalização'
+            } %}
+            {% for grupo_id, itens in grupos_acoes.items() %}
+            <section class="acao-grupo acao-grupo--{{ grupo_id }}">
+                <h3 class="acao-grupo__title">
+                    {{ rotulos[grupo_id] | default(grupo_id) }}
+                </h3>
+                <div class="acao-grupo__items">
+                    {% for item in itens %}
+                        {% if item.acao.id != 'gerar_final' %}
+                            {{ botao_acao(item, versao.id) }}
+                        {% endif %}
+                    {% endfor %}
+                    {% if grupo_id == 'finalizacao' %}
+                    <form method="POST"
+                          action="/relatorio/versao-trabalho/{{ versao.id }}/editor-autor/enviar-final"
+                          class="acao-form"
+                          onsubmit="return confirm('Enviar conteúdo final ao coordenador? Depois disso sua edição ficará bloqueada.');">
+                        <button type="submit"
+                                class="acao-btn"
+                                {% if not capitulos_do_autor_ids %}disabled{% endif %}>
+                            <i class="ph ph-paper-plane-tilt"></i>
+                            <span class="acao-btn__label">
+                                Salvar e enviar conteúdo final
+                            </span>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </section>
+            {% endfor %}
+        </aside>
+
+        {# ----- Coluna central: mesmo visualizador do coordenador --- #}
+        <main class="ec__viewer ea__main">
+            <div class="ec__viewer-header">
+                <h2 class="ec__viewer-title">
+                    <i class="ph ph-file-doc"></i>
+                    DOCX em produção
+                </h2>
+                <div class="ec__viewer-actions">
+                    <button type="button" class="ec__viewer-action"
+                            id="ea-docx-zoom-out"
+                            title="Diminuir zoom">
+                        <i class="ph ph-minus"></i>
+                    </button>
+                    <span class="ea__zoom-value" id="ea-docx-zoom-value">
+                        100%
+                    </span>
+                    <button type="button" class="ec__viewer-action"
+                            id="ea-docx-zoom-in"
+                            title="Aumentar zoom">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                    <button type="button" class="ec__viewer-action"
+                            id="ea-docx-zoom-reset"
+                            title="Restaurar zoom">
+                        <i class="ph ph-arrows-counter-clockwise"></i>
+                    </button>
+                    <button type="button" class="ec__viewer-action"
+                            id="btnRecarregarViewer"
+                            title="Recarregar relatório">
+                        <i class="ph ph-arrow-clockwise"></i>
+                        Recarregar
+                    </button>
+                </div>
+            </div>
+
+            <div class="ec__viewer-mount" id="docxEditorMount">
+                <div class="ec__viewer-loading">
+                    <i class="ph ph-spinner ph-spin"></i>
+                    Carregando editor...
+                </div>
+            </div>
+
+            <p class="ec__viewer-hint">
+                Editor: <strong>@eigenpal/docx-editor-react</strong>
+                em modo edição inline. Use a toolbar do editor para
+                ajustes no DOCX e o upload para substituir capítulos.
+            </p>
+        </main>
+
+        {# ----- Sidebar direita: lista de capitulos ---------------- #}
+        <aside class="ec__capitulos ea__sidebar">
+            <h2 class="ec__capitulos-title">
                 <i class="ph ph-list-checks"></i>
                 Capítulos
-                <span class="ea__count">{{ capitulos|length }}</span>
+                <span class="ec__capitulos-count">{{ capitulos|length }}</span>
             </h2>
 
             {% if capitulos_do_autor_ids %}
@@ -116,7 +406,7 @@
             </p>
             {% endif %}
 
-            <div class="ea__cap-list">
+            <div class="ec__capitulos-list ea__cap-list">
                 {% for cap in capitulos %}
                 {% set eu_sou_dono = cap.id_capitulo_documento in capitulos_do_autor_ids %}
                 <div class="ea__cap
@@ -154,48 +444,6 @@
                 {% endfor %}
             </div>
         </aside>
-
-        {# ----- Coluna central: visualizador DOCX inteiro --------- #}
-        <main class="ea__main">
-            <div class="ea__viewer-header">
-                <h2 class="ea__viewer-title">
-                    <i class="ph ph-file-doc"></i>
-                    Visualização — {{ versao.codigo_d20 or 'Relatório' }}
-                </h2>
-                <div class="ea__zoom-controls">
-                    <button type="button" class="ea__zoom-btn"
-                            id="zoom-out" title="Diminuir zoom">
-                        <i class="ph-bold ph-minus"></i>
-                    </button>
-                    <span class="ea__zoom-value" id="zoom-value">100%</span>
-                    <button type="button" class="ea__zoom-btn"
-                            id="zoom-in" title="Aumentar zoom">
-                        <i class="ph-bold ph-plus"></i>
-                    </button>
-                    <button type="button" class="ea__zoom-btn"
-                            id="zoom-reset" title="Restaurar zoom (100%)">
-                        <i class="ph-bold ph-arrows-counter-clockwise"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="ea__viewer-wrap">
-                <div class="ea__viewer" id="docx-preview-mount">
-                    <div class="ea__viewer-loading">
-                        <i class="ph ph-spinner ph-spin"></i>
-                        Carregando DOCX...
-                    </div>
-                </div>
-            </div>
-
-            <p class="ea__viewer-hint">
-                <i class="ph ph-eye"></i>
-                Documento inteiro em modo <strong>visualização</strong>.
-                A edição acontece capítulo a capítulo via botão
-                <i class="ph-fill ph-upload-simple"></i> ao lado de
-                cada capítulo seu.
-            </p>
-        </main>
     </div>
 </div>
 
@@ -205,8 +453,15 @@
      data-id-usuario="{{ current_user.id }}"
      data-docx-url="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao.id) }}"
      data-caps-meus="{{ capitulos_do_autor_ids|list|tojson }}"></div>
+<div id="editor-coord-data"
+     data-id-versao="{{ versao.id }}"
+     data-docx-url="{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao.id) }}"
+     data-mode="editing"
+     hidden></div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/docx-editor-bundle.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor_coordenador.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor_autor.js') }}"></script>
 {% endblock %}

@@ -19,7 +19,10 @@
 #}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/editor_coordenador.css') }}">
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='js/docx-editor-bundle.css') }}">
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/editor_coordenador.css') }}">
 {% endblock %}
 
 {% from "components/_botao_acao.html" import painel_acoes %}
@@ -162,21 +165,51 @@
             </h2>
 
             <div class="ec__capitulos-list">
+                {% set ns = namespace(grupo_atual=None) %}
                 {% for cap in capitulos %}
-                <div class="ec__cap ec__cap--{{ cap.status_capitulo or 'pendente' }}
-                            ec__cap--nivel-{{ cap.nivel_capitulo or 1 }}">
-                    <span class="ec__cap-idx">
-                        {{ cap.indice_capitulo or '—' }}
-                    </span>
-                    <span class="ec__cap-titulo">
-                        {{ cap.titulo_capitulo }}
-                    </span>
-                    <span class="ec__cap-status">
-                        {{ (cap.status_capitulo or 'pendente') | replace('_', ' ') }}
-                    </span>
-                </div>
+                    {% set tipo = cap.tipo_elemento or 'textual' %}
+                    {# Separadores de grupo: pre / textual / pos #}
+                    {% if tipo != ns.grupo_atual %}
+                        {% set ns.grupo_atual = tipo %}
+                        <div class="ec__cap-grupo">
+                            {% if tipo == 'pre_textual' %}
+                                <i class="ph ph-bookmark"></i> Pré-textuais
+                            {% elif tipo == 'pos_textual' %}
+                                <i class="ph ph-paperclip"></i> Pós-textuais
+                            {% else %}
+                                <i class="ph ph-article"></i> Texto principal
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <div class="ec__cap
+                                ec__cap--{{ cap.status_capitulo or 'pendente' }}
+                                ec__cap--nivel-{{ cap.nivel_capitulo or 1 }}
+                                ec__cap--{{ tipo }}">
+                        <span class="ec__cap-idx">
+                            {% if tipo == 'pre_textual' %}
+                                <span class="ec__cap-tag ec__cap-tag--pre"
+                                      title="Elemento pré-textual">PRÉ</span>
+                            {% elif tipo == 'pos_textual' %}
+                                <span class="ec__cap-tag ec__cap-tag--pos"
+                                      title="Elemento pós-textual">PÓS</span>
+                            {% else %}
+                                {{ cap.indice_capitulo or '—' }}
+                            {% endif %}
+                        </span>
+                        <span class="ec__cap-titulo"
+                              title="{{ cap.titulo_capitulo }}">
+                            {{ cap.titulo_capitulo }}
+                        </span>
+                        <span class="ec__cap-status"
+                              title="{{ cap.status_capitulo or 'pendente' }}">
+                            {{ (cap.status_capitulo or 'pendente')
+                               | replace('_', ' ') }}
+                        </span>
+                    </div>
                 {% else %}
-                <div class="ec__cap-empty">Nenhum capítulo cadastrado.</div>
+                    <div class="ec__cap-empty">
+                        Nenhum capítulo cadastrado.
+                    </div>
                 {% endfor %}
             </div>
         </aside>

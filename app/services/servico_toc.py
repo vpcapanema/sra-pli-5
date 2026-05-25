@@ -61,6 +61,10 @@ MARCADOR_LISTA_FIG_INI = '_Sra_Bloco_ListaFiguras_Inicio'
 MARCADOR_LISTA_FIG_FIM = '_Sra_Bloco_ListaFiguras_Fim'
 MARCADOR_LISTA_TAB_INI = '_Sra_Bloco_ListaTabelas_Inicio'
 MARCADOR_LISTA_TAB_FIM = '_Sra_Bloco_ListaTabelas_Fim'
+MARCADOR_LISTA_EQ_INI = '_Sra_Bloco_ListaEquacoes_Inicio'
+MARCADOR_LISTA_EQ_FIM = '_Sra_Bloco_ListaEquacoes_Fim'
+MARCADOR_LISTA_SIG_INI = '_Sra_Bloco_ListaSiglas_Inicio'
+MARCADOR_LISTA_SIG_FIM = '_Sra_Bloco_ListaSiglas_Fim'
 
 # Prefixo dos bookmarks gerados em headings para servir de target
 # de hyperlink no sumario.
@@ -107,35 +111,79 @@ _TODOS_MARCADORES_INI = {
     MARCADOR_SUMARIO_INI,
     MARCADOR_LISTA_FIG_INI,
     MARCADOR_LISTA_TAB_INI,
+    MARCADOR_LISTA_EQ_INI,
+    MARCADOR_LISTA_SIG_INI,
 }
 _TODOS_MARCADORES_FIM = {
     MARCADOR_SUMARIO_FIM,
     MARCADOR_LISTA_FIG_FIM,
     MARCADOR_LISTA_TAB_FIM,
+    MARCADOR_LISTA_EQ_FIM,
+    MARCADOR_LISTA_SIG_FIM,
 }
 
 
+# =====================================================================
+# Ordem ABNT NBR 14724 / NBR 10719 dos pre-textuais.
+#
+# Sequencia canonica (apos capa e folha de rosto):
+#   1. Lista de Figuras (ou de Ilustracoes)
+#   2. Lista de Tabelas
+#   3. Lista de Equacoes
+#   4. Lista de Siglas / Abreviaturas
+#   5. Sumario  ← SEMPRE o ULTIMO pre-textual, logo antes do conteudo
+#
+# Cada bloco e posicionado APOS o `_Fim` do bloco precedente mais
+# proximo que ja exista, e ANTES do `_Inicio` do bloco sucessor mais
+# proximo. Se nada existir ainda, fallback = primeiro heading do
+# corpo (antes do conteudo textual).
+# =====================================================================
+
 _PRIORIDADE_PARA_PRECEDENTES = {
-    # prioridade 1 (Sumario): vai ANTES de tudo. Sem precedentes.
+    # prio 1 = Lista de Figuras: primeira da serie, sem precedentes
+    # entre as listas. (Capa e Folha de Rosto vivem no inicio do
+    # documento, antes da regiao gerenciada por este servico.)
     1: [],
-    # prioridade 2 (Lista de Figuras): vai depois do Sumario.
-    2: [MARCADOR_SUMARIO_FIM],
-    # prioridade 3 (Lista de Tabelas): vai depois da Lista de Figuras
-    # OU do Sumario (preferindo o ultimo existente).
-    3: [MARCADOR_LISTA_FIG_FIM, MARCADOR_SUMARIO_FIM],
+    # prio 2 = Lista de Tabelas: apos Lista de Figuras
+    2: [MARCADOR_LISTA_FIG_FIM],
+    # prio 3 = Lista de Equacoes: apos Tabelas, ou Figuras
+    3: [MARCADOR_LISTA_TAB_FIM, MARCADOR_LISTA_FIG_FIM],
+    # prio 4 = Lista de Siglas/Abreviaturas: apos Equacoes
+    4: [
+        MARCADOR_LISTA_EQ_FIM,
+        MARCADOR_LISTA_TAB_FIM,
+        MARCADOR_LISTA_FIG_FIM,
+    ],
+    # prio 5 = Sumario: ULTIMO, apos todas as listas (NBR 14724 6.2.10)
+    5: [
+        MARCADOR_LISTA_SIG_FIM,
+        MARCADOR_LISTA_EQ_FIM,
+        MARCADOR_LISTA_TAB_FIM,
+        MARCADOR_LISTA_FIG_FIM,
+    ],
+}
+
+# Mapeamento prio -> marcador `_Inicio` (usado p/ achar sucessor)
+_PRIORIDADE_PARA_MARCADOR_INI = {
+    1: MARCADOR_LISTA_FIG_INI,
+    2: MARCADOR_LISTA_TAB_INI,
+    3: MARCADOR_LISTA_EQ_INI,
+    4: MARCADOR_LISTA_SIG_INI,
+    5: MARCADOR_SUMARIO_INI,
 }
 
 
 def _calcular_posicao_insercao(body, *, prioridade: int) -> int:
     """Calcula posicao correta para inserir um bloco respeitando a
-    ordem desejada na pre-textual:
+    ordem ABNT NBR 14724 / NBR 10719 dos pre-textuais:
 
-        Sumario (1) -> Lista Figuras (2) -> Lista Tabelas (3) -> Conteudo
+        Lista Figuras (1) -> Lista Tabelas (2) -> Lista Equacoes (3)
+        -> Lista Siglas (4) -> Sumario (5) -> Conteudo textual
 
     Estrategia:
     1. Se ha bloco precedente (segundo a ordem em
        `_PRIORIDADE_PARA_PRECEDENTES`) ja inserido: posicao = APOS
-       o `_Fim` desse bloco.
+       o `_Fim` desse bloco (o mais proximo encontrado).
     2. Caso contrario:
        a. Posicao = bloco SUCESSOR mais proximo (que deve vir DEPOIS).
        b. Se nao houver sucessor, posicao = primeiro heading do corpo.
@@ -143,7 +191,9 @@ def _calcular_posicao_insercao(body, *, prioridade: int) -> int:
     bms_tag = qn('w:bookmarkStart')
     name_attr = qn('w:name')
 
-    # 1. Procurar precedente
+    # 1. Procurar precedente mais proximo (primeiro da lista que
+    # estiver presente no documento). A ordem em
+    # _PRIORIDADE_PARA_PRECEDENTES ja prioriza o mais proximo.
     precedentes = _PRIORIDADE_PARA_PRECEDENTES.get(prioridade, [])
     for marcador_fim in precedentes:
         for i, child in enumerate(body):
@@ -153,17 +203,13 @@ def _calcular_posicao_insercao(body, *, prioridade: int) -> int:
                 if bm.get(name_attr) == marcador_fim:
                     return i + 1
 
-    # 2. Procurar sucessor mais proximo (bloco que DEVE vir depois).
-    # Os sucessores possiveis sao todos os marcadores `_Inicio` com
-    # prioridade MAIOR que a atual.
-    prioridade_para_marcador_ini = {
-        1: MARCADOR_SUMARIO_INI,
-        2: MARCADOR_LISTA_FIG_INI,
-        3: MARCADOR_LISTA_TAB_INI,
-    }
+    # 2. Procurar sucessor mais proximo: bloco com prioridade MAIOR
+    # que a atual e que ja exista no documento. Posicao = onde
+    # comeca o sucessor (devemos inserir ANTES dele).
     sucessores = [
-        prioridade_para_marcador_ini[p]
-        for p in (1, 2, 3) if p > prioridade
+        _PRIORIDADE_PARA_MARCADOR_INI[p]
+        for p in sorted(_PRIORIDADE_PARA_MARCADOR_INI)
+        if p > prioridade
     ]
     pos_sucessor = None
     for marcador_ini in sucessores:
@@ -401,13 +447,18 @@ def _criar_paragrafo_titulo(texto: str, estilo: str):
 def _criar_paragrafo_entrada_lista(
     *,
     texto: str,
-    bookmark_destino: str,
+    bookmark_destino: Optional[str],
     estilo_paragrafo: Optional[str],
 ):
-    """Cria um `<w:p>` com hyperlink interno apontando para
-    `bookmark_destino`.
+    """Cria um `<w:p>` representando uma entrada de lista (figura/
+    tabela/equacao/sigla).
 
-    Estrutura:
+    Se `bookmark_destino` for nao-vazio, envolve o texto em
+    `<w:hyperlink w:anchor="...">` (Word abre como link clicavel para
+    o bookmark). Se for `None` ou vazio, gera entrada sem hyperlink
+    (caso de equacoes inline e siglas, que nao tem bookmark).
+
+    Estrutura com hyperlink:
         <w:p>
           <w:pPr><w:pStyle w:val="toc 1"/></w:pPr>
           <w:hyperlink w:anchor="<bookmark>" w:history="1">
@@ -415,18 +466,24 @@ def _criar_paragrafo_entrada_lista(
           </w:hyperlink>
         </w:p>
 
-    O hyperlink interno (`w:anchor`) e o que o Word/leitores DOCX
-    interpretam como link clicavel para o bookmark.
+    Estrutura sem hyperlink:
+        <w:p>
+          <w:pPr><w:pStyle w:val="toc 1"/></w:pPr>
+          <w:r><w:t>texto</w:t></w:r>
+        </w:p>
     """
     w = f'{{{W_NS}}}'
     p = etree.Element(f'{w}p')
     aplicar_estilo_paragrafo(p, estilo_paragrafo)
 
-    hyperlink = etree.SubElement(p, f'{w}hyperlink')
-    hyperlink.set(f'{w}anchor', bookmark_destino)
-    hyperlink.set(f'{w}history', '1')
+    if bookmark_destino:
+        container = etree.SubElement(p, f'{w}hyperlink')
+        container.set(f'{w}anchor', bookmark_destino)
+        container.set(f'{w}history', '1')
+    else:
+        container = p
 
-    r = etree.SubElement(hyperlink, f'{w}r')
+    r = etree.SubElement(container, f'{w}r')
     t = etree.SubElement(r, f'{w}t')
     t.set(*XML_SPACE_PRESERVE)
     t.text = texto
@@ -586,10 +643,11 @@ def inserir_sumario(caminho_master: str, perfil=None) -> dict:
         ))
 
     # 4. Inserir na pre-textual.
-    # Sumario e SEMPRE o primeiro bloco — vai antes de qualquer outro
-    # bloco _Sra_Bloco_* existente OU antes do primeiro heading do
-    # corpo (o que ocorrer primeiro).
-    pos = _calcular_posicao_insercao(body, prioridade=1)
+    # Sumario e SEMPRE o ULTIMO pre-textual (ABNT NBR 14724 6.2.10),
+    # logo antes do primeiro Heading 1 do corpo. Prioridade 5 garante
+    # posicionamento apos todas as listas (figuras, tabelas, equacoes,
+    # siglas) se existirem.
+    pos = _calcular_posicao_insercao(body, prioridade=5)
     _inserir_bloco(
         body, pos, paragrafos,
         MARCADOR_SUMARIO_INI, MARCADOR_SUMARIO_FIM, id_gen,
@@ -666,6 +724,9 @@ def _inserir_lista_legendas(
 def inserir_lista_figuras(caminho_master: str, perfil=None) -> dict:
     """Insere Lista de Figuras pre-preenchida na pre-textual.
 
+    Posicao ABNT NBR 14724: primeira das listas (apos folha de rosto
+    e antes de Tabelas, Equacoes, Siglas e Sumario).
+
     Pre-condicao: o `servico_captioning.reindexar_captions` ja foi
     executado (legendas tem bookmarks `_Ref_sra_fig_*`). Caso contrario,
     a lista vai vazia.
@@ -676,19 +737,207 @@ def inserir_lista_figuras(caminho_master: str, perfil=None) -> dict:
         titulo='Lista de Figuras',
         marcador_ini=MARCADOR_LISTA_FIG_INI,
         marcador_fim=MARCADOR_LISTA_FIG_FIM,
-        prioridade=2,
+        prioridade=1,
         perfil=perfil,
     )
 
 
 def inserir_lista_tabelas(caminho_master: str, perfil=None) -> dict:
-    """Insere Lista de Tabelas pre-preenchida na pre-textual."""
+    """Insere Lista de Tabelas pre-preenchida na pre-textual.
+
+    Posicao ABNT: apos Lista de Figuras, antes de Equacoes/Siglas/Sumario.
+    """
     return _inserir_lista_legendas(
         caminho_master,
         prefixo_tipo='tab',
         titulo='Lista de Tabelas',
         marcador_ini=MARCADOR_LISTA_TAB_INI,
         marcador_fim=MARCADOR_LISTA_TAB_FIM,
-        prioridade=3,
+        prioridade=2,
         perfil=perfil,
     )
+
+
+def inserir_lista_equacoes(caminho_master: str, perfil=None) -> dict:
+    """Insere Lista de Equacoes pre-preenchida na pre-textual.
+
+    Posicao ABNT: apos Tabelas, antes de Siglas/Sumario.
+
+    Diferente de Figuras/Tabelas, equacoes nao tem bookmark associado
+    (a numeracao e inline no fim do paragrafo da equacao — ver
+    `servico_captioning._anexar_numero_inline_equacao`). Esta lista
+    e construida varrendo o body por paragrafos que contem
+    `<m:oMath>` / `<m:oMathPara>` e extraindo o numero inline `(N.M)`.
+    As entradas sao informativas (sem hyperlink), no formato:
+        Equacao N.M  ........  (Capitulo X)
+    """
+    perfil = _resolver_perfil(perfil)
+    doc = Document(caminho_master)
+    body = doc.element.body
+
+    estilo_titulo = _resolver_estilo(
+        doc, perfil.estilo_titulo_toc, fallback='Heading 1',
+    )
+    estilo_entrada = _resolver_estilo(
+        doc, 'table of figures', fallback=None,
+    )
+
+    id_gen = GeradorIdsBookmark(inicio=230000)
+
+    # 1. Limpeza idempotente
+    _remover_bloco_marcado(
+        body, MARCADOR_LISTA_EQ_INI, MARCADOR_LISTA_EQ_FIM,
+    )
+
+    # 2. Coletar equacoes inline. Reutiliza heuristica do captioning.
+    M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    entradas = []
+    for p in body.iter(qn('w:p')):
+        if (p.find(f'.//{{{M_NS}}}oMath') is None
+                and p.find(f'.//{{{M_NS}}}oMathPara') is None):
+            continue
+        # Texto do paragrafo: ultimo token entre parenteses
+        # tipicamente e a numeracao "(N.M)" gerada pelo captioning.
+        texto = _texto_paragrafo(p).strip()
+        m = re.search(r'\(([\d.]+)\)\s*$', texto)
+        numero = m.group(1) if m else '?'
+        entradas.append({
+            'texto': f'Equação {numero}',
+        })
+
+    # 3. Construir paragrafos
+    paragrafos = [_criar_paragrafo_titulo(
+        'Lista de Equações', estilo_titulo,
+    )]
+    for ent in entradas:
+        paragrafos.append(_criar_paragrafo_entrada_lista(
+            texto=ent['texto'],
+            bookmark_destino=None,
+            estilo_paragrafo=estilo_entrada,
+        ))
+
+    # 4. Inserir respeitando ordem ABNT
+    pos = _calcular_posicao_insercao(body, prioridade=3)
+    _inserir_bloco(
+        body, pos, paragrafos,
+        MARCADOR_LISTA_EQ_INI, MARCADOR_LISTA_EQ_FIM, id_gen,
+    )
+
+    doc.save(caminho_master)
+    return {
+        'entradas': len(entradas),
+        'estilo_titulo': estilo_titulo,
+        'posicao_inserido': pos,
+        'perfil_origem': perfil.origem,
+    }
+
+
+def inserir_lista_siglas(caminho_master: str, perfil=None) -> dict:
+    """Insere Lista de Siglas e Abreviaturas pre-textual.
+
+    Posicao ABNT NBR 14724 5.10: penultimo pre-textual, logo antes
+    do Sumario.
+
+    Diferente das demais, a Lista de Siglas e construida a partir de
+    SIGLAS DETECTADAS automaticamente no texto do documento:
+        - Sequencias de 2-6 letras maiusculas (com possiveis digitos).
+        - Filtradas para excluir cabecalhos de tabela, palavras curtas
+          em CAIXA ALTA por estilo, e siglas ja conhecidas.
+    Para cada sigla, gera-se uma entrada placeholder com texto:
+        "SIGLA  —  (descricao a preencher)"
+    O coordenador edita as descricoes manualmente no DOCX.
+
+    Esta abordagem e didatica e segura: nao tenta inferir significados
+    (o que seria propenso a erros); apenas garante que TODAS as siglas
+    usadas no texto apareçam na lista para preenchimento manual.
+    """
+    perfil = _resolver_perfil(perfil)
+    doc = Document(caminho_master)
+    body = doc.element.body
+
+    estilo_titulo = _resolver_estilo(
+        doc, perfil.estilo_titulo_toc, fallback='Heading 1',
+    )
+    estilo_entrada = _resolver_estilo(
+        doc, 'table of figures', fallback=None,
+    )
+
+    id_gen = GeradorIdsBookmark(inicio=240000)
+
+    # 1. Limpeza idempotente PRIMEIRO (caso contrario o regex abaixo
+    # captaria os placeholders da rodada anterior como "siglas novas")
+    _remover_bloco_marcado(
+        body, MARCADOR_LISTA_SIG_INI, MARCADOR_LISTA_SIG_FIM,
+    )
+
+    # 2. Detectar siglas no texto. Heuristica conservadora:
+    #    - 2 a 6 letras maiusculas
+    #    - Pode conter digitos no meio (ex: D20, PLI-SP, NBR14724)
+    #    - Nao pode ser uma palavra inteira (ex: "BRASIL" e nome,
+    #      nao sigla); para evitar isso, exigimos pelo menos uma
+    #      transicao MAIUSCULA->minuscula no contexto, OU 2+ letras
+    #      seguidas de digito/hifen.
+    # Padrao simples robusto:
+    #   - Palavra com >=2 letras maiusculas
+    #   - Aceita hifen, digito ou ponto no meio (PLI-SP, D20, NBR-14724)
+    padrao_sigla = re.compile(
+        r'\b([A-ZÀ-Ý]{2,}(?:[-./][A-ZÀ-Ý0-9]+)*\d*)\b'
+    )
+    # Stopwords: palavras inteiras em maiusculas que NAO sao siglas
+    # (titulos de capitulos, vocativos, etc.). Como heuristica final,
+    # tambem ignoramos sequencias com >=7 letras (provavel palavra
+    # em CAIXA ALTA estilistica).
+    stopwords = {
+        'APRESENTAÇÃO', 'HISTÓRICO', 'CONTRATO', 'RELAÇÃO',
+        'PRODUTOS', 'VISÃO', 'GERAL', 'ATIVIDADES', 'EQUIPE',
+        'APOIO', 'GESTÃO', 'RECURSOS', 'CRONOGRAMA', 'ANÁLISE',
+        'PRÓXIMOS', 'PASSOS', 'PRODUTO', 'RESUMO', 'MEDIÇÃO',
+        'ASSINATURAS', 'APÊNDICE', 'ANEXO', 'OBJETIVO', 'OBJETIVOS',
+        'CONCLUSÃO', 'INTRODUÇÃO', 'METODOLOGIA', 'REFERÊNCIAS',
+        'SUMÁRIO', 'CAPA',
+    }
+
+    siglas_unicas = {}  # sigla -> primeira ocorrencia (para ordenar)
+    for i, p in enumerate(body.iter(qn('w:p'))):
+        texto = _texto_paragrafo(p)
+        for m in padrao_sigla.finditer(texto):
+            sig = m.group(1)
+            # Filtros adicionais
+            if len(sig) > 6 and '-' not in sig and '.' not in sig:
+                # Provavelmente palavra em CAIXA ALTA (titulo)
+                continue
+            if sig in stopwords:
+                continue
+            if sig.isdigit():
+                continue
+            if sig not in siglas_unicas:
+                siglas_unicas[sig] = i
+
+    # Ordenar alfabeticamente (convencao ABNT 5.10)
+    siglas_ordenadas = sorted(siglas_unicas.keys())
+
+    # 3. Construir paragrafos
+    paragrafos = [_criar_paragrafo_titulo(
+        'Lista de Siglas e Abreviaturas', estilo_titulo,
+    )]
+    for sig in siglas_ordenadas:
+        paragrafos.append(_criar_paragrafo_entrada_lista(
+            texto=f'{sig}  —  (descrição a preencher)',
+            bookmark_destino=None,
+            estilo_paragrafo=estilo_entrada,
+        ))
+
+    # 4. Inserir respeitando ordem ABNT (penultimo, antes do Sumario)
+    pos = _calcular_posicao_insercao(body, prioridade=4)
+    _inserir_bloco(
+        body, pos, paragrafos,
+        MARCADOR_LISTA_SIG_INI, MARCADOR_LISTA_SIG_FIM, id_gen,
+    )
+
+    doc.save(caminho_master)
+    return {
+        'entradas': len(siglas_ordenadas),
+        'estilo_titulo': estilo_titulo,
+        'posicao_inserido': pos,
+        'perfil_origem': perfil.origem,
+    }

@@ -74,6 +74,43 @@ class ServicoExtracaoCanonica:
 
         macro = cls._extrair_macro(doc, secoes)
 
+        # Enriquecer macro com inventario detalhado da CAPA: shapes
+        # (text boxes flutuantes), imagens flutuantes (anchors com
+        # pic:pic), tabela de Folha de Rosto, tabela de Controle de
+        # Versoes, SDT do Sumario nativo. Esses elementos nao sao
+        # parágrafos comuns e por isso NAO seriam capturados pelo
+        # `_extrair_macro` original (que so olha estilos de paragrafo).
+        try:
+            from app.services.servico_capa import (
+                extrair_estrutura_capa,
+            )
+            capa_detalhada = extrair_estrutura_capa(doc)
+            # Anexa ao primeiro bloco de tipo 'capa' (se existir) ou
+            # cria um bloco dedicado.
+            anexado = False
+            for bloco in macro:
+                if bloco.get('tipo') == 'capa':
+                    bloco['detalhe'] = capa_detalhada
+                    anexado = True
+                    break
+            if not anexado:
+                macro.insert(0, {
+                    'tipo': 'capa',
+                    'inicio_paragrafo': 0,
+                    'fim_paragrafo': capa_detalhada.get(
+                        'indice_fim_capa', 0,
+                    ),
+                    'titulos': [],
+                    'secoes_indices': [],
+                    'detalhe': capa_detalhada,
+                })
+        except Exception as exc:  # pragma: no cover - extracao opcional
+            # A capa detalhada e enriquecimento, nao bloqueia extracao
+            for bloco in macro:
+                if bloco.get('tipo') == 'capa':
+                    bloco['detalhe_erro'] = str(exc)
+                    break
+
         capitulos = cls._extrair_capitulos(doc)
 
         os.makedirs(diretorio_saida, exist_ok=True)
@@ -526,12 +563,23 @@ class ServicoExtracaoCanonica:
         def _eh_titulo_pre_textual(texto_lower, style_lower):
             """Verifica se um parágrafo (ainda que com estilo Heading) deve
             ser tratado como pré-textual e portanto ignorado para fins
-            de detecção do início do conteúdo textual."""
+            de detecção do início do conteúdo textual.
+
+            Tolerante a prefixos numericos automaticos do Word
+            (ex.: '1 SUMÁRIO' → compara com 'sumário').
+            """
             if 'toc' in style_lower:
                 return True
-            if texto_lower in pre_textuais_titulos_exatos:
+            # Remove eventual prefixo numerico antes de comparar.
+            _idx, titulo_limpo = extrair_indice_e_titulo(texto_lower)
+            alvo = (titulo_limpo or texto_lower).strip().lower()
+            if alvo in pre_textuais_titulos_exatos:
                 return True
             for kw in pre_textuais_kw:
+                if kw == alvo or alvo.startswith(kw + ' '):
+                    return True
+                # Compara tambem com texto bruto (caso indice nao seja
+                # detectado mas o titulo comece com o keyword).
                 if kw == texto_lower or texto_lower.startswith(kw + ' '):
                     return True
             return False
@@ -724,6 +772,14 @@ class ServicoExtracaoCanonica:
                 except ValueError:
                     nivel = None
 
+            # Pre-compute o titulo SEM prefixo numerico (ex.: "1 SUMÁRIO"
+            # -> "sumário") para casar com os sets de keywords mesmo
+            # quando o Word ja injetou numeracao automatica no heading.
+            _idx_pref, titulo_limpo = extrair_indice_e_titulo(texto)
+            alvo_match = (
+                (titulo_limpo or texto).strip().lower()
+            )
+
             # No bloco pré-textual:
             #   - títulos AUTO-GERADOS (Sumário, Listas de Figuras/Tabelas,
             #     Capa, Folha de Rosto) NUNCA viram capítulo. Eles são
@@ -735,18 +791,25 @@ class ServicoExtracaoCanonica:
             #     (parágrafos espúrios marcados como heading não devem
             #     gerar capítulos fantasmas).
             if tipo_elemento == 'pre_textual':
-                if texto_lower in cls._PRE_TEXTUAIS_AUTO_GERADOS:
+                if (alvo_match in cls._PRE_TEXTUAIS_AUTO_GERADOS
+                        or texto_lower in cls._PRE_TEXTUAIS_AUTO_GERADOS):
                     incluir = False
-                elif texto_lower in cls._PRE_TEXTUAIS_AUTORAIS:
+                elif (alvo_match in cls._PRE_TEXTUAIS_AUTORAIS
+                        or texto_lower in cls._PRE_TEXTUAIS_AUTORAIS):
                     nivel = 1
                     incluir = True
                 else:
                     incluir = False
 
-            # Pós-textuais: apenas se prefixo conhecido (além de Heading)
+            # Pós-textuais: apenas se prefixo conhecido (além de Heading).
+            # Tambem tolera prefixo numerico antes do keyword
+            # (ex.: "16 APÊNDICE 01" -> casa com 'apêndice').
             if (not incluir and tipo_elemento == 'pos_textual'
-                    and any(texto_lower.startswith(p)
-                            for p in cls._POS_TEXTUAIS_PREFIXOS)):
+                    and any(
+                        alvo_match.startswith(p)
+                        or texto_lower.startswith(p)
+                        for p in cls._POS_TEXTUAIS_PREFIXOS
+                    )):
                 nivel = 1
                 incluir = True
 

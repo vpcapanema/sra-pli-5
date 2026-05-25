@@ -45,10 +45,18 @@
                     data-versao-id="{{ versao_trabalho.id }}">
                 <i class="ph ph-plus"></i> Adicionar capítulo
             </button>
+            {% set perfil_ativo = session.get('perfil_ativo') %}
+            {% if perfil_ativo in ('coordenador', 'admin') %}
             <a href="{{ url_for('relatorio.editor_coordenador', id_versao=versao_trabalho.id) }}"
                class="sra-button sra-button--primary sra-button--sm">
                 <i class="ph ph-pencil-line"></i> Abrir Editor do Coordenador
             </a>
+            {% else %}
+            <a href="{{ url_for('relatorio.editor_autor') }}?id_versao={{ versao_trabalho.id }}"
+               class="sra-button sra-button--primary sra-button--sm">
+                <i class="ph ph-pencil-line"></i> Abrir Editor do Autor
+            </a>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -298,6 +306,20 @@
                                                       classe='btn-inspecionar',
                                                       dados={'cap-id': cap.id_capitulo_documento}) }}
 
+                                        {# Abrir editor do autor: leva para o editor do autor com o capítulo selecionado #}
+                                        {% if pode_enviar %}
+                                            {{ btn_custom(href=url_for('relatorio.editor_autor') + '?id_versao=' + versao_trabalho.id|string + '&capitulo=' + cap.id_capitulo_documento|string,
+                                                          icone='pencil-simple',
+                                                          titulo='Abrir no editor do autor',
+                                                          classe='') }}
+                                        {% endif %}
+
+                                        {# Editar: leva para a página de edição do capítulo #}
+                                        {% if pode_enviar %}
+                                            {{ btn_editar(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
+                                                          titulo='Editar capítulo') }}
+                                        {% endif %}
+
                                         {# Substituir conteúdo: upload de DOCX (autor ou coordenador) #}
                                         {% if pode_enviar %}
                                             {{ btn_substituir(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
@@ -334,7 +356,8 @@
 </div>
 
 <!-- Modal de Visualização DOCX (eigenpal docx-editor) -->
-<div id="modal-docx" class="sra-modal sra-modal--hidden">
+<div id="modal-docx" class="sra-modal sra-modal--hidden"
+     data-relatorio-url="{% if versao_trabalho.caminho_template %}{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) }}{% else %}{% endif %}">
     <div class="sra-modal__overlay" data-action="fechar-modal-docx"></div>
     <div class="sra-modal__content sra-modal__content--large">
         <div class="sra-modal__header">
@@ -364,9 +387,13 @@
     // ============================================================
     // Configuração de URLs
     // ============================================================
+    var modalEl = document.getElementById('modal-docx');
+    var relatorioUrl = modalEl ? modalEl.getAttribute('data-relatorio-url') || null : null;
     var URLS = {
-        relatorioCompleto: {% if versao_trabalho.caminho_template %}{{ url_for('relatorio.baixar_docx_producao', id_relatorio=versao_trabalho.id) | tojson }}{% else %}null{% endif %},
-        capituloDocx: function (capId) { return '/api/capitulos/' + capId + '/conteudo'; }
+        relatorioCompleto: relatorioUrl,
+        capituloDocx: function (capId) {
+            return '/api/capitulos/' + capId + '/conteudo';
+        }
     };
 
     // ============================================================
@@ -430,7 +457,7 @@
     }
 
     // ============================================================
-    // Delegated event handlers (sobrevivem a HTMX swaps)
+    // Delegated event handlers
     // ============================================================
     document.addEventListener('click', function (e) {
         var target = e.target;
@@ -619,6 +646,42 @@
         });
         // Salvar mapa em window para o handler
         window.__capChildMap = children;
+
+        // Expandir automaticamente até capítulos com responsável
+        expandToRowsWithResponsavel(rows, children);
+    }
+
+    function expandToRowsWithResponsavel(rows, children) {
+        // Encontrar capítulos com responsável
+        var rowsWithResponsavel = rows.filter(function (r) {
+            var select = r.querySelector('select[name="id_usuario_responsavel"]');
+            return select && select.value;
+        });
+
+        // Para cada capítulo com responsável, expandir os pais recursivamente
+        rowsWithResponsavel.forEach(function (row) {
+            var parentId = row.getAttribute('data-cap-parent');
+            while (parentId) {
+                var parentRow = rows.find(function (r) {
+                    return r.getAttribute('data-cap-id') === parentId;
+                });
+                if (!parentRow) break;
+                // Expandir o pai
+                parentRow.classList.add('sra-cap-row--expanded');
+                parentRow.classList.remove('sra-cap-row--hidden');
+                var icon = parentRow.querySelector('.sra-cap-toggle i');
+                if (icon) icon.className = 'ph ph-caret-down';
+                // Mostrar filhos diretos do pai
+                var kids = children[parentId] || [];
+                kids.forEach(function (k) {
+                    k.classList.remove('sra-cap-row--hidden');
+                });
+                // Continuar subindo na hierarquia
+                parentId = parentRow.getAttribute('data-cap-parent');
+            }
+            // Mostrar o próprio capítulo com responsável
+            row.classList.remove('sra-cap-row--hidden');
+        });
     }
 
     function toggleCapRow(row) {

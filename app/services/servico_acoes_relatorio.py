@@ -102,17 +102,33 @@ def _h_inserir_lista_tabelas(rel, perfil):
 
 
 def _h_inserir_lista_equacoes(rel, perfil):
-    # Tenta usar a funcao se ja existir no servico_toc; se ainda nao
-    # foi implementada, devolve mensagem clara em vez de quebrar.
-    try:
-        from app.services.servico_toc import inserir_lista_equacoes
-    except ImportError:
-        return (
-            'Funcao `inserir_lista_equacoes` ainda nao implementada '
-            'em servico_toc. Pendente.'
-        )
+    from app.services.servico_toc import inserir_lista_equacoes
     info = inserir_lista_equacoes(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Lista de Equações', info)
+
+
+def _h_inserir_lista_siglas(rel, perfil):
+    from app.services.servico_toc import inserir_lista_siglas
+    info = inserir_lista_siglas(rel.caminho_template, perfil=perfil)
+    return _resumo_toc('Lista de Siglas e Abreviaturas', info)
+
+
+def _h_sincronizar_capitulos(rel, perfil):
+    """Reextrai a arvore de capitulos do DOCX em producao e atualiza
+    o banco — garante que a sidebar mostre exatamente o que esta
+    no documento renderizado.
+    """
+    from app.services.servico_sincronizar_capitulos import (
+        ressincronizar_capitulos,
+    )
+    info = ressincronizar_capitulos(rel)
+    if not info.get('aplicados'):
+        return info.get('erro', 'Falha desconhecida na sincronizacao.')
+    return (
+        f'{info.get("atualizados", 0)} atualizado(s), '
+        f'{info.get("criados", 0)} criado(s), '
+        f'{info.get("sumiram", 0)} sem correspondente no DOCX.'
+    )
 
 
 def _h_reindexar_captions(rel, perfil):
@@ -208,74 +224,106 @@ def _resumo_toc(nome, info):
 # ===========================================================
 
 CATALOGO: tuple = (
-    # --- Pre-textuais -----------------------------------------
+    # --- Pre-textuais (em ordem ABNT NBR 14724 / NBR 10719) ----
+    # Sequencia canonica:
+    #   Capa -> Folha de Rosto -> Lista de Figuras -> Lista de Tabelas
+    #   -> Lista de Equacoes -> Lista de Siglas/Abreviaturas
+    #   -> Sumario (sempre o ULTIMO pre-textual, NBR 14724 6.2.10)
     Acao(
-        id='inserir_sumario',
-        label='Inserir Sumário',
-        icone='list-bullets',
-        descricao='Insere ou atualiza o Sumário pré-textual com '
-                  'hyperlinks para todos os headings.',
+        id='atualizar_capa',
+        label='Atualizar Capa',
+        icone='image-square',
+        descricao='Reaplica a capa com os dados atuais do relatório '
+                  '(título, código, período, autor). Primeiro elemento '
+                  'pré-textual (ABNT NBR 14724 5.1).',
         grupo='pre_textuais',
         perfis=('coordenador', 'admin'),
-        handler=_h_inserir_sumario,
+        handler=_h_atualizar_capa,
         ordem=10,
+    ),
+    Acao(
+        id='atualizar_folha_rosto',
+        label='Atualizar Folha de Rosto',
+        icone='file-text',
+        descricao='Reaplica a folha de rosto. Segundo elemento '
+                  'pré-textual (ABNT NBR 14724 5.2).',
+        grupo='pre_textuais',
+        perfis=('coordenador', 'admin'),
+        handler=_h_atualizar_folha_rosto,
+        ordem=20,
     ),
     Acao(
         id='inserir_lista_figuras',
         label='Inserir Lista de Figuras',
         icone='image',
         descricao='Insere ou atualiza a Lista de Figuras na região '
-                  'pré-textual.',
+                  'pré-textual (ABNT NBR 14724 5.7).',
         grupo='pre_textuais',
         perfis=('coordenador', 'admin'),
         handler=_h_inserir_lista_figuras,
-        ordem=20,
+        ordem=30,
     ),
     Acao(
         id='inserir_lista_tabelas',
         label='Inserir Lista de Tabelas',
         icone='table',
         descricao='Insere ou atualiza a Lista de Tabelas na região '
-                  'pré-textual.',
+                  'pré-textual (ABNT NBR 14724 5.8).',
         grupo='pre_textuais',
         perfis=('coordenador', 'admin'),
         handler=_h_inserir_lista_tabelas,
-        ordem=30,
+        ordem=40,
     ),
     Acao(
         id='inserir_lista_equacoes',
         label='Inserir Lista de Equações',
         icone='function',
-        descricao='Insere ou atualiza a Lista de Equações.',
+        descricao='Insere ou atualiza a Lista de Equações na região '
+                  'pré-textual (uso opcional, NBR 14724 5.9).',
         grupo='pre_textuais',
         perfis=('coordenador', 'admin'),
         handler=_h_inserir_lista_equacoes,
-        ordem=40,
-    ),
-    Acao(
-        id='atualizar_capa',
-        label='Atualizar Capa',
-        icone='image-square',
-        descricao='Reaplica a capa com os dados atuais do relatório '
-                  '(título, código, período, autor).',
-        grupo='pre_textuais',
-        perfis=('coordenador', 'admin'),
-        handler=_h_atualizar_capa,
         ordem=50,
     ),
     Acao(
-        id='atualizar_folha_rosto',
-        label='Atualizar Folha de Rosto',
-        icone='file-text',
-        descricao='Reaplica a folha de rosto com os dados atuais do '
-                  'relatório.',
+        id='inserir_lista_siglas',
+        label='Inserir Lista de Siglas',
+        icone='translate',
+        descricao='Detecta siglas usadas no texto e insere lista '
+                  'pré-textual em ordem alfabética (ABNT NBR 14724 5.10). '
+                  'O coordenador edita as descrições manualmente.',
         grupo='pre_textuais',
         perfis=('coordenador', 'admin'),
-        handler=_h_atualizar_folha_rosto,
+        handler=_h_inserir_lista_siglas,
         ordem=60,
+    ),
+    Acao(
+        id='inserir_sumario',
+        label='Inserir Sumário',
+        icone='list-bullets',
+        descricao='Insere ou atualiza o Sumário com hyperlinks para '
+                  'todos os headings. ÚLTIMO elemento pré-textual, '
+                  'logo antes do conteúdo (ABNT NBR 14724 6.2.10). '
+                  'Execute por último, após todas as listas.',
+        grupo='pre_textuais',
+        perfis=('coordenador', 'admin'),
+        handler=_h_inserir_sumario,
+        ordem=70,
     ),
 
     # --- Numeracao / Refs ------------------------------------
+    Acao(
+        id='sincronizar_capitulos',
+        label='Sincronizar Capítulos',
+        icone='tree-structure',
+        descricao='Reextrai a árvore de capítulos do DOCX em produção '
+                  'e atualiza a sidebar (índices e títulos). Use após '
+                  'editar o documento manualmente no Word.',
+        grupo='numeracao',
+        perfis=('coordenador', 'admin'),
+        handler=_h_sincronizar_capitulos,
+        ordem=5,
+    ),
     Acao(
         id='reindexar_captions',
         label='Reindexar Captions + Refs',
@@ -336,8 +384,19 @@ def listar_por_grupo(perfil_ativo: str, rel_bloqueado: bool):
     Usado pelo template do painel para renderizar todos os botoes,
     desabilitando (sem esconder) os que nao podem ser executados.
     """
+    # Ordem fixa de exibicao dos grupos no painel (NAO alfabetica).
+    # Pre-textuais primeiro (botoes que o coordenador usa no dia a dia),
+    # depois Numeracao/Refs (manutencao), e Finalizacao por ultimo
+    # (acao destrutiva, deve estar visualmente separada).
+    _ORDEM_GRUPOS = {'pre_textuais': 1, 'numeracao': 2, 'finalizacao': 3}
+
     grupos: dict = {}
-    for acao in sorted(CATALOGO, key=lambda a: (a.grupo, a.ordem, a.label)):
+    for acao in sorted(
+        CATALOGO,
+        key=lambda a: (
+            _ORDEM_GRUPOS.get(a.grupo, 99), a.ordem, a.label,
+        ),
+    ):
         item = {
             'acao': acao,
             'disponivel': True,

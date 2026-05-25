@@ -45,6 +45,7 @@ from app.models.relatorio_producao import RelatorioProducao
 
 
 DIR_FINALIZADOS = ('storage', 'relatorios_finalizados')
+DIR_PREVIEWS = ('storage', 'relatorios_previews')
 
 
 class FinalizacaoError(RuntimeError):
@@ -80,6 +81,61 @@ def _nome_snapshot(rel: RelatorioProducao) -> str:
     versao = rel.versao_atual or 'R00'
     bruto = f'{codigo}_{versao}_{timestamp}.docx'
     return secure_filename(bruto)
+
+
+def _nome_preview(rel: RelatorioProducao) -> str:
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    codigo = rel.codigo_d20 or f'rel{rel.id}'
+    versao = rel.versao_atual or 'R00'
+    bruto = f'{codigo}_{versao}_PREVIEW_{timestamp}.docx'
+    return secure_filename(bruto)
+
+
+def _aplicar_rotinas_finais(caminho_docx: str, rel: RelatorioProducao):
+    try:
+        from app.services.servico_perfil_formatacao import PerfilFormatacao
+        perfil = PerfilFormatacao.de_relatorio(rel)
+    except (OSError, ValueError, RuntimeError):
+        perfil = None
+
+    try:
+        from app.services.servico_captioning import reindexar_captions
+        from app.services.servico_cross_refs import substituir_referencias
+        resultado_caps = reindexar_captions(caminho_docx, perfil=perfil)
+        mapa = resultado_caps.get('mapa_labels', {}) if isinstance(
+            resultado_caps, dict
+        ) else {}
+        substituir_referencias(caminho_docx, mapa)
+    except (OSError, ValueError, RuntimeError):
+        pass
+
+
+def gerar_preview(rel: RelatorioProducao) -> dict:
+    if not rel.caminho_template:
+        raise FinalizacaoError(
+            'Relatório não possui caminho_template definido. '
+            'Foi clonado corretamente?'
+        )
+    if not os.path.exists(rel.caminho_template):
+        raise FinalizacaoError(
+            f'Arquivo DOCX em produção não encontrado: '
+            f'{rel.caminho_template}'
+        )
+
+    dir_previews = os.path.join(_base_dir(), *DIR_PREVIEWS)
+    os.makedirs(dir_previews, exist_ok=True)
+
+    nome_dest = _nome_preview(rel)
+    caminho_preview = os.path.join(dir_previews, nome_dest)
+    shutil.copy2(rel.caminho_template, caminho_preview)
+
+    _aplicar_rotinas_finais(caminho_preview, rel)
+
+    return {
+        'nome_arquivo': nome_dest,
+        'caminho_arquivo': caminho_preview,
+        'checksum_docx': _checksum_sha256(caminho_preview),
+    }
 
 
 def finalizar(
@@ -118,33 +174,11 @@ def finalizar(
             f'{rel.caminho_template}'
         )
 
-    # 1. Construir perfil de formatação a partir da biblioteca
-    # canônica vinculada ao relatório. Esse perfil propaga estilos,
-    # separadores e posições das legendas para os serviços abaixo,
-    # garantindo fidelidade visual ao DOCX modelo.
-    try:
-        from app.services.servico_perfil_formatacao import PerfilFormatacao
-        perfil = PerfilFormatacao.de_relatorio(rel)
-    except (OSError, ValueError, RuntimeError):
-        perfil = None
-
     # 1a. Fase 2 — Reindexar legendas (figuras/tabelas/equações) e
     # substituir cross-references no corpo do texto. Passe final para
     # garantir consistência após qualquer edição manual entre o último
     # merge e a finalização.
-    try:
-        from app.services.servico_captioning import reindexar_captions
-        from app.services.servico_cross_refs import substituir_referencias
-        resultado_caps = reindexar_captions(
-            rel.caminho_template, perfil=perfil
-        )
-        mapa = resultado_caps.get('mapa_labels', {}) if isinstance(
-            resultado_caps, dict
-        ) else {}
-        substituir_referencias(rel.caminho_template, mapa)
-    except (OSError, ValueError, RuntimeError):
-        # Não bloquear finalização por falha de captioning/cross-refs.
-        pass
+    _aplicar_rotinas_finais(rel.caminho_template, rel)
 
     # 1b. Fase 3 — TOC/Listas NAO sao inseridas automaticamente na
     # finalizacao. Sao operacoes EXPLICITAS do coordenador via UI:

@@ -90,12 +90,12 @@
         <li class="sidebar-menu__group">
             {{ nav_group('pen-nib', 'Editoração',
                 ativo=(ep in ('relatorio.editor_coordenador',
-                              'relatorio.capitulos',
+                              'relatorio.listar_capitulos',
                               'relatorio.listar_envios_conteudo'))) }}
             <ul class="sidebar-submenu">
                 <li>{{ nav_link('relatorio.editor_coordenador', 'pencil-ruler',
                                 'Editor do Coordenador') }}</li>
-                <li>{{ nav_link('relatorio.capitulos', 'tree-structure',
+                <li>{{ nav_link('relatorio.listar_capitulos', 'tree-structure',
                                 'Árvore de Capítulos') }}</li>
                 <li>{{ nav_link('relatorio.listar_envios_conteudo', 'upload-simple',
                                 'Envios de Conteúdo') }}</li>

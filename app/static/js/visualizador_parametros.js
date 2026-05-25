@@ -4,13 +4,28 @@
 (function () {
     'use strict';
 
+    if (typeof SRALogger !== 'undefined') {
+        SRALogger.info('visualizador_parametros.js carregado');
+    }
+
     var vpDataScript = document.getElementById('vpData');
-    var D = vpDataScript ? JSON.parse(vpDataScript.textContent) : {};
+    if (!vpDataScript) {
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.warn('Elemento vpData não encontrado');
+        }
+        return;
+    }
+
+    var D = JSON.parse(vpDataScript.textContent) || {};
     var macro = D.macro || [];
     var capitulos = D.capitulos || [];
     var fmt = D.formatacao || {};
     var docxContainer = document.getElementById('docxContainer');
     var pagesContainer = document.getElementById('vpPages');
+
+    if (typeof SRALogger !== 'undefined') {
+        SRALogger.debug('Dados carregados: ' + macro.length + ' macros, ' + capitulos.length + ' capítulos');
+    }
 
     // Estado inicial: documento visível, páginas ocultas
     if (docxContainer) docxContainer.style.display = 'flex';

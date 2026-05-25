@@ -9,7 +9,7 @@
             {% set link_titulo = '<a href="' + url_for('relatorio.detalhe_versao', id_versao=rp.id) + '" class="sra-link">' + (rp.titulo_curto or '-') + '</a>' %}
             {% set acoes %}
                 {{ btn_visualizar(url_for('relatorio.detalhe_versao', id_versao=rp.id)) }}
-                {{ btn_abrir(url_for('relatorio.abrir_editor', id_relatorio=rp.id)) }}
+                {{ btn_abrir(url_for('relatorio.detalhe_versao', id_versao=rp.id)) }}
                 {{ btn_editar(href=url_for('relatorio.detalhe_versao', id_versao=rp.id)) }}
             {% endset %}
             {% set _ = linhas.append([

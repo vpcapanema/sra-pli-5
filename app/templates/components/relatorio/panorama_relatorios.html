@@ -9,13 +9,8 @@
             <h3 class="sra-card__title">Todos os Relatórios</h3>
         </div>
         <div class="sra-card__content">
-            <div hx-get="/relatorio/todos-relatorios"
-                 hx-trigger="load"
-                 hx-target="#tabela-todos-relatorios"
-                 hx-swap="innerHTML">
-                <div id="tabela-todos-relatorios">
-                    <p>Carregando relatórios...</p>
-                </div>
+            <div id="tabela-todos-relatorios">
+                {{ tabela_todos_relatorios(relatorios) }}
             </div>
         </div>
     </div>
@@ -26,13 +21,8 @@
             <h3 class="sra-card__title">Envios de Conteúdo</h3>
         </div>
         <div class="sra-card__content">
-            <div hx-get="/relatorio/todos-relatorios?seletor=true"
-                 hx-trigger="load"
-                 hx-target="#seletor-relatorio-container"
-                 hx-swap="innerHTML">
-                <div id="seletor-relatorio-container">
-                    <p>Carregando lista de relatórios...</p>
-                </div>
+            <div id="seletor-relatorio-container">
+                {{ seletor_relatorio(relatorios, id_relatorio_selecionado) }}
             </div>
 
             <div id="tabela-envios" class="sra-mt-4">

@@ -1,64 +1,89 @@
 /* ============================================================
-   Editor do Coordenador — interface principal de revisão/editoração
-   Layout: header + corpo de 3 colunas (comandos | viewer | capítulos)
+   Editor do Coordenador — identidade visual SRA/PLI
+
+   Paleta oficial (de app.css :root):
+     --sra-color-primary       #1c3d59  (azul corporativo)
+     --sra-color-primary-dark  #152a3f
+     --sra-color-secondary     #2a9450  (verde acao)
+     --sra-color-icon-green    #3ec26e
+     --sra-color-info          #116593
+     --sra-color-danger        #7a1212
+     --sra-color-warning       #c88000
+     --sra-color-border        #d5dce6
+     --sra-color-bg-alt        #f5f7fa
    ============================================================ */
 
 .ec {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 60px);
-    min-height: 600px;
-    background: #f4f6f8;
+    /* Editor ocupa todo o viewport descontando apenas o seu proprio
+       header (ec__header ~ 46px). Em layout principal HTMX nao ha
+       header SRA acima — o ec entra direto no #sra-main. */
+    height: 100vh;
+    min-height: 700px;
+    background: var(--sra-color-bg-alt);
+    overflow: hidden;
 }
 
-/* ---------- Header ---------- */
+/* ===== Header ============================================== */
 .ec__header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1.25rem;
-    background: #fff;
-    border-bottom: 1px solid #e2e6ea;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: var(--sra-color-primary);
+    color: #fff;
+    border-bottom: 3px solid var(--sra-color-icon-green);
     flex-shrink: 0;
+    box-shadow: var(--sra-shadow-sm);
 }
 
 .ec__back {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    color: #495057;
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    color: #fff;
     text-decoration: none;
     transition: background 0.15s;
 }
-
-.ec__back:hover { background: #f1f3f5; }
-.ec__back i { font-size: 1.25rem; }
+.ec__back:hover { background: rgba(255, 255, 255, 0.12); }
+.ec__back i { font-size: 1.1rem; }
 
 .ec__header-text {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
 }
 
-.ec__title {
-    margin: 0;
-    font-size: 1.1rem;
+.ec__rel-selector { margin: 0; }
+
+.ec__rel-select {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: #212529;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: 320px;
+    cursor: pointer;
+}
+.ec__rel-select option { color: var(--sra-color-text); }
+.ec__rel-select:focus {
+    outline: 2px solid var(--sra-color-icon-green);
+    outline-offset: 1px;
 }
 
 .ec__subtitle {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.825rem;
-    color: #6c757d;
-    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .ec__pill {
@@ -66,238 +91,165 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.125rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
-.ec__pill--ativo { background: #d3f9d8; color: #2b8a3e; }
-.ec__pill--bloqueado { background: #ffe3e3; color: #c92a2a; }
+.ec__pill--ativo {
+    background: var(--sra-color-icon-green);
+    color: var(--sra-color-primary-dark);
+}
+.ec__pill--bloqueado {
+    background: var(--sra-color-danger);
+    color: #fff;
+}
 
-/* Seletor de biblioteca canônica */
+/* Seletor de biblioteca canonica (no header) */
 .ec__biblioteca-form {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: #f8f9fa;
-    padding: 0.375rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
 }
-
 .ec__biblioteca-label {
-    font-size: 0.75rem;
-    color: #495057;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.9);
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     white-space: nowrap;
-    font-weight: 500;
+    font-weight: 600;
 }
-
 .ec__biblioteca-select {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 0.825rem;
-    background: #fff;
-    min-width: 220px;
-    max-width: 320px;
+    padding: 0.25rem 0.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--sra-color-text);
+    min-width: 180px;
+    max-width: 240px;
 }
-
 .ec__biblioteca-apply {
-    padding: 0.25rem 0.625rem;
-    background: #3b5bdb;
-    color: #fff;
+    padding: 0.3rem 0.6rem;
+    background: var(--sra-color-icon-green);
+    color: var(--sra-color-primary-dark);
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     font-size: 0.75rem;
+    font-weight: 700;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    transition: background 0.15s;
+    transition: filter 0.15s;
 }
-
-.ec__biblioteca-apply:hover:not(:disabled) { background: #2f4cc9; }
+.ec__biblioteca-apply:hover:not(:disabled) { filter: brightness(0.92); }
 .ec__biblioteca-apply:disabled,
-.ec__biblioteca-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+.ec__biblioteca-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ---------- Corpo (3 colunas) ---------- */
+/* ===== Corpo: 3 colunas ==================================== */
 .ec__body {
     display: grid;
-    grid-template-columns: 280px 1fr 280px;
-    gap: 1rem;
-    padding: 1rem;
+    grid-template-columns: 280px 1fr 300px;
+    gap: 0.75rem;
+    padding: 0.75rem;
     flex: 1;
     min-height: 0;
     overflow: hidden;
 }
-
 @media (max-width: 1280px) {
     .ec__body { grid-template-columns: 260px 1fr; }
     .ec__capitulos { display: none; }
 }
-
 @media (max-width: 900px) {
     .ec__body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     .ec__commands { max-height: 280px; overflow-y: auto; }
 }
 
-/* ---------- Painel de Comandos (esquerda) ---------- */
+/* ===== Painel de Comandos (esquerda) ======================== */
 .ec__commands {
-    background: #fff;
-    border-radius: 10px;
-    padding: 1rem;
-    overflow-y: auto;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    background: var(--sra-color-bg);
+    border: 1px solid var(--sra-color-border);
+    border-radius: var(--sra-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--sra-shadow-sm);
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
 }
 
 .ec__commands-title {
     margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #212529;
+    padding: 0.5rem 0.875rem;
+    background: var(--sra-color-primary);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #f1f3f5;
+    gap: 0.4rem;
+    letter-spacing: 0.02em;
 }
+.ec__commands-title i { color: var(--sra-color-icon-green); }
 
 .ec__commands-locked {
-    padding: 0.625rem 0.75rem;
-    background: #fff3bf;
-    color: #846220;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    margin: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    background: var(--sra-color-warning-soft);
+    color: var(--sra-color-warning);
+    border-radius: var(--sra-radius-md);
+    font-size: 0.78rem;
     display: flex;
     align-items: flex-start;
     gap: 0.375rem;
+    border: 1px solid var(--sra-color-warning);
 }
 
-.ec__cmd-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-}
-
-.ec__cmd-group--final {
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 2px solid #f1f3f5;
-}
-
-.ec__cmd-group-title {
-    margin: 0;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6c757d;
-    font-weight: 600;
-}
-
-.ec__cmd-group-hint {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.75rem;
-    color: #868e96;
-    line-height: 1.4;
-}
-
-.ec__cmd-form { margin: 0; }
-
-.ec__cmd-btn {
-    width: 100%;
-    padding: 0.625rem 0.75rem;
-    background: #f8f9fa;
-    color: #212529;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.825rem;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.15s;
-    text-align: left;
-    text-decoration: none;
-}
-
-.ec__cmd-btn:hover:not(:disabled):not(.ec__cmd-btn--disabled) {
-    background: #e7f5ff;
-    border-color: #74c0fc;
-    color: #1864ab;
-}
-
-.ec__cmd-btn:disabled,
-.ec__cmd-btn--disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.ec__cmd-btn i { font-size: 1rem; flex-shrink: 0; }
-.ec__cmd-btn-label { flex: 1; line-height: 1.3; }
-
-.ec__cmd-btn--primary {
-    background: #2b8a3e;
-    color: #fff;
-    border-color: #2b8a3e;
-}
-
-.ec__cmd-btn--primary:hover:not(:disabled):not(.ec__cmd-btn--disabled) {
-    background: #237030;
-    border-color: #237030;
-    color: #fff;
-}
-
-/* ============================================================
-   Botoes do CATALOGO (servico_acoes_relatorio.py)
-   Renderizados pela macro painel_acoes em _botao_acao.html
-   ============================================================ */
+/* ===== CATALOGO de Acoes (macro painel_acoes) ============== */
 .acao-grupo {
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    gap: 0.4rem;
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--sra-color-border-light);
 }
+.acao-grupo:last-child { border-bottom: none; }
 
 .acao-grupo--finalizacao {
     margin-top: auto;
-    padding-top: 1rem;
-    border-top: 2px solid #f1f3f5;
+    background: var(--sra-color-success-soft);
+    border-top: 2px solid var(--sra-color-secondary);
 }
 
 .acao-grupo__title {
-    margin: 0;
-    font-size: 0.75rem;
+    margin: 0 0 0.25rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6c757d;
-    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--sra-color-text-muted);
+    font-weight: 700;
 }
 
 .acao-grupo__items {
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    gap: 0.35rem;
 }
-
 .acao-form { margin: 0; }
 
 .acao-btn {
     width: 100%;
-    padding: 0.625rem 0.75rem;
-    background: #f8f9fa;
-    color: #212529;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.825rem;
+    padding: 0.5rem 0.625rem;
+    background: var(--sra-color-bg);
+    color: var(--sra-color-text);
+    border: 1px solid var(--sra-color-border);
+    border-radius: var(--sra-radius-md);
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     display: flex;
@@ -306,94 +258,113 @@
     transition: all 0.15s;
     text-align: left;
     line-height: 1.3;
+    font-family: inherit;
 }
-
 .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
-    background: #e7f5ff;
-    border-color: #74c0fc;
-    color: #1864ab;
+    background: var(--sra-color-primary);
+    border-color: var(--sra-color-primary);
+    color: #fff;
 }
-
+.acao-btn:hover:not(:disabled):not(.acao-btn--disabled) i {
+    color: var(--sra-color-icon-green);
+}
 .acao-btn:disabled,
 .acao-btn--disabled {
-    opacity: 0.4;
+    opacity: 0.45;
     cursor: not-allowed;
 }
-
-.acao-btn i { font-size: 1rem; flex-shrink: 0; }
+.acao-btn i {
+    font-size: 1rem;
+    flex-shrink: 0;
+    color: var(--sra-color-primary);
+}
 .acao-btn__label { flex: 1; line-height: 1.3; }
 
-/* Grupo de finalização tem botão em destaque (verde) */
+/* Botoes de finalizacao (verde corporativo) */
 .acao-grupo--finalizacao .acao-btn {
-    background: #2b8a3e;
+    background: var(--sra-color-secondary);
     color: #fff;
-    border-color: #2b8a3e;
+    border-color: var(--sra-color-secondary);
+    font-weight: 600;
 }
+.acao-grupo--finalizacao .acao-btn i { color: #fff; }
 .acao-grupo--finalizacao .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
-    background: #237030;
-    border-color: #237030;
+    background: var(--sra-color-secondary-dark);
+    border-color: var(--sra-color-secondary-dark);
 }
 
-/* ---------- Visualizador (centro) ---------- */
+/* ===== Visualizador DOCX (centro) ========================== */
 .ec__viewer {
-    background: #fff;
-    border-radius: 10px;
-    padding: 1rem;
+    background: var(--sra-color-bg);
+    border: 1px solid var(--sra-color-border);
+    border-radius: var(--sra-radius-lg);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--sra-shadow-sm);
 }
 
 .ec__viewer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid #f1f3f5;
-    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--sra-color-primary);
+    color: #fff;
     flex-shrink: 0;
 }
 
 .ec__viewer-title {
     margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #212529;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.4rem;
+    letter-spacing: 0.02em;
 }
+.ec__viewer-title i { color: var(--sra-color-icon-green); }
 
-.ec__viewer-actions { display: flex; gap: 0.5rem; }
+.ec__viewer-actions { display: flex; gap: 0.4rem; }
 
 .ec__viewer-action {
-    padding: 0.375rem 0.75rem;
-    background: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 0.75rem;
     cursor: pointer;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
-    transition: background 0.15s;
+    gap: 0.3rem;
+    transition: all 0.15s;
+    font-family: inherit;
+    font-weight: 600;
 }
-
 .ec__viewer-action:hover {
-    background: #e7f5ff;
-    color: #1864ab;
+    background: var(--sra-color-icon-green);
+    color: var(--sra-color-primary-dark);
+    border-color: var(--sra-color-icon-green);
 }
 
 .ec__viewer-mount {
     flex: 1;
-    min-height: 0;
+    /* min-height = altura de uma A4 (297mm @ 96dpi ≈ 1123px) +
+       margens visuais. Garante que mesmo telas pequenas mostrem ao
+       menos a primeira pagina inteira sem cortar conteudo. */
+    min-height: 1180px;
     overflow: auto;
-    background: #f4f6f8;
-    border-radius: 6px;
+    background: var(--sra-color-bg-alt);
     position: relative;
+}
+
+/* Garante que o componente eigenpal ocupe todo o espaco do mount */
+.ec__viewer-mount > * {
+    width: 100%;
+    min-height: 1180px;
 }
 
 .ec__viewer-loading,
@@ -403,105 +374,180 @@
     justify-content: center;
     gap: 0.5rem;
     height: 200px;
-    color: #6c757d;
+    color: var(--sra-color-text-muted);
     font-size: 0.9rem;
 }
-
-.ec__viewer-error { color: #c92a2a; }
+.ec__viewer-error { color: var(--sra-color-danger); }
 
 .ec__viewer-hint {
-    margin: 0.75rem 0 0 0;
-    font-size: 0.75rem;
-    color: #868e96;
+    margin: 0;
+    padding: 0.4rem 0.875rem;
+    background: var(--sra-color-bg-alt);
+    border-top: 1px solid var(--sra-color-border-light);
+    font-size: 0.72rem;
+    color: var(--sra-color-text-muted);
     text-align: center;
     flex-shrink: 0;
 }
 
-/* ---------- Sidebar Capítulos (direita) ---------- */
+/* ===== Sidebar de Capitulos (direita) ====================== */
 .ec__capitulos {
-    background: #fff;
-    border-radius: 10px;
-    padding: 1rem;
-    overflow-y: auto;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    background: var(--sra-color-bg);
+    border: 1px solid var(--sra-color-border);
+    border-radius: var(--sra-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--sra-shadow-sm);
+    display: flex;
+    flex-direction: column;
 }
 
 .ec__capitulos-title {
-    margin: 0 0 0.75rem 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #212529;
+    margin: 0;
+    padding: 0.5rem 0.875rem;
+    background: var(--sra-color-primary);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #f1f3f5;
+    gap: 0.4rem;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
 }
+.ec__capitulos-title i { color: var(--sra-color-icon-green); }
 
 .ec__capitulos-count {
     margin-left: auto;
-    background: #e7f5ff;
-    color: #1864ab;
-    padding: 0.125rem 0.5rem;
+    background: var(--sra-color-icon-green);
+    color: var(--sra-color-primary-dark);
+    padding: 0.05rem 0.5rem;
     border-radius: 10px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .ec__capitulos-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.2rem;
 }
 
 .ec__cap {
-    display: flex;
+    display: grid;
+    grid-template-columns: 38px 1fr auto;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.625rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    border-left: 3px solid transparent;
+    gap: 0.4rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--sra-color-bg);
+    border-radius: var(--sra-radius-sm);
+    font-size: 0.78rem;
+    border-left: 3px solid var(--sra-color-border);
+    transition: background 0.12s;
 }
+.ec__cap:hover { background: var(--sra-color-bg-alt); }
 
-.ec__cap--nivel-2 { padding-left: 1.25rem; font-size: 0.75rem; }
-.ec__cap--nivel-3 { padding-left: 2rem; font-size: 0.75rem; }
+.ec__cap--nivel-2 { padding-left: 1.1rem; font-size: 0.74rem; }
+.ec__cap--nivel-3 { padding-left: 1.8rem; font-size: 0.72rem; }
 
-.ec__cap--finalizado { border-left-color: #2b8a3e; }
-.ec__cap--aprovado { border-left-color: #1864ab; }
-.ec__cap--em_revisao { border-left-color: #f59f00; }
-.ec__cap--reprovado { border-left-color: #c92a2a; }
-.ec__cap--pendente { border-left-color: #adb5bd; }
+.ec__cap--finalizado { border-left-color: var(--sra-color-secondary); }
+.ec__cap--aprovado { border-left-color: var(--sra-color-info); }
+.ec__cap--em_revisao,
+.ec__cap--em_edicao { border-left-color: var(--sra-color-warning); }
+.ec__cap--reprovado { border-left-color: var(--sra-color-danger); }
+.ec__cap--pendente { border-left-color: var(--sra-color-border); }
 
 .ec__cap-idx {
-    font-weight: 600;
-    color: #495057;
-    min-width: 2.5rem;
+    font-weight: 700;
+    color: var(--sra-color-primary);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
 }
 
 .ec__cap-titulo {
-    flex: 1;
-    color: #212529;
+    color: var(--sra-color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .ec__cap-status {
-    font-size: 0.7rem;
-    color: #6c757d;
-    text-transform: lowercase;
-    padding: 0.125rem 0.375rem;
-    background: #fff;
+    font-size: 0.62rem;
+    color: var(--sra-color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.35rem;
+    background: var(--sra-color-bg-alt);
     border-radius: 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--sra-color-border-light);
+    font-weight: 600;
 }
 
 .ec__cap-empty {
     text-align: center;
-    color: #adb5bd;
-    font-size: 0.825rem;
+    color: var(--sra-color-text-muted);
+    font-size: 0.8rem;
     padding: 1.5rem 0.5rem;
     font-style: italic;
+}
+
+/* Separadores de grupo na lista de capitulos (pre/textual/pos) */
+.ec__cap-grupo {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.5rem 0.25rem;
+    margin-top: 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sra-color-primary);
+    border-bottom: 1px solid var(--sra-color-border-light);
+}
+.ec__cap-grupo:first-child { margin-top: 0; }
+.ec__cap-grupo i {
+    color: var(--sra-color-icon-green);
+    font-size: 0.85rem;
+}
+
+/* Tags PRE / POS no lugar do indice numerico */
+.ec__cap-tag {
+    display: inline-block;
+    padding: 0.05rem 0.3rem;
+    border-radius: 8px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+}
+.ec__cap-tag--pre {
+    background: var(--sra-color-info-soft);
+    color: var(--sra-color-info);
+    border: 1px solid var(--sra-color-info);
+}
+.ec__cap-tag--pos {
+    background: var(--sra-color-warning-soft);
+    color: var(--sra-color-warning);
+    border: 1px solid var(--sra-color-warning);
+}
+
+/* Itens pre/pos-textuais tem fundo levemente diferente */
+.ec__cap--pre_textual {
+    background: var(--sra-color-info-soft);
+}
+.ec__cap--pos_textual {
+    background: var(--sra-color-warning-soft);
+}
+
+/* ===== Bundle eigenpal: garantir layout sao =================
+   O CSS do bundle (docx-editor-bundle.css) ja resolve a toolbar
+   via Tailwind. Aqui so reforcamos containment e altura. */
+.ec__viewer-mount .docx-editor,
+.ec__viewer-mount [class*="paged-editor"] {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
 }
