@@ -8,6 +8,7 @@
             <p class="sra-auth__subtitle">Redefinir senha</p>
         </div>
         <form class="sra-auth__form" method="POST" action="{{ url_for('auth.redefinir_senha', token=token) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-input">
                 <label class="sra-input__label" for="senha">Nova senha</label>
                 <input class="sra-input__field" type="password" id="senha" name="senha" minlength="6" required>

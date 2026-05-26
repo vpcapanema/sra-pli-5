@@ -72,7 +72,8 @@
         {# Seletor de biblioteca canônica de formatação #}
         <form method="post"
               action="{{ url_for('relatorio.vincular_biblioteca', id_versao=versao.id) }}"
-              class="ec__biblioteca-form">            <label for="id_biblioteca" class="ec__biblioteca-label">
+              class="ec__biblioteca-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">            <label for="id_biblioteca" class="ec__biblioteca-label">
                 <i class="ph ph-books"></i> Biblioteca de formatação
             </label>
             <select name="id_biblioteca" id="id_biblioteca"
@@ -210,6 +211,7 @@
                                   class="ec__cap-acao-form"
                                   data-confirm
                                   data-confirm-message="Aprovar o capítulo {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }}? Renomeações pendentes serão aplicadas no DOCX em produção.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                                 <button type="submit"
                                         class="ec__cap-btn ec__cap-btn--aprovar"
                                         title="Aprovar capítulo">
@@ -222,6 +224,7 @@
                                   class="ec__cap-acao-form"
                                   data-confirm
                                   data-confirm-message="Rejeitar o capítulo {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }} e devolver para o autor? O conteúdo já mesclado no DOCX permanece (será sobrescrito no próximo envio).">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                                 <button type="submit"
                                         class="ec__cap-btn ec__cap-btn--rejeitar"
                                         title="Rejeitar capítulo">

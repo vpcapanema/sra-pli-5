@@ -4,6 +4,7 @@
         <p class="sra-auth__subtitle">Criar nova conta</p>
     </div>
     <form class="sra-auth__form" method="POST" action="{{ url_for('auth.cadastro') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
         <div class="sra-input">
             <label class="sra-input__label" for="nome_completo">Nome completo</label>
             <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" required>

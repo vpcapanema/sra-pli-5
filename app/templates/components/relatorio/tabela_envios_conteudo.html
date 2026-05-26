@@ -157,7 +157,7 @@
             {# 2. Editar (todos): abre o editor do autor focado no capitulo destino #}
             {% if envio.capitulo_destino %}
             <a class="sra-btn-icon sra-btn-icon--edit"
-               href="{{ url_for('relatorio.editor_autor', id_versao=envio.id_relatorio, capitulo=envio.capitulo_destino.id_capitulo_documento) }}"
+               href="{{ url_for('relatorio.editor_autor', id_versao=envio.id_relatorio, capitulo=envio.capitulo_destino.indice_capitulo) }}"
                title="Editar conteudo deste capitulo">
                 <i class="ph ph-pencil-simple" aria-hidden="true"></i>
                 <span class="sra-sr-only">Editar</span>
@@ -179,6 +179,7 @@
                       class="sra-inline-form"
                       data-confirm
                       data-confirm-message="Aprovar o capitulo {{ envio.capitulo_destino.indice_capitulo or '' }} {{ envio.capitulo_destino.titulo_capitulo }}? Renomeacoes pendentes serao aplicadas no DOCX em producao.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                     <button type="submit"
                             class="sra-btn-icon sra-btn-icon--save"
                             title="Aprovar conteudo enviado">
@@ -191,6 +192,7 @@
                       class="sra-inline-form"
                       data-confirm
                       data-confirm-message="Reprovar o capitulo {{ envio.capitulo_destino.indice_capitulo or '' }} {{ envio.capitulo_destino.titulo_capitulo }}? O autor sera notificado e o capitulo voltara para edicao.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                     <button type="submit"
                             class="sra-btn-icon sra-btn-icon--danger"
                             title="Reprovar conteudo enviado">
@@ -215,6 +217,7 @@
                       class="sra-inline-form"
                       data-confirm
                       data-confirm-message="Excluir definitivamente este envio? O arquivo sera removido do storage.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                     <button type="submit"
                             class="sra-btn-icon sra-btn-icon--delete"
                             title="Excluir envio">

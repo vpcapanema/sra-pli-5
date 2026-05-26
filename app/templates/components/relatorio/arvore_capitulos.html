@@ -290,6 +290,7 @@
                                     </td>
                                     <td class="sra-table__cell sra-cap-cell--responsavel">
                                         <form method="POST" action="{{ url_for('capitulos.salvar', id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                                             <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
                                                 <option value="">Sem responsável</option>
                                                 {% for u in autores_disponiveis %}
@@ -312,7 +313,7 @@
 
                                         {# Abrir editor do autor: leva para o editor do autor com o capítulo selecionado #}
                                         {% if pode_enviar %}
-                                            {{ btn_custom(href=url_for('relatorio.editor_autor') + '?id_versao=' + versao_trabalho.id|string + '&capitulo=' + cap.id_capitulo_documento|string,
+                                            {{ btn_custom(href=url_for('relatorio.editor_autor') + '?id_versao=' + versao_trabalho.id|string + '&capitulo=' + cap.indice_capitulo|string,
                                                           icone='pencil-simple',
                                                           titulo='Abrir no editor do autor',
                                                           classe='') }}
@@ -336,10 +337,10 @@
                                             {{ btn_descer(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
 
                                             {# Abrir editor (nova aba) na linha do capitulo —
-                                               propaga `?capitulo=<id>` para que o editor de
+                                               propaga `?capitulo=<indice>` para que o editor de
                                                destino abra ja focado neste capitulo, com
                                                os selects de atribuicao pre-preenchidos. #}
-                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id, capitulo=cap.id_capitulo_documento),
+                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id, capitulo=cap.indice_capitulo),
                                                           icone='arrow-square-out',
                                                           titulo='Abrir editor (nova aba)',
                                                           classe='') }}

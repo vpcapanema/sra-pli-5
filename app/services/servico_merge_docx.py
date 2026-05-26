@@ -28,6 +28,8 @@ from lxml import etree
 from docx import Document
 from docxcompose.composer import Composer
 
+from app.services.servico_nivelador_erros import ServicoNiveladorErros
+
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
@@ -98,27 +100,8 @@ def _texto_paragrafo(p_element) -> str:
     return ''.join(pedacos).strip()
 
 
-def localizar_range_capitulo(doc, capitulo) -> Optional[tuple[int, int]]:
-    """Localiza o range de elementos do corpo (`body`) que pertencem
-    ao capítulo informado.
-
-    Retorna `(inicio, fim)` como índices inclusivos em
-    `doc.element.body[*]`, onde `inicio` é o parágrafo do heading
-    e `fim` é o último elemento (parágrafo ou tabela) antes do
-    próximo heading de nível <= `capitulo.nivel_capitulo`, ou o
-    último elemento do corpo (excluindo `<w:sectPr>`).
-
-    Retorna `None` se o capítulo não for localizado.
-
-    Estratégia de casamento:
-    - Normaliza `capitulo.titulo_capitulo` e compara com texto
-      normalizado de cada parágrafo que tem estilo `Heading N`.
-    - Quando o `indice_capitulo` está presente, tenta também
-      casar pelo prefixo `"<indice> <titulo>"` no texto do
-      parágrafo (caso o DOCX traga numeração explícita).
-    - Pega o primeiro match (DOCX bem formatado não duplica
-      headings de capítulo no mesmo nível).
-    """
+def _localizar_range_capitulo_interno(doc, capitulo) -> Optional[tuple[int, int]]:
+    """Implementação interna de localizar_range_capitulo."""
     body = doc.element.body
     titulo_alvo = _normalizar(capitulo.titulo_capitulo)
     indice_alvo = (capitulo.indice_capitulo or '').strip()
@@ -174,21 +157,46 @@ def localizar_range_capitulo(doc, capitulo) -> Optional[tuple[int, int]]:
     return (inicio, fim)
 
 
-def listar_subheadings_no_range(
+def localizar_range_capitulo(doc, capitulo, relatorio_id=None, capitulo_id=None) -> Optional[tuple[int, int]]:
+    """Localiza o range de elementos do corpo (`body`) que pertencem
+    ao capítulo informado.
+
+    Retorna `(inicio, fim)` como índices inclusivos em
+    `doc.element.body[*]`, onde `inicio` é o parágrafo do heading
+    e `fim` é o último elemento (parágrafo ou tabela) antes do
+    próximo heading de nível <= `capitulo.nivel_capitulo`, ou o
+    último elemento do corpo (excluindo `<w:sectPr>`).
+
+    Retorna `None` se o capítulo não for localizado.
+
+    Estratégia de casamento:
+    - Normaliza `capitulo.titulo_capitulo` e compara com texto
+      normalizado de cada parágrafo que tem estilo `Heading N`.
+    - Quando o `indice_capitulo` está presente, tenta também
+      casar pelo prefixo `"<indice> <titulo>"` no texto do
+      parágrafo (caso o DOCX traga numeração explícita).
+    - Pega o primeiro match (DOCX bem formatado não duplica
+      headings de capítulo no mesmo nível).
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _localizar_range_capitulo_interno,
+        doc, capitulo,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='localizacao_capitulo'
+    )
+    
+    # Se o resultado é um dict de erro, retorna None
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return None
+    
+    return resultado
+
+
+def _listar_subheadings_no_range_interno(
     doc, inicio: int, fim: int, nivel_pai: int
 ) -> list[dict]:
-    """Varre o range [inicio..fim] do `body` (incluindo o heading do
-    capítulo pai) e devolve uma lista de subheadings encontrados,
-    em ordem de aparecimento.
-
-    Cada item: {'titulo': str, 'nivel': int, 'indice_no_body': int}
-    onde `nivel` é o do heading no DOCX (>= nivel_pai + 1) e
-    `indice_no_body` é a posição do parágrafo dentro de `body`.
-
-    Inclui subheadings de TODOS os níveis abaixo de `nivel_pai`
-    (não só nivel_pai+1) — a hierarquia entre eles é resolvida na
-    montagem da árvore (sincronizar_subcapitulos).
-    """
+    """Implementação interna de listar_subheadings_no_range."""
     body = doc.element.body
     encontrados = []
     # Saltar o próprio heading do capítulo pai (em body[inicio])
@@ -223,29 +231,44 @@ def listar_subheadings_no_range(
     return encontrados
 
 
-def sincronizar_subcapitulos(
+def listar_subheadings_no_range(
+    doc, inicio: int, fim: int, nivel_pai: int,
+    relatorio_id: Optional[int] = None,
+    capitulo_id: Optional[int] = None,
+) -> list[dict]:
+    """Varre o range [inicio..fim] do `body` (incluindo o heading do
+    capítulo pai) e devolve uma lista de subheadings encontrados,
+    em ordem de aparecimento.
+
+    Cada item: {'titulo': str, 'nivel': int, 'indice_no_body': int}
+    onde `nivel` é o do heading no DOCX (>= nivel_pai + 1) e
+    `indice_no_body` é a posição do parágrafo dentro de `body`.
+
+    Inclui subheadings de TODOS os níveis abaixo de `nivel_pai`
+    (não só nivel_pai+1) — a hierarquia entre eles é resolvida na
+    montagem da árvore (sincronizar_subcapitulos).
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _listar_subheadings_no_range_interno,
+        doc, inicio, fim, nivel_pai,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='listagem_subheadings'
+    )
+    
+    # Se o resultado é um dict de erro, retorna lista vazia
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return []
+    
+    return resultado
+
+
+def _sincronizar_subcapitulos_interno(
     db_session,
     capitulo_pai,
     caminho_docx: str,
 ) -> dict:
-    """Após um merge no DOCX em produção, sincroniza os subcapítulos
-    no banco a partir dos subheadings detectados dentro do range do
-    `capitulo_pai` no DOCX.
-
-    Política:
-    - Subheadings novos (não presentes no banco) → INSERT como filhos
-      diretos de `capitulo_pai` (nivel = nivel_pai + 1, idependente do
-      nivel real no heading — uma vez que o autor pode ter usado um
-      Heading 4 onde devia ser Heading 3).
-    - Subheadings existentes (mesmo título normalizado, mesmo pai) →
-      atualizam ordem_capitulo para refletir nova ordem de aparecimento.
-      Mantêm `id_usuario_responsavel`, `status_capitulo`, `id`, etc.
-    - Subheadings que sumiram do DOCX → marcados ativo=False (não
-      excluídos: preserva histórico e referências).
-
-    Retorna dict com contadores: {'inseridos': N, 'atualizados': N,
-    'desativados': N}.
-    """
+    """Implementação interna de sincronizar_subcapitulos."""
     from app.models.capitulo_documento import CapituloDocumento
 
     doc = Document(caminho_docx)
@@ -324,6 +347,46 @@ def sincronizar_subcapitulos(
     }
 
 
+def sincronizar_subcapitulos(
+    db_session,
+    capitulo_pai,
+    caminho_docx: str,
+    relatorio_id: Optional[int] = None,
+    capitulo_id: Optional[int] = None,
+) -> dict:
+    """Após um merge no DOCX em produção, sincroniza os subcapítulos
+    no banco a partir dos subheadings detectados dentro do range do
+    `capitulo_pai` no DOCX.
+
+    Política:
+    - Subheadings novos (não presentes no banco) → INSERT como filhos
+      diretos de `capitulo_pai` (nivel = nivel_pai + 1, idependente do
+      nivel real no heading — uma vez que o autor pode ter usado um
+      Heading 4 onde devia ser Heading 3).
+    - Subheadings existentes (mesmo título normalizado, mesmo pai) →
+      atualizam ordem_capitulo para refletir nova ordem de aparecimento.
+      Mantêm `id_usuario_responsavel`, `status_capitulo`, `id`, etc.
+    - Subheadings que sumiram do DOCX → marcados ativo=False (não
+      excluídos: preserva histórico e referências).
+
+    Retorna dict com contadores: {'inseridos': N, 'atualizados': N,
+    'desativados': N}.
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _sincronizar_subcapitulos_interno,
+        db_session, capitulo_pai, caminho_docx,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='sincronizacao_subcapitulos'
+    )
+    
+    # Se o resultado é um dict de erro, retorna dict de erro
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return resultado
+    
+    return resultado
+
+
 def _filhos_corpo_doc(doc) -> list:
     """Retorna lista dos elementos filhos diretos do `<w:body>`,
     excluindo `<w:sectPr>` final (configuração da seção)."""
@@ -331,28 +394,13 @@ def _filhos_corpo_doc(doc) -> list:
     return [c for c in body if c.tag != f'{{{W_NS}}}sectPr']
 
 
-def extrair_capitulo_como_docx(
+def _extrair_capitulo_como_docx_interno(
     caminho_master: str,
     capitulo,
     *,
     incluir_heading: bool = True,
 ) -> Optional[bytes]:
-    """Extrai o range do `capitulo` do DOCX em `caminho_master` e
-    retorna um DOCX autônomo (em bytes) contendo apenas aquele
-    capítulo.
-
-    Útil para o endpoint `/api/capitulos/<id>/conteudo` (usado pelo
-    eigenpal modal e pelos editores legados) — substitui o antigo
-    `cap.conteudo_docx` agora que o DOCX em produção é a fonte
-    única.
-
-    Estratégia minimalista: clona o master, identifica o range
-    `[inicio..fim]`, remove TODO o resto do body (preservando
-    `<w:sectPr>` para que o DOCX final continue válido) e salva
-    em memória.
-
-    Retorna `None` se o capítulo não for localizado.
-    """
+    """Implementação interna de extrair_capitulo_como_docx."""
     doc = Document(caminho_master)
     rng = localizar_range_capitulo(doc, capitulo)
     if rng is None:
@@ -378,6 +426,46 @@ def extrair_capitulo_como_docx(
     buf = BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def extrair_capitulo_como_docx(
+    caminho_master: str,
+    capitulo,
+    *,
+    incluir_heading: bool = True,
+    relatorio_id: Optional[int] = None,
+    capitulo_id: Optional[int] = None,
+) -> Optional[bytes]:
+    """Extrai o range do `capitulo` do DOCX em `caminho_master` e
+    retorna um DOCX autônomo (em bytes) contendo apenas aquele
+    capítulo.
+
+    Útil para o endpoint `/api/capitulos/<id>/conteudo` (usado pelo
+    eigenpal modal e pelos editores legados) — substitui o antigo
+    `cap.conteudo_docx` agora que o DOCX em produção é a fonte
+    única.
+
+    Estratégia minimalista: clona o master, identifica o range
+    `[inicio..fim]`, remove TODO o resto do body (preservando
+    `<w:sectPr>` para que o DOCX final continue válido) e salva
+    em memória.
+
+    Retorna `None` se o capítulo não for localizado.
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _extrair_capitulo_como_docx_interno,
+        caminho_master, capitulo,
+        incluir_heading=incluir_heading,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='extracao_capitulo_docx'
+    )
+    
+    # Se o resultado é um dict de erro, retorna None
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return None
+    
+    return resultado
 
 
 def _substituir_texto_heading(p_element, novo_texto: str) -> None:
@@ -412,17 +500,12 @@ def _substituir_texto_heading(p_element, novo_texto: str) -> None:
         novo_t.text = novo_texto
 
 
-def atualizar_titulo_capitulo(
+def _atualizar_titulo_capitulo_interno(
     caminho_master: str,
     capitulo,
     novo_titulo: str,
 ) -> bool:
-    """Atualiza apenas o texto do parágrafo de heading do capítulo
-    no DOCX em produção, preservando estilo, numeração automática,
-    bookmarks de cross-reference e demais marcadores.
-
-    Retorna True se o heading foi localizado e atualizado.
-    """
+    """Implementação interna de atualizar_titulo_capitulo."""
     if not novo_titulo or not novo_titulo.strip():
         return False
     master = Document(caminho_master)
@@ -439,36 +522,42 @@ def atualizar_titulo_capitulo(
     return True
 
 
-def substituir_capitulo(
+def atualizar_titulo_capitulo(
+    caminho_master: str,
+    capitulo,
+    novo_titulo: str,
+    relatorio_id: Optional[int] = None,
+    capitulo_id: Optional[int] = None,
+) -> bool:
+    """Atualiza apenas o texto do parágrafo de heading do capítulo
+    no DOCX em produção, preservando estilo, numeração automática,
+    bookmarks de cross-reference e demais marcadores.
+
+    Retorna True se o heading foi localizado e atualizado.
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _atualizar_titulo_capitulo_interno,
+        caminho_master, capitulo, novo_titulo,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='atualizacao_titulo_capitulo'
+    )
+    
+    # Se o resultado é um dict de erro, retorna False
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return False
+    
+    return resultado
+
+
+def _substituir_capitulo_interno(
     caminho_master: str,
     capitulo,
     caminho_autor: str,
     *,
     preservar_heading: bool = True,
 ) -> bool:
-    """Substitui o conteúdo do `capitulo` no DOCX em
-    `caminho_master` pelo conteúdo do DOCX do autor em
-    `caminho_autor`. Salva o resultado em `caminho_master`.
-
-    Quando `preservar_heading=True` (padrão), o parágrafo de heading
-    do capítulo no master é MANTIDO; só os elementos seguintes (até
-    antes do próximo heading <= nível) são substituídos.
-
-    Estratégia:
-    1. `Composer(master).append(autor_doc)` → docxcompose copia
-       todos os elementos do autor para o final do master,
-       remapeando rIds de imagens, estilos numerados, etc. Isso
-       é o que garante que figuras/numerações cheguem íntegras.
-    2. Identificamos os elementos APENDADOS (novos) localizando
-       a posição que era o último elemento antes do append.
-    3. Removemos o range do capítulo (preservando heading conforme
-       parâmetro).
-    4. Movemos os elementos apendados para a posição correta.
-    5. Salvamos.
-
-    Retorna `True` em sucesso, `False` se o capítulo não for
-    localizado no master.
-    """
+    """Implementação interna de substituir_capitulo."""
     master = Document(caminho_master)
     autor = Document(caminho_autor)
 
@@ -529,3 +618,51 @@ def substituir_capitulo(
 
     master.save(caminho_master)
     return True
+
+
+def substituir_capitulo(
+    caminho_master: str,
+    capitulo,
+    caminho_autor: str,
+    *,
+    preservar_heading: bool = True,
+    relatorio_id: Optional[int] = None,
+    capitulo_id: Optional[int] = None,
+) -> bool:
+    """Substitui o conteúdo do `capitulo` no DOCX em
+    `caminho_master` pelo conteúdo do DOCX do autor em
+    `caminho_autor`. Salva o resultado em `caminho_master`.
+
+    Quando `preservar_heading=True` (padrão), o parágrafo de heading
+    do capítulo no master é MANTIDO; só os elementos seguintes (até
+    antes do próximo heading <= nível) são substituídos.
+
+    Estratégia:
+    1. `Composer(master).append(autor_doc)` → docxcompose copia
+       todos os elementos do autor para o final do master,
+       remapeando rIds de imagens, estilos numerados, etc. Isso
+       é o que garante que figuras/numerações cheguem íntegras.
+    2. Identificamos os elementos APENDADOS (novos) localizando
+       a posição que era o último elemento antes do append.
+    3. Removemos o range do capítulo (preservando heading conforme
+       parâmetro).
+    4. Movemos os elementos apendados para a posição correta.
+    5. Salvamos.
+
+    Retorna `True` em sucesso, `False` se o capítulo não for
+    localizado no master.
+    """
+    resultado = ServicoNiveladorErros.executar_com_tratamento(
+        _substituir_capitulo_interno,
+        caminho_master, capitulo, caminho_autor,
+        preservar_heading=preservar_heading,
+        relatorio_id=relatorio_id,
+        capitulo_id=capitulo_id,
+        etapa='substituicao_capitulo'
+    )
+    
+    # Se o resultado é um dict de erro, retorna False
+    if isinstance(resultado, dict) and not resultado.get('sucesso', True):
+        return False
+    
+    return resultado

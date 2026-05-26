@@ -182,6 +182,7 @@
                 <div class="sra-actions-row">
                     <form method="POST"
                           action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='importar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                         <button type="submit"
                                 class="sra-button sra-button--primary">
                             Importar conteúdo
@@ -189,6 +190,7 @@
                     </form>
                     <form method="POST"
                           action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='rejeitar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                         <button type="submit"
                                 class="sra-button sra-button--secondary">
                             Rejeitar e reenviar

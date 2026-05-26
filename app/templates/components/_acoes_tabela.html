@@ -67,6 +67,7 @@
 <form method="POST" action="{{ action_url }}" class="sra-inline-form"
       data-confirm
       data-confirm-message="{{ confirmacao }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <button type="submit" class="sra-btn-icon sra-btn-icon--delete" title="{{ titulo }}">
         <i class="ph-fill ph-trash" aria-hidden="true"></i>
         <span class="sra-sr-only">{{ titulo }}</span>
@@ -77,6 +78,7 @@
 {# -- Subir / Descer ---------------------------------------------- #}
 {% macro btn_subir(action_url, titulo='Subir') %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <input type="hidden" name="direcao" value="cima">
     <button type="submit" class="sra-btn-icon sra-btn-icon--move" title="{{ titulo }}">
         <i class="ph-fill ph-arrow-up" aria-hidden="true"></i>
@@ -87,6 +89,7 @@
 
 {% macro btn_descer(action_url, titulo='Descer') %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <input type="hidden" name="direcao" value="baixo">
     <button type="submit" class="sra-btn-icon sra-btn-icon--move" title="{{ titulo }}">
         <i class="ph-fill ph-arrow-down" aria-hidden="true"></i>

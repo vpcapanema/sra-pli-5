@@ -17,6 +17,8 @@ from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.configuracao_numeracao import ConfiguracaoNumeracao
 from app.models.notificacao import Notificacao
 from app.models.registro_auditoria import RegistroAuditoria
+from app.models.secao_docx import SecaoDOCX
+from app.models.quebra_pagina import QuebraPagina
 
 __all__ = [
     'AuditoriaMixin',
@@ -36,4 +38,6 @@ __all__ = [
     'ConfiguracaoNumeracao',
     'Notificacao',
     'RegistroAuditoria',
+    'SecaoDOCX',
+    'QuebraPagina',
 ]

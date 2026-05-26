@@ -7,6 +7,7 @@
     </div>
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.criar_relatorio_producao') }}" id="form-criar-relatorio" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-grid sra-grid--2">
                 <div class="sra-input">
                     <label class="sra-input__label" for="numero_medicao">Número da medição</label>

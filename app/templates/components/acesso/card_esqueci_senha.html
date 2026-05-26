@@ -4,6 +4,7 @@
         <p class="sra-auth__subtitle">Recuperação de senha</p>
     </div>
     <form class="sra-auth__form" method="POST" action="{{ url_for('auth.recuperar_senha') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
         <div class="sra-input">
             <label class="sra-input__label" for="email">E-mail cadastrado</label>
             <input class="sra-input__field" type="email" id="email" name="email" required>

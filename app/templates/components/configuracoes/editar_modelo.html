@@ -7,6 +7,7 @@
     </div>
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-input">
                 <label class="sra-input__label" for="nome_modelo">Nome do modelo</label>
                 <input class="sra-input__field" type="text" id="nome_modelo" name="nome_modelo" value="{{ modelo.nome_modelo }}" required>

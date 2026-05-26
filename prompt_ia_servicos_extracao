@@ -1,0 +1,100 @@
+Prompt para Agente IA - Integração do Conceito de Capítulos
+Contexto do Projeto
+Sistema: SRA-PLI (Sistema de Relatório de Atividades - PLI-SP) Stack: Python 3 + Flask 3.0 + SQLAlchemy 2.0 + DOCX manipulation Idioma: Português do Brasil (código, comentários, documentação)
+
+O que foi Realizado (Análise Completa)
+📋 Documentação Criada:
+ANALISE_SERVICOS_EXISTENTES.md - Análise completa dos 18 serviços Python existentes
+Spec .kiro/specs/integracao-capitulos-secoes/ - Plano estruturado de integração:
+requirements.md: 12 requisitos funcionais + 6 não-funcionais
+design.md: Arquitetura detalhada com modelos e fluxos
+tasks.md: 8 fases com 35 tarefas (73 horas estimadas)
+🔍 Principais Descobertas da Análise:
+Arquitetura madura com serviços especializados interdependentes
+5 pontos de integração críticos identificados:
+Numeração hierárquica baseada em H1
+Sincronização banco↔DOCX
+Ordenação natural por tipo_elemento
+Cross-references dependentes de estrutura
+Perfil de formatação e mapeamento de estilos
+Dependências mapeadas entre todos os serviços
+🎯 Conceito Endurecido de Capítulos Definido:
+Capítulo: nível 1, textual, sem classificação
+Subcapítulo: nível ≥ 2, textual, com pai
+Anexo: pos_textual, classificação 'anexo', prefixo ANEXO_
+Apêndice: pos_textual, classificação 'apendice', prefixo APENDICE_
+Seção DOCX: representação técnica de seções DOCX (w:sectPr)
+Quebra de Página: rastreamento de quebras dentro de seções
+O que se Pretende Fazer (Plano de Integração)
+🏗️ Objetivo Principal:
+Implementar distinção clara entre Seção DOCX (técnica) e Capítulo (conceitual) com sistema unificado de numeração e rastreamento de páginas.
+
+📊 Estratégia Faseada:
+FASE 1: Análise e Planejamento (2 semanas)
+
+Auditoria de dependências existentes
+Modelo de dados extendido
+Scripts de migração preparados
+FASE 2: Serviços Core (3 semanas)
+
+ServicoClassificacaoCapitulos: novo algoritmo de classificação
+ServicoRelatorio: ordenação natural atualizada
+ServicoSincronizarCapitulos: matching com nova classificação
+ServicoExtracaoCanonica: integração da nova extração
+FASE 3: Serviços Dependentes (3 semanas)
+
+ServicoCaptioning: numeração hierárquica ajustada
+ServicoCrossRefs: compatibilidade com bookmarks
+ServicoTOC: validação ordem ABNT
+ServicoMergeDOCX: localização de capítulos
+FASE 4: Fluxos de Trabalho (2 semanas)
+
+ServicoEnvioAutor: pipeline de classificação
+ServicoAcoesRelatorio: ações para novo conceito
+ServicoFinalizarRelatorio: rotinas finais
+FASE 5: Validação e Rollout (2 semanas)
+
+Testes regressivos completos
+Migração de dados controlada
+Documentação atualizada
+⚙️ Novos Componentes a Implementar:
+Modelos: SecaoDOCX, QuebraPagina (campos extendidos em CapituloDocumento)
+Serviços: ServicoNumeracaoUnificada, ServicoRastreamentoPaginas
+Sistema de numeração unificada para capítulos, tabelas, figuras, equações
+Rastreamento de páginas considerando seções DOCX e quebras
+🚨 Riscos e Mitigações:
+Breaking changes: Campos opcionais inicialmente, compatibilidade retroativa
+Dados existentes: Scripts de migração com validação e rollback
+Performance: Otimização incremental, cache de resultados
+Testes: Validação faseada com documentos reais
+Instruções para o Agente IA
+✅ O que Já Existe:
+Análise completa dos serviços (referenciar ANALISE_SERVICOS_EXISTENTES.md)
+Spec detalhado (referenciar .kiro/specs/integracao-capitulos-secoes/)
+Conceito endurecido definido (referenciar documentação conceitual existente)
+Commits realizados no Git
+🎯 Próximas Ações Imediatas (Fase 1):
+Implementar modelos extendidos:
+
+SecaoDOCX (representa seções técnicas DOCX)
+QuebraPagina (rastreamento de quebras)
+Campos adicionais em CapituloDocumento (classificacao, prefixo_indice, estilo_docx, etc.)
+Criar serviços base:
+
+ServicoNumeracaoUnificada (sistema de numeração)
+ServicoRastreamentoPaginas (mapeamento páginas)
+Integrar com extração canônica:
+
+Atualizar ServicoExtracaoCanonica para incluir classificação
+Adicionar arquivo canonico_secoes.json
+📋 Critérios de Sucesso:
+Compatibilidade retroativa: Nenhum prejuízo funcional
+Performance: Processamento de 500 páginas em <30s
+Testabilidade: Cobertura >80% para novo código
+Documentação: Atualizada e completa
+🔗 Referências Chave:
+ANALISE_SERVICOS_EXISTENTES.md - Análise completa
+.kiro/specs/integracao-capitulos-secoes/ - Plano detalhado
+Documentação conceitual existente do projeto
+Commits Git com histórico das análises
+Nota: Todo o código, comentários e documentação devem ser em português do Brasil, seguindo as convenções do projeto SRA-PLI.

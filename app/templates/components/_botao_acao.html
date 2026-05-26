@@ -25,6 +25,7 @@
       data-confirm
       data-confirm-message="{{ acao.confirmacao }}"
       {% endif %}>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <button type="submit"
             class="acao-btn {{ classe }} {% if not item.disponivel %}acao-btn--disabled{% endif %}"
             {% if not item.disponivel %}disabled{% endif %}

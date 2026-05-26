@@ -45,6 +45,7 @@
     </div>
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" action="{{ url_for('relatorio.acao_revisao', id_capitulo=capitulo.id_capitulo_documento) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-input">
                 <label class="sra-input__label" for="observacao">Observação</label>
                 <textarea class="sra-input__field" id="observacao" name="observacao" rows="3" placeholder="Comentário opcional sobre a revisão..."></textarea>

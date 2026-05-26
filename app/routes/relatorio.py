@@ -511,35 +511,40 @@ def editor_autor():
     # - Autor: so carrega o painel de upload se ele for responsavel.
     # - Coordenador/admin: pode carregar qualquer capitulo do relatorio
     #   (ele upa em nome do autor).
-    id_capitulo_selecionado = request.args.get("capitulo", type=int)
+    # O identificador do capitulo e o indice (ex: "4.4.7"), nao o ID do banco.
+    id_capitulo_selecionado = request.args.get("capitulo", type=str)
     capitulo_selecionado = None
     envio_pendente = None
     perfil_ativo_inicial = session.get("perfil_ativo")
-    pode_abrir_capitulo = (
-        id_capitulo_selecionado is not None
-        and (
-            id_capitulo_selecionado in capitulos_do_autor_ids
-            or perfil_ativo_inicial in ("coordenador", "admin")
-        )
-    )
-    if pode_abrir_capitulo:
+    
+    # Busca o capitulo pelo indice_capitulo
+    if id_capitulo_selecionado:
         capitulo_selecionado = next(
             (
                 c
                 for c in caps_autor
-                if c.id_capitulo_documento == id_capitulo_selecionado
+                if c.indice_capitulo == id_capitulo_selecionado
             ),
             None,
         )
-        if capitulo_selecionado:
-            envio_pendente = (
-                EnvioConteudo.query.filter_by(
-                    id_capitulo_destino=id_capitulo_selecionado,
-                    status_envio="em_previa",
-                )
-                .order_by(EnvioConteudo.criado_em.desc())
-                .first()
+    
+    pode_abrir_capitulo = (
+        capitulo_selecionado is not None
+        and (
+            capitulo_selecionado.id_usuario_responsavel == current_user.id
+            or perfil_ativo_inicial in ("coordenador", "admin")
+        )
+    )
+    
+    if pode_abrir_capitulo and capitulo_selecionado:
+        envio_pendente = (
+            EnvioConteudo.query.filter_by(
+                id_capitulo_destino=capitulo_selecionado.id_capitulo_documento,
+                status_envio="em_previa",
             )
+            .order_by(EnvioConteudo.criado_em.desc())
+            .first()
+        )
 
     grupos_acoes = listar_por_grupo(
         perfil_ativo="coordenador",
@@ -680,28 +685,45 @@ def abrir_editor(id_relatorio):
     "Painel de Edição — Coordenador" pre-seleciona o capitulo no
     `#ea-cap-select` e em `#ea-atribuir-cap`/`#ea-atribuir-autor` do
     editor do autor (e idem para o coordenador).
+
+    O identificador do capitulo e o indice (ex: "4.4.7"), nao o ID do banco.
+    Se receber um ID numerico, converte para indice antes de propagar.
     """
     rel = ServicoRelatorio.obter_versao_trabalho(id_relatorio)
     if not rel:
         flash("Relatório não encontrado.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
 
-    id_capitulo = request.args.get("capitulo", type=int)
+    id_capitulo = request.args.get("capitulo")
     perfil_ativo = session.get("perfil_ativo")
+    
+    # Se o capitulo for um ID numerico (int), converte para indice
+    indice_capitulo = None
+    if id_capitulo:
+        try:
+            id_capitulo_int = int(id_capitulo)
+            # Busca o capitulo pelo ID para obter o indice
+            cap = CapituloDocumento.query.get(id_capitulo_int)
+            if cap:
+                indice_capitulo = cap.indice_capitulo
+        except (ValueError, TypeError):
+            # Ja e um indice, mantem como esta
+            indice_capitulo = id_capitulo
+    
     if perfil_ativo in ("coordenador", "admin"):
         url = url_for(
             "relatorio.editor_coordenador", id_versao=id_relatorio
         )
-        if id_capitulo:
-            url = f"{url}?capitulo={id_capitulo}"
+        if indice_capitulo:
+            url = f"{url}?capitulo={indice_capitulo}"
         return redirect(url)
     if perfil_ativo == "autor":
         url = (
             url_for("relatorio.editor_autor")
             + "?id_versao=" + str(id_relatorio)
         )
-        if id_capitulo:
-            url = f"{url}&capitulo={id_capitulo}"
+        if indice_capitulo:
+            url = f"{url}&capitulo={indice_capitulo}"
         return redirect(url)
     flash("Sem permissão para abrir o editor deste relatório.", "erro")
     return redirect(url_for("relatorio.relatorios_producao"))

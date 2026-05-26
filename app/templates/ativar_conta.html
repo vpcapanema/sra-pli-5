@@ -13,6 +13,7 @@
             como <strong>{{ usuario.perfil.codigo if usuario.perfil else 'usuario' | capitalize }}</strong>.
         </p>
         <form class="sra-auth__form" method="POST" action="{{ url_for('auth.ativar_conta', token=token) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-input">
                 <label class="sra-input__label" for="senha">Senha</label>
                 <input class="sra-input__field" type="password" id="senha" name="senha" minlength="6" required>

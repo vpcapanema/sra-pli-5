@@ -19,6 +19,7 @@
                 {{ btn_editar(href=url_for('admin.editar_usuario', id_usuario=u.id)) }}
                 {% if not u.ativo and u.token_convite %}
                 <form method="POST" action="{{ url_for('admin.reenviar_convite', id_usuario=u.id) }}" class="sra-inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                     <button type="submit" class="sra-btn-icon sra-btn-icon--upload" title="Reenviar convite">
                         <i class="ph-fill ph-envelope-simple" aria-hidden="true"></i>
                         <span class="sra-sr-only">Reenviar convite</span>
@@ -26,6 +27,7 @@
                 </form>
                 {% endif %}
                 <form method="POST" action="{{ url_for('admin.alternar_ativo', id_usuario=u.id) }}" class="sra-inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                     {% if u.ativo %}
                     <button type="submit" class="sra-btn-icon sra-btn-icon--delete" title="Desativar usuário">
                         <i class="ph-fill ph-power" aria-hidden="true"></i>
@@ -63,6 +65,7 @@
     {{ cabecalho_pli('user-plus', '', 'Convidar Novo Usuário') }}
     <div class="sra-card__content">
         <form class="sra-auth__form" method="POST" action="{{ url_for('admin.criar_usuario') }}" id="form-convidar-usuario">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="sra-input">
                 <label class="sra-input__label" for="nome_completo">Nome completo</label>
                 <input class="sra-input__field" type="text" id="nome_completo" name="nome_completo" required>

@@ -23,6 +23,7 @@
         {% endif %}
         <form class="ea__upload-form" method="POST" enctype="multipart/form-data"
               action="{{ url_for('relatorio.upload_conteudo', id_versao=versao_trabalho.id, id_capitulo=capitulo.id_capitulo_documento) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
             <div class="ea__upload-input">
                 <label class="ea__upload-label" for="arquivo_docx_{{ capitulo.id_capitulo_documento }}">Arquivo DOCX</label>
                 <input class="ea__upload-field" type="file" id="arquivo_docx_{{ capitulo.id_capitulo_documento }}" name="arquivo_docx" accept=".docx" required>
@@ -55,9 +56,11 @@
         <p class="ea__upload-info">Após revisar a pré-visualização, escolha uma ação:</p>
         <div class="ea__upload-actions">
             <form method="POST" action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='importar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                 <button type="submit" class="sra-button sra-button--secondary">Importar conteúdo</button>
             </form>
             <form method="POST" action="{{ url_for('relatorio.confirmar_envio', id_envio=envio.id_envio_conteudo, acao='rejeitar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                 <button type="submit" class="sra-button sra-button--sm">Rejeitar e reenviar</button>
             </form>
         </div>

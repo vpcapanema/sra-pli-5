@@ -73,9 +73,9 @@
                     title="Filtrar visualizacao para um capitulo">
                 <option value="">— Documento inteiro —</option>
                 {% for cap in capitulos %}
-                <option value="{{ cap.id_capitulo_documento }}"
+                <option value="{{ cap.indice_capitulo }}"
                         data-editavel="{{ '1' if cap.id_capitulo_documento in capitulos_do_autor_ids else '0' }}"
-                        {{ 'selected' if id_capitulo_selecionado == cap.id_capitulo_documento else '' }}>
+                        {{ 'selected' if id_capitulo_selecionado == cap.indice_capitulo else '' }}>
                     {{ cap.indice_capitulo or '·' }}
                     {{ cap.titulo_capitulo }}
                     {% if cap.id_capitulo_documento in capitulos_do_autor_ids %}
@@ -118,8 +118,19 @@
                congelar os selects ate ele clicar em "Editar selecao". #}
             {% set congelado = ultima_atribuicao is not none %}
             {% set cap_pre = (ultima_atribuicao.id_capitulo if ultima_atribuicao else None) or id_capitulo_selecionado %}
-            {# Busca o capítulo pré-selecionado para extrair seu autor responsável #}
-            {% set cap_obj = capitulos | selectattr('id_capitulo_documento', 'equalto', cap_pre) | first %}
+            {# Busca o capítulo pré-selecionado para extrair seu autor responsável.
+               Se cap_pre for um ID numerico, busca por id_capitulo_documento.
+               Se for um indice (string), busca por indice_capitulo. #}
+            {% if cap_pre %}
+                {% try %}
+                    {% set cap_pre_int = cap_pre | int %}
+                    {% set cap_obj = capitulos | selectattr('id_capitulo_documento', 'equalto', cap_pre_int) | first %}
+                {% except %}
+                    {% set cap_obj = capitulos | selectattr('indice_capitulo', 'equalto', cap_pre) | first %}
+                {% endtry %}
+            {% else %}
+                {% set cap_obj = None %}
+            {% endif %}
             {% set autor_pre = (ultima_atribuicao.id_usuario_responsavel if ultima_atribuicao else (cap_obj.id_usuario_responsavel if cap_obj else None)) %}
             <div class="ea__assign-form">
                 <form id="ea-atribuir-form"
@@ -141,8 +152,9 @@
                             <option value="">Selecione um capítulo…</option>
                             {% for cap in capitulos %}
                             <option value="{{ cap.id_capitulo_documento }}"
+                                    data-indice="{{ cap.indice_capitulo }}"
                                     data-resp="{{ cap.id_usuario_responsavel or '' }}"
-                                    {{ 'selected' if cap_pre == cap.id_capitulo_documento else '' }}>
+                                    {{ 'selected' if cap_pre == cap.id_capitulo_documento or cap_pre == cap.indice_capitulo else '' }}>
                                 {{ cap.indice_capitulo or '—' }}
                                 {{ cap.titulo_capitulo }}
                             </option>
@@ -308,7 +320,7 @@
                     </p>
                 </div>
             </div>
-            {% if capitulos_do_autor_ids %}
+            {% if capitulos_do_autor_ids or perfil_ativo in ('coordenador', 'admin') %}
             <div id="upload-component-container" class="ea__upload-component">
                 {% if capitulo_selecionado %}
                     {% set versao_trabalho = versao %}
