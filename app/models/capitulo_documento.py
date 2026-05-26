@@ -25,12 +25,14 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     id_secao_inicio = db.Column(
         db.Integer,
         db.ForeignKey('secoes_docx.id_secao'),
-        nullable=False
+        nullable=True,
+        comment="ID da seção DOCX onde o capítulo começa"
     )
     id_secao_fim = db.Column(
         db.Integer,
         db.ForeignKey('secoes_docx.id_secao'),
-        nullable=True
+        nullable=True,
+        comment="ID da seção DOCX onde o capítulo termina (se abrange múltiplas seções)"
     )
     id_capitulo_pai = db.Column(
         db.Integer,
@@ -50,12 +52,34 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     tipo_elemento = db.Column(
         db.String(50),
         nullable=False,
-        default='textual'
-    )  # pre_textual, textual, pos_textual
-    classificacao = db.Column(db.String(50), nullable=True)  # 'anexo', 'apendice', None
-    prefixo_indice = db.Column(db.String(20), nullable=True)  # 'ANEXO_', 'APENDICE_', None
-    estilo_docx = db.Column(db.String(100), nullable=True)  # Estilo DOCX (ex: 'Heading 1', 'Título 1')
-    docx_bookmark = db.Column(db.String(200), nullable=True)  # Marcador no DOCX
+        default='textual',
+        comment="Tipo de elemento: pre_textual, textual, pos_textual"
+    )
+    classificacao = db.Column(
+        db.String(50),
+        nullable=True,
+        comment="Classificação do capítulo: textual, pre_textual, pos_textual, anexo, apendice"
+    )
+    prefixo_indice = db.Column(
+        db.String(10),
+        nullable=True,
+        comment="Prefixo de numeração (ex: 'I', '1', 'A')"
+    )
+    indice_esperado = db.Column(
+        db.Integer,
+        nullable=True,
+        comment="Índice esperado do capítulo para match por contexto (ex: 5 para capítulo 5)"
+    )
+    estilo_docx = db.Column(
+        db.String(100),
+        nullable=True,
+        comment="Estilo DOCX do título (ex: 'Heading 1', 'Título 1')"
+    )
+    docx_bookmark = db.Column(
+        db.String(200),
+        nullable=True,
+        comment="Marcador (bookmark) no DOCX para referências cruzadas"
+    )
     # Status editorial do capitulo. Mantemos a coluna VARCHAR como
     # cache/legado mas a fonte de verdade passou a ser
     # `status_capitulo_id` (FK -> dominios). O setter de
@@ -131,6 +155,30 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         elif self.classificacao == 'apendice':
             return f"APENDICE_{self.indice_capitulo}" if self.indice_capitulo else "APENDICE"
         return self.indice_capitulo or ""
+
+    @property
+    def numero_capitulo_esperado(self):
+        """Retorna o número do capítulo para match por contexto.
+        
+        Prioridade:
+        1. indice_esperado (campo explícito)
+        2. Extrair de indice_capitulo (ex: "5" de "5.1")
+        3. None se não conseguir determinar
+        """
+        import re
+        
+        # 1. Usar indice_esperado se disponível
+        if self.indice_esperado is not None:
+            return self.indice_esperado
+        
+        # 2. Tentar extrair de indice_capitulo
+        if self.indice_capitulo:
+            match = re.match(r'^(\d+)', self.indice_capitulo)
+            if match:
+                return int(match.group(1))
+        
+        # 3. Não conseguiu determinar
+        return None
 
     @property
     def e_capitulo(self):
