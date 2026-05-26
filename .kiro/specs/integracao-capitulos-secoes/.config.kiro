@@ -1,0 +1,9 @@
+{
+  "name": "Integração do Conceito de Capítulos com Seções DOCX",
+  "description": "Análise e integração do novo conceito de capítulos (distinção seção DOCX vs capítulo conceitual) com os serviços existentes do SRA-PLI",
+  "version": "1.0.0",
+  "status": "in_progress",
+  "created": "2026-05-26",
+  "owner": "Sistema SRA-PLI",
+  "tags": ["capitulos", "secoes", "docx", "integração", "serviços", "backend"]
+}
