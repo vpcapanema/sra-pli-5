@@ -53,6 +53,135 @@
                 "clear": true
             },
             "detail": "Executa git status → add → commit → push com feedback visual claro"
+        },
+        {
+            "label": "ETAPA 1: Modificar Modelo CapituloDocumento",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa1-modelo.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 1: Adicionar campo classificacao e validacoes ao modelo"
+        },
+        {
+            "label": "ETAPA 2: Criar Migration para Campo Novo",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa2-migration.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 2: Criar e aplicar migration para campo classificacao"
+        },
+        {
+            "label": "ETAPA 3: Atualizar Extração Canônica",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa3-extracao.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 3: Atualizar servico_extracao_canonica para classificar"
+        },
+        {
+            "label": "ETAPA 4: Atualizar Serviços Relacionados",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa4-servicos.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 4: Atualizar servicos que usam CapituloDocumento"
+        },
+        {
+            "label": "ETAPA 5: Atualizar UI/Templates",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa5-ui.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 5: Atualizar templates para mostrar prefixos"
+        },
+        {
+            "label": "ETAPA 6: Testes e Validação",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\etapa6-testes.ps1\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Etapa 6: Criar testes e validar implementação"
+        },
+        {
+            "label": "Executar Script Python",
+            "type": "shell",
+            "command": ".\\venv\\Scripts\\Activate.ps1; python ${file}",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": []
         }
     ],
     "inputs": [

@@ -79,3 +79,8 @@ class RelatorioProducao(db.Model):
         'RelatorioFinalizado',
         back_populates='relatorio_producao'
     )
+    secoes = db.relationship(
+        'SecaoDOCX',
+        back_populates='relatorio',
+        order_by='SecaoDOCX.ordem_secao'
+    )

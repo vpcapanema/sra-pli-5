@@ -22,6 +22,16 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         db.ForeignKey('relatorios_producao.id'),
         nullable=False
     )
+    id_secao_inicio = db.Column(
+        db.Integer,
+        db.ForeignKey('secoes_docx.id_secao'),
+        nullable=False
+    )
+    id_secao_fim = db.Column(
+        db.Integer,
+        db.ForeignKey('secoes_docx.id_secao'),
+        nullable=True
+    )
     id_capitulo_pai = db.Column(
         db.Integer,
         db.ForeignKey('capitulos_documento.id_capitulo_documento'),
@@ -42,6 +52,9 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         nullable=False,
         default='textual'
     )  # pre_textual, textual, pos_textual
+    classificacao = db.Column(db.String(50), nullable=True)  # 'anexo', 'apendice', None
+    prefixo_indice = db.Column(db.String(20), nullable=True)  # 'ANEXO_', 'APENDICE_', None
+    estilo_docx = db.Column(db.String(100), nullable=True)  # Estilo DOCX (ex: 'Heading 1', 'Título 1')
     docx_bookmark = db.Column(db.String(200), nullable=True)  # Marcador no DOCX
     # Status editorial do capitulo. Mantemos a coluna VARCHAR como
     # cache/legado mas a fonte de verdade passou a ser
@@ -68,6 +81,12 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
 
     relatorio = db.relationship(
         'RelatorioProducao', back_populates='capitulos'
+    )
+    secao_inicio = db.relationship(
+        'SecaoDOCX', foreign_keys=[id_secao_inicio], back_populates='capitulos'
+    )
+    secao_fim = db.relationship(
+        'SecaoDOCX', foreign_keys=[id_secao_fim]
     )
     responsavel = db.relationship(
         'Usuario', foreign_keys=[id_usuario_responsavel]
@@ -99,6 +118,139 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
             return self.status_dominio.descricao
         codigo = self.status_capitulo or 'em_edicao'
         return codigo.replace('_', ' ').capitalize()
+
+    # ------------------------------------------------------------------
+    # Propriedades calculadas para conceito endurecido de capítulos
+    # ------------------------------------------------------------------
+
+    @property
+    def indice_completo(self):
+        """Índice completo com prefixo quando aplicável."""
+        if self.classificacao == 'anexo':
+            return f"ANEXO_{self.indice_capitulo}" if self.indice_capitulo else "ANEXO"
+        elif self.classificacao == 'apendice':
+            return f"APENDICE_{self.indice_capitulo}" if self.indice_capitulo else "APENDICE"
+        return self.indice_capitulo or ""
+
+    @property
+    def e_capitulo(self):
+        """Retorna True se for um capítulo de primeiro nível (textual)."""
+        return (self.nivel_capitulo == 1 and 
+                self.tipo_elemento == 'textual' and 
+                self.classificacao is None)
+
+    @property
+    def e_subcapitulo(self):
+        """Retorna True se for um subcapítulo (textual, com pai)."""
+        return (self.nivel_capitulo >= 2 and 
+                self.tipo_elemento == 'textual' and 
+                self.id_capitulo_pai is not None and
+                self.classificacao is None)
+
+    @property
+    def e_anexo(self):
+        """Retorna True se for anexo."""
+        return (self.tipo_elemento == 'pos_textual' and 
+                self.classificacao == 'anexo')
+
+    @property
+    def e_apendice(self):
+        """Retorna True se for apêndice."""
+        return (self.tipo_elemento == 'pos_textual' and 
+                self.classificacao == 'apendice')
+
+    @property
+    def e_anexo_ou_apendice(self):
+        """Retorna True se for anexo ou apêndice."""
+        return self.e_anexo or self.e_apendice
+
+    @property
+    def tipo_conceitual(self):
+        """Retorna o tipo conceitual do capítulo."""
+        if self.e_capitulo:
+            return 'capitulo'
+        elif self.e_subcapitulo:
+            return 'subcapitulo'
+        elif self.e_anexo:
+            return 'anexo'
+        elif self.e_apendice:
+            return 'apendice'
+        elif self.tipo_elemento == 'pre_textual':
+            return 'pre_textual'
+        else:
+            return 'outro'
+    
+    # ------------------------------------------------------------------
+    # Propriedades relacionadas a seções DOCX
+    # ------------------------------------------------------------------
+    
+    @property
+    def abrange_multiplas_secoes(self):
+        """Retorna True se o capítulo abrange mais de uma seção DOCX."""
+        return self.id_secao_fim is not None and self.id_secao_fim != self.id_secao_inicio
+    
+    @property
+    def numero_secoes(self):
+        """Retorna o número de seções que o capítulo abrange."""
+        if not self.abrange_multiplas_secoes:
+            return 1
+        
+        # Em implementação real, calcularia baseado em ordem_secao
+        return 1  # Placeholder
+    
+    @property
+    def tem_quebra_secao_importante(self):
+        """Retorna True se o capítulo começa com quebra de seção importante."""
+        if self.secao_inicio and self.secao_inicio.e_quebra_importante:
+            return True
+        return False
+    
+    @property
+    def propriedades_secao_inicio(self):
+        """Retorna propriedades da seção de início."""
+        if self.secao_inicio:
+            return {
+                'tipo': self.secao_inicio.tipo_secao,
+                'orientacao': self.secao_inicio.orientacao,
+                'colunas': self.secao_inicio.colunas,
+                'reinicia_numero_pagina': self.secao_inicio.reiniciar_numero_pagina
+            }
+        return {}
+
+    # ------------------------------------------------------------------
+    # Validações
+    # ------------------------------------------------------------------
+
+    def validar_estrutura(self):
+        """Valida a estrutura conceitual do capítulo."""
+        erros = []
+        
+        # Anexo/Apêndice (pós-textual) - regras especiais
+        if self.tipo_elemento == 'pos_textual':
+            if self.classificacao not in ('anexo', 'apendice', None):
+                erros.append("Classificação inválida para conteúdo pós-textual")
+            # Anexos/apêndices podem ter nível 1 e não precisam ser 'textual'
+            return erros
+        
+        # Conteúdo textual (capítulos e subcapítulos)
+        if self.tipo_elemento != 'textual':
+            erros.append("Conteúdo textual deve ter tipo_elemento = 'textual'")
+        
+        # Capítulo (nível 1)
+        if self.nivel_capitulo == 1:
+            if self.id_capitulo_pai is not None:
+                erros.append("Capítulo de nível 1 não pode ter pai")
+            if self.classificacao is not None:
+                erros.append("Capítulo de nível 1 não deve ter classificação")
+        
+        # Subcapítulo (nível ≥ 2)
+        elif self.nivel_capitulo >= 2:
+            if self.id_capitulo_pai is None:
+                erros.append("Subcapítulo deve ter um capítulo pai")
+            if self.classificacao is not None:
+                erros.append("Subcapítulo não deve ter classificação")
+        
+        return erros
 
 
 @event.listens_for(CapituloDocumento.status_capitulo, 'set',

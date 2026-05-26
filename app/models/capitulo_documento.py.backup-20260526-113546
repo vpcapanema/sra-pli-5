@@ -1,0 +1,149 @@
+from app import db
+from app.models.mixins import AuditoriaMixin
+from sqlalchemy import event
+
+
+# Sinonimos historicos -> valor canonico em dominios.tipo='status_capitulo'.
+# Usados pelo listener abaixo para nao quebrar codigo legado que ainda
+# escreve 'reprovado', 'finalizado', 'enviado_revisao' diretamente.
+_SINONIMOS_STATUS_CAPITULO = {
+    'reprovado': 'rejeitado',
+    'enviado_revisao': 'aguardando_aprovacao',
+    'finalizado': 'aprovado',
+}
+
+
+class CapituloDocumento(db.Model, AuditoriaMixin):
+    __tablename__ = 'capitulos_documento'
+
+    id_capitulo_documento = db.Column(db.Integer, primary_key=True)
+    id_relatorio = db.Column(
+        db.Integer,
+        db.ForeignKey('relatorios_producao.id'),
+        nullable=False
+    )
+    id_capitulo_pai = db.Column(
+        db.Integer,
+        db.ForeignKey('capitulos_documento.id_capitulo_documento'),
+        nullable=True
+    )
+    id_usuario_responsavel = db.Column(
+        db.Integer,
+        db.ForeignKey('usuarios.id'),
+        nullable=True
+    )
+    ordem_capitulo = db.Column(db.Integer, nullable=False)
+    nome_capitulo = db.Column(db.String(200), nullable=True)
+    titulo_capitulo = db.Column(db.String(300), nullable=False)
+    indice_capitulo = db.Column(db.String(50), nullable=True)
+    nivel_capitulo = db.Column(db.Integer, nullable=False, default=1)
+    tipo_elemento = db.Column(
+        db.String(50),
+        nullable=False,
+        default='textual'
+    )  # pre_textual, textual, pos_textual
+    docx_bookmark = db.Column(db.String(200), nullable=True)  # Marcador no DOCX
+    # Status editorial do capitulo. Mantemos a coluna VARCHAR como
+    # cache/legado mas a fonte de verdade passou a ser
+    # `status_capitulo_id` (FK -> dominios). O setter de
+    # `status_capitulo` (via property abaixo) mantem ambos sincronizados
+    # quando a aplicacao escreve a string. Valores validos vivem em
+    # `dominios.tipo='status_capitulo'`.
+    status_capitulo = db.Column(
+        db.String(50), nullable=False, default='em_edicao'
+    )
+    status_capitulo_id = db.Column(
+        db.Integer,
+        db.ForeignKey('dominios.id_dominio'),
+        nullable=True,
+        index=True,
+    )
+    # `conteudo_docx` removido pos-Fase 1 (migration drop_conteudo_docx).
+    # O conteudo de cada capitulo agora vive no DOCX em producao
+    # (`RelatorioProducao.caminho_template`), atualizado in-place pelo
+    # `servico_merge_docx`. Use `extrair_capitulo_como_docx` para obter
+    # o DOCX de um capitulo isolado.
+    observacao_coordenador = db.Column(db.Text, nullable=True)
+    ativo = db.Column(db.Boolean, default=True)
+
+    relatorio = db.relationship(
+        'RelatorioProducao', back_populates='capitulos'
+    )
+    responsavel = db.relationship(
+        'Usuario', foreign_keys=[id_usuario_responsavel]
+    )
+    capitulo_pai = db.relationship(
+        'CapituloDocumento',
+        remote_side=[id_capitulo_documento],
+        backref='subcapitulos'
+    )
+    elementos = db.relationship('ElementoConteudo', back_populates='capitulo')
+
+    # Relacionamento com a tabela `dominios` para o status editorial.
+    # Conveniencia: `cap.status_dominio.descricao` para a label
+    # apresentada na UI sem precisar de consulta extra.
+    status_dominio = db.relationship(
+        'Dominio',
+        foreign_keys=[status_capitulo_id],
+        lazy='joined',
+    )
+
+    @property
+    def descricao_status(self):
+        """Label amigavel do status, vinda de `dominios.descricao`.
+
+        Fallback para o codigo (ou 'em edição') quando o relacionamento
+        nao foi carregado / nao existe ainda.
+        """
+        if self.status_dominio and self.status_dominio.descricao:
+            return self.status_dominio.descricao
+        codigo = self.status_capitulo or 'em_edicao'
+        return codigo.replace('_', ' ').capitalize()
+
+
+@event.listens_for(CapituloDocumento.status_capitulo, 'set',
+                   propagate=True)
+def _sync_status_capitulo_id(target, value, _oldvalue, _initiator):
+    """Sincroniza `status_capitulo_id` quando o codigo string e escrito.
+
+    Idempotente e tolerante: se o valor nao for um dos canonicos nem
+    um sinonimo conhecido, mantem o id atual e devolve o valor sem
+    interferir (deixa o backend rejeitar via outras validacoes).
+
+    Tambem propaga a mudanca para `envios_conteudo.status_capitulo_id`
+    de todos os envios que apontam para este capitulo, mantendo o
+    espelho consistente sem precisar de trigger de banco.
+    """
+    if not value:
+        return value
+    canonico = _SINONIMOS_STATUS_CAPITULO.get(value, value)
+    # Importacao tardia para evitar ciclo no carregamento dos modelos.
+    from app.models.dominio import Dominio  # noqa: C0415
+    try:
+        dom = Dominio.query.filter_by(
+            tipo='status_capitulo', valor=canonico
+        ).first()
+    except Exception:  # pragma: no cover  # pylint: disable=broad-except
+        dom = None
+    if dom is None:
+        return value
+
+    target.status_capitulo_id = dom.id_dominio
+
+    # Espelhar para envios que tenham este capitulo como destino.
+    # Tolerante: ignora se a sessao/banco nao estiver disponivel
+    # (ex.: durante criacao em memoria sem flush ainda).
+    try:
+        from app.models.envio_conteudo import EnvioConteudo  # noqa: C0415
+
+        if target.id_capitulo_documento:
+            EnvioConteudo.query.filter_by(
+                id_capitulo_destino=target.id_capitulo_documento
+            ).update(
+                {'status_capitulo_id': dom.id_dominio},
+                synchronize_session=False,
+            )
+    except Exception:  # pragma: no cover  # pylint: disable=broad-except
+        pass
+
+    return value

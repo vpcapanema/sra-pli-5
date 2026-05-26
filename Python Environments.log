@@ -1,0 +1,205 @@
+2026-05-26 11:44:00.501 [info] Python-envs extension version: 1.20.1
+2026-05-26 11:44:00.501 [info] 
+=== Python Envs Configuration Levels ===
+2026-05-26 11:44:00.501 [info] {
+  "section": "Python Envs Configuration Levels",
+  "defaultEnvManager": {
+    "workspaceFolderValue": "undefined",
+    "workspaceValue": "undefined",
+    "globalValue": "undefined",
+    "defaultValue": "ms-python.python:venv"
+  },
+  "defaultPackageManager": {
+    "workspaceFolderValue": "undefined",
+    "workspaceValue": "undefined",
+    "globalValue": "undefined",
+    "defaultValue": "ms-python.python:pip"
+  }
+}
+2026-05-26 11:44:00.502 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 11:44:00.502 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 11:44:00.502 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 11:44:00.502 [info] Extension for manager ms-python.python:venv is not active: Activating...
+2026-05-26 11:44:00.502 [info] Extension for manager ms-python.python:venv is now active.
+2026-05-26 11:44:30.417 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 11:44:30.417 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 11:44:30.417 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 11:44:30.417 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 11:44:30.418 [warning] [pet] Restarting Python Environment Tools (attempt 1/3, waiting 1000ms)
+2026-05-26 11:44:30.421 [error] Failed to initialize environment managers: [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 11:44:31.423 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 11:44:31.423 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 11:44:31.424 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 11:44:31.424 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 11:45:01.435 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 11:45:01.435 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 11:45:01.435 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 11:45:01.435 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 11:45:01.435 [warning] [pet] Restarting Python Environment Tools (attempt 2/3, waiting 2000ms)
+2026-05-26 11:45:01.435 [info] Pipenv not found, turning off pipenv features. If you have pipenv installed in a non-standard location, set the "python.pipenvPath" setting. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 11:45:03.444 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 11:45:03.444 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 11:45:03.444 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 11:45:03.444 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 11:45:33.452 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 11:45:33.452 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 11:45:33.452 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 11:45:33.452 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 11:45:33.452 [warning] [pet] Restarting Python Environment Tools (attempt 3/3, waiting 4000ms)
+2026-05-26 11:45:33.453 [info] Poetry not found, turning off poetry features. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 11:45:37.457 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 11:45:37.458 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 11:45:37.458 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 11:45:37.458 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 11:46:07.468 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 11:46:07.468 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 11:46:07.468 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 11:46:07.468 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 11:46:07.468 [info] Conda not found, turning off conda features. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 11:46:07.468 [info] Pyenv not found, turning off pyenv features. [Error: Python Environment Tools (PET) failed after 3 restart attempts. Please reload the window or check the output channel for details. To debug, run "Python Environments: Run Python Environment Tool (PET) in Terminal" from the Command Palette.
+	at S.ensureProcessRunning (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:535872)
+	at S.doRefresh (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:540575)
+	at c.workerFunc (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:535168)
+	at o.workFunc (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:287619)
+	at o.start (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:286434)]
+2026-05-26 11:46:07.469 [info] Skipping Python install prompt: user selected "Don't ask again"
+2026-05-26 11:46:07.469 [error] No base python found
+2026-05-26 11:46:44.554 [info] Skipping Python install prompt: user selected "Don't ask again"
+2026-05-26 11:46:44.554 [error] No base python found
+2026-05-26 11:46:44.554 [error] Failed to create environment using ms-python.python:venv [Error: No base python found
+	at t.ensureGlobalEnv (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:529477)
+	at e (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:520587)
+	at t.createPythonVenv (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:530497)
+	at t.VenvManager.create (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:510278)
+	at async f (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:266000)
+	at async e (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:326233)
+	at async e (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:325587)
+	at async c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:711197
+	at async fA.h (file:///c:/Users/Vinicius%20adm/AppData/Local/Programs/Kiro/resources/app/out/vs/workbench/api/node/extensionHostProcess.js:116:41740)
+	at async fA.h (file:///c:/Users/Vinicius%20adm/AppData/Local/Programs/Kiro/resources/app/out/vs/workbench/api/node/extensionHostProcess.js:116:41740)]
+2026-05-26 11:51:39.856 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:52:24.792 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:53:20.624 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:53:33.666 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:54:55.479 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:55:31.741 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:56:00.737 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:56:20.140 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:56:33.543 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:56:46.350 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:57:01.224 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:58:06.715 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:58:31.028 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 11:58:31.028 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 11:58:31.071 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 11:58:31.071 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 11:58:59.166 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 11:58:59.166 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 11:59:16.221 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:59:23.378 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:59:23.378 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:59:23.388 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 11:59:23.388 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 11:59:51.852 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:59:51.852 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 11:59:51.863 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 11:59:51.863 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 12:00:22.988 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 12:00:37.132 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 12:00:54.987 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 12:00:54.987 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 12:01:50.638 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 12:01:50.638 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 12:01:50.651 [info] Running in background: "python" c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python_files\unittestadapter\discovery.py --udiscovery -v -s . -p *test*.py
+2026-05-26 12:01:50.651 [error] Python executable does not exist: python. Attempting to quote the path as a workaround...
+2026-05-26 12:01:59.703 [error] Unable to handle d:\REPOSITORIOS\sra-pli-5\.venv\Scripts\python.exe
+2026-05-26 12:02:24.620 [info] Python-envs extension version: 1.20.1
+2026-05-26 12:02:24.621 [info] 
+=== Python Envs Configuration Levels ===
+2026-05-26 12:02:24.621 [info] {
+  "section": "Python Envs Configuration Levels",
+  "defaultEnvManager": {
+    "workspaceFolderValue": "undefined",
+    "workspaceValue": "undefined",
+    "globalValue": "undefined",
+    "defaultValue": "ms-python.python:venv"
+  },
+  "defaultPackageManager": {
+    "workspaceFolderValue": "undefined",
+    "workspaceValue": "undefined",
+    "globalValue": "undefined",
+    "defaultValue": "ms-python.python:pip"
+  }
+}
+2026-05-26 12:02:24.621 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 12:02:24.621 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 12:02:24.621 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 12:02:24.621 [info] Extension for manager ms-python.python:venv is not active: Activating...
+2026-05-26 12:02:24.825 [info] Extension for manager ms-python.python:venv is now active.
+2026-05-26 12:02:54.525 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 12:02:54.526 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 12:02:54.526 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 12:02:54.526 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 12:02:54.527 [warning] [pet] Restarting Python Environment Tools (attempt 1/3, waiting 1000ms)
+2026-05-26 12:02:54.533 [error] Failed to initialize environment managers: [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 12:02:55.539 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 12:02:55.539 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 12:02:55.540 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 12:02:55.541 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 12:03:25.551 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 12:03:25.551 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 12:03:25.551 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 12:03:25.551 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 12:03:25.551 [warning] [pet] Restarting Python Environment Tools (attempt 2/3, waiting 2000ms)
+2026-05-26 12:03:25.551 [info] Pyenv not found, turning off pyenv features. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 12:03:27.561 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 12:03:27.561 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 12:03:27.562 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 12:03:27.562 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 12:03:57.567 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 12:03:57.567 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 12:03:57.567 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 12:03:57.567 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 12:03:57.567 [warning] [pet] Restarting Python Environment Tools (attempt 3/3, waiting 4000ms)
+2026-05-26 12:03:57.568 [info] Poetry not found, turning off poetry features. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 12:04:01.578 [info] [pet] Starting Python Locator c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe server
+2026-05-26 12:04:01.578 [info] [pet] Python Environment Tools restarted successfully
+2026-05-26 12:04:01.578 [info] [pet] configure: Sending configuration update: {"workspaceDirectories":["d:\\REPOSITORIOS\\sra-pli-5"],"environmentDirectories":["d:/REPOSITORIOS/sra-pli-5/**/.venv"],"pipenvExecutable":"pipenv","poetryExecutable":"poetry","cacheDirectory":"c:\\Users\\Vinicius adm\\AppData\\Roaming\\Kiro\\User\\globalStorage\\ms-python.vscode-python-envs\\pythonLocator"}
+2026-05-26 12:04:01.578 [error] [pet] Process error: A system error occurred (spawn c:\Users\Vinicius adm\.kiro\extensions\ms-python.python-2026.4.0-universal\python-env-tools\bin\pet.exe ENOENT)
+2026-05-26 12:04:31.593 [warning] [pet] Configure request timed out, killing hung process for restart
+2026-05-26 12:04:31.593 [error] [pet] configure: Configuration error Request 'configure' timed out after 30000ms
+2026-05-26 12:04:31.593 [warning] [pet] Request timed out, killing hung process for restart
+2026-05-26 12:04:31.593 [error] [pet] Error refreshing Request 'configure' timed out after 30000ms
+2026-05-26 12:04:31.594 [info] Pipenv not found, turning off pipenv features. If you have pipenv installed in a non-standard location, set the "python.pipenvPath" setting. [Error: Request 'configure' timed out after 30000ms
+	at Timeout.<anonymous> (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:534062)
+	at listOnTimeout (node:internal/timers:588:17)
+	at process.processTimers (node:internal/timers:523:7)]
+2026-05-26 12:04:31.594 [info] Conda not found, turning off conda features. [Error: Python Environment Tools (PET) failed after 3 restart attempts. Please reload the window or check the output channel for details. To debug, run "Python Environments: Run Python Environment Tool (PET) in Terminal" from the Command Palette.
+	at S.ensureProcessRunning (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:535872)
+	at S.doRefresh (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:540575)
+	at c.workerFunc (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:535168)
+	at o.workFunc (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:287619)
+	at o.start (c:\Users\Vinicius adm\.kiro\extensions\ms-python.vscode-python-envs-1.20.1-universal\dist\extension.js:2:286434)]
+2026-05-26 12:04:31.596 [info] Skipping Python install prompt: user selected "Don't ask again"
+2026-05-26 12:04:31.597 [error] No base python found

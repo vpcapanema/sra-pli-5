@@ -1,0 +1,13 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "extraPaths": [
+        "./app",
+        "./app/models",
+        "./app/routes",
+        "./app/services",
+        "./app/utils"
+    ],
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true
+}
