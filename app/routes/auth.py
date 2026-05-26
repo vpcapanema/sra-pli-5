@@ -3,29 +3,47 @@ from flask import (
     url_for, flash, request, session
 )
 from flask_login import login_user, logout_user, login_required
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SelectField
+from wtforms.validators import DataRequired, Email
 from app.services.servico_usuario import ServicoUsuario
 
 auth_bp = Blueprint('auth', __name__)
 
 
+class LoginForm(FlaskForm):
+    """Formulário de login com CSRF protection."""
+    email = StringField('E-mail', validators=[DataRequired(), Email()])
+    senha = PasswordField('Senha', validators=[DataRequired()])
+    tipo_perfil = SelectField('Tipo de perfil', 
+                             choices=[('', 'Selecione...'),
+                                     ('admin', 'Administrador'),
+                                     ('coordenador', 'Coordenador'),
+                                     ('autor', 'Autor')],
+                             validators=[DataRequired()])
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        senha = request.form.get('senha')
-        perfil = request.form.get('tipo_perfil')
+    form = LoginForm()
+    
+    if form.validate_on_submit():
+        email = form.email.data
+        senha = form.senha.data
+        perfil = form.tipo_perfil.data
 
         usuario = ServicoUsuario.autenticar(
             email, senha, perfil
         )
         if not usuario:
             flash('Credenciais inválidas.', 'erro')
-            return render_template('login.html')
+            return render_template('login.html', form=form)
 
         login_user(usuario)
         session['perfil_ativo'] = perfil
         return redirect(url_for('principal.index'))
-    return render_template('login.html')
+    
+    return render_template('login.html', form=form)
 
 
 @auth_bp.route('/recuperar-senha', methods=['GET', 'POST'])

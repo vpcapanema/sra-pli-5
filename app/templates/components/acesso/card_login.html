@@ -4,22 +4,18 @@
         <p class="sra-auth__subtitle">Sistema de Relatórios de Atividades<br>Consórcio Concremat–Transplan</p>
     </div>
     <form class="sra-auth__form" method="POST" action="{{ url_for('auth.login') }}">
+        {{ form.csrf_token() if form else '' }}
         <div class="sra-input">
             <label class="sra-input__label" for="email">E-mail</label>
-            <input class="sra-input__field" type="email" id="email" name="email" autocomplete="username" required>
+            {{ form.email(class="sra-input__field", autocomplete="username") }}
         </div>
         <div class="sra-input">
             <label class="sra-input__label" for="senha">Senha</label>
-            <input class="sra-input__field" type="password" id="senha" name="senha" autocomplete="current-password" required>
+            {{ form.senha(class="sra-input__field", autocomplete="current-password") }}
         </div>
         <div class="sra-input">
             <label class="sra-input__label" for="tipo_perfil">Tipo de perfil</label>
-            <select class="sra-input__field" id="tipo_perfil" name="tipo_perfil" required>
-                <option value="">Selecione...</option>
-                <option value="admin">Administrador</option>
-                <option value="coordenador">Coordenador</option>
-                <option value="autor">Autor</option>
-            </select>
+            {{ form.tipo_perfil(class="sra-input__field") }}
         </div>
         <button type="submit" class="sra-button sra-button--secondary sra-button--block">Entrar</button>
     </form>
