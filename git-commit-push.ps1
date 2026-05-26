@@ -6,6 +6,10 @@ param(
     [string]$CommitMessage
 )
 
+# Configurar encoding para UTF-8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # Função para exibir mensagens com formatação
 function Write-Step {
     param(
@@ -46,16 +50,16 @@ function Write-FinalStatus {
     Write-Host ""
     Write-Host "*" * 70 -ForegroundColor DarkGray
     if ($Success) {
-        Write-Host "  ✅ $Message" -ForegroundColor Green -BackgroundColor DarkGray
+        Write-Host "  [SUCCESS] $Message" -ForegroundColor Green -BackgroundColor DarkGray
     } else {
-        Write-Host "  ❌ $Message" -ForegroundColor Red -BackgroundColor DarkGray
+        Write-Host "  [ERROR] $Message" -ForegroundColor Red -BackgroundColor DarkGray
     }
     Write-Host "*" * 70 -ForegroundColor DarkGray
     Write-Host ""
 }
 
 # Início do processo
-Write-Section -Title "INÍCIO DO PROCESSO DE COMMIT E PUSH"
+Write-Section -Title "INICIO DO PROCESSO DE COMMIT E PUSH"
 Write-Step -Message "Iniciando processo de commit e push..." -Status "INFO"
 Write-Step -Message "Mensagem do commit: '$CommitMessage'" -Status "INFO"
 
@@ -67,15 +71,15 @@ Write-Section -Title "ETAPA 1: VERIFICAR STATUS DO GIT"
 try {
     $status = git status
     if ($LASTEXITCODE -eq 0) {
-        Write-Step -Message "Status do repositório verificado com sucesso" -Status "SUCCESS"
+        Write-Step -Message "Status do repositorio verificado com sucesso" -Status "SUCCESS"
         
         # Verificar se há mudanças
         if ($status -match "nothing to commit") {
-            Write-Step -Message "Nenhuma mudança para commitar" -Status "WARNING"
-            Write-FinalStatus -Message "PROCESSO CONCLUÍDO: Nenhuma mudança para commitar" -Success $true
+            Write-Step -Message "Nenhuma mudanca para commitar" -Status "WARNING"
+            Write-FinalStatus -Message "PROCESSO CONCLUIDO: Nenhuma mudanca para commitar" -Success $true
             exit 0
         } else {
-            Write-Step -Message "Mudanças detectadas para commit" -Status "SUCCESS"
+            Write-Step -Message "Mudancas detectadas para commit" -Status "SUCCESS"
         }
     } else {
         Write-Step -Message "Erro ao verificar status do git" -Status "ERROR"
@@ -91,17 +95,17 @@ try {
 # ============================================
 # ETAPA 2: Adicionar todas as mudanças
 # ============================================
-Write-Section -Title "ETAPA 2: ADICIONAR MUDANÇAS"
+Write-Section -Title "ETAPA 2: ADICIONAR MUDANCAS"
 
 try {
-    Write-Step -Message "Adicionando todas as mudanças..." -Status "INFO"
+    Write-Step -Message "Adicionando todas as mudancas..." -Status "INFO"
     git add .
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Step -Message "Mudanças adicionadas com sucesso ao staging" -Status "SUCCESS"
+        Write-Step -Message "Mudancas adicionadas com sucesso ao staging" -Status "SUCCESS"
     } else {
-        Write-Step -Message "Erro ao adicionar mudanças" -Status "ERROR"
-        Write-FinalStatus -Message "PROCESSO FALHOU: Erro ao adicionar mudanças" -Success $false
+        Write-Step -Message "Erro ao adicionar mudancas" -Status "ERROR"
+        Write-FinalStatus -Message "PROCESSO FALHOU: Erro ao adicionar mudancas" -Success $false
         exit 1
     }
 } catch {
@@ -164,7 +168,7 @@ try {
 Write-Section -Title "ETAPA 5: VERIFICAR LOG FINAL"
 
 try {
-    Write-Step -Message "Exibindo últimos 3 commits..." -Status "INFO"
+    Write-Step -Message "Exibindo ultimos 3 commits..." -Status "INFO"
     $log = git log --oneline -3
     
     if ($LASTEXITCODE -eq 0) {
@@ -182,10 +186,10 @@ try {
 # ============================================
 # STATUS FINAL
 # ============================================
-Write-FinalStatus -Message "PROCESSO CONCLUÍDO COM SUCESSO! ✅" -Success $true
+Write-FinalStatus -Message "PROCESSO CONCLUIDO COM SUCESSO!" -Success $true
 Write-Step -Message "Resumo:" -Status "INFO"
 Write-Step -Message "  - Status verificado [OK]" -Status "INFO"
-Write-Step -Message "  - Mudanças adicionadas [OK]" -Status "INFO"
+Write-Step -Message "  - Mudancas adicionadas [OK]" -Status "INFO"
 Write-Step -Message "  - Commit realizado [OK]" -Status "INFO"
 Write-Step -Message "  - Push para origin/master [OK]" -Status "INFO"
 Write-Step -Message "  - Log verificado [OK]" -Status "INFO"
