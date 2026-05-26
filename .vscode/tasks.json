@@ -28,6 +28,39 @@
             "problemMatcher": [],
             "label": "npm: install - app/static/editor-react",
             "detail": "install dependencies from package"
+        },
+        {
+            "label": "Git: Commit & Push (com feedback visual)",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}\\git-commit-push.ps1\"",
+            "args": [
+                {
+                    "value": "${input:commitMessage}",
+                    "quoting": "weak"
+                }
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "detail": "Executa git status → add → commit → push com feedback visual claro"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "commitMessage",
+            "type": "promptString",
+            "description": "Mensagem do commit",
+            "default": "feat: atualização"
         }
     ]
 }
