@@ -9,7 +9,7 @@ import pytest
 from docx import Document
 
 from app import create_app, db
-from app.models.dominio import DomPerfilUsuario, DomStatusRelatorio
+from app.models.dominio import Dominio
 from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.capitulo_documento import CapituloDocumento
@@ -28,13 +28,13 @@ def app():
         db.create_all()
         # Seed mínimo
         db.session.add(
-            DomPerfilUsuario(codigo='autor', descricao='Autor')
+            Dominio(tipo='perfil_usuario', valor='autor', descricao='Autor')
         )
         db.session.add(
-            DomPerfilUsuario(codigo='coordenador', descricao='Coord')
+            Dominio(tipo='perfil_usuario', valor='coordenador', descricao='Coord')
         )
         db.session.add(
-            DomStatusRelatorio(codigo='em_producao', descricao='EP')
+            Dominio(tipo='status_relatorio', valor='em_producao', descricao='EP')
         )
         db.session.commit()
         yield app
@@ -44,10 +44,10 @@ def app():
 
 @pytest.fixture
 def dados(app):
-    perfil_autor = DomPerfilUsuario.query.filter_by(
-        codigo='autor'
+    perfil_autor = Dominio.query.filter_by(
+        tipo='perfil_usuario', valor='autor'
     ).first()
-    status = DomStatusRelatorio.query.first()
+    status = Dominio.query.filter_by(tipo='status_relatorio').first()
     u = Usuario(
         nome='Autor T',
         email='a@t.com',

@@ -35,7 +35,7 @@ class RelatorioProducao(db.Model):
     titulo_curto = db.Column(db.String(300), nullable=True)
     status_id = db.Column(
         db.Integer,
-        db.ForeignKey('dom_status_relatorios.id'),
+        db.ForeignKey('dominios.id_dominio'),
         nullable=False
     )
     criado_por = db.Column(
@@ -56,7 +56,7 @@ class RelatorioProducao(db.Model):
     )
     caminho_template = db.Column(db.String(500), nullable=True)
 
-    status = db.relationship('DomStatusRelatorio')
+    status = db.relationship('Dominio')
     criador = db.relationship('Usuario', foreign_keys=[criado_por])
     modelo = db.relationship('ModeloRelatorio', foreign_keys=[modelo_id])
     biblioteca = db.relationship(

@@ -10,15 +10,16 @@
 </div>
 
 <!-- Container 1: Criar novo relatório mensal de atividades -->
-<div class="sra-section sra-section--bordered sigma-pli-conteiner">
-    <div class="sra-section__header">
+<details class="sra-section sra-section--bordered sigma-pli-conteiner sra-collapsible">
+    <summary class="sra-section__header sra-collapsible__summary">
         <h2 class="sra-section__title">
             <span class="sigma-pli-conteiner__icon sigma-pli-conteiner__icon--lg">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             </span>
             <span>1. Criar novo relatório mensal de atividades</span>
         </h2>
-    </div>
+        <i class="ph ph-caret-down sra-collapsible__icon" aria-hidden="true"></i>
+    </summary>
     <div class="sra-section__body">
     <p class="sra-section__description">
         Utilize este formulário para criar um novo relatório de produção a partir de um modelo da biblioteca.
@@ -102,46 +103,46 @@
         </div>
     </div>
     </div>
-</div>
+</details>
 
-<!-- Container 2: Quadro de Relatórios por situação -->
+<!-- Container 2: Quadro geral de relatórios por situação -->
 <div class="sra-section sra-section--bordered sigma-pli-conteiner">
     <div class="sra-section__header">
         <h2 class="sra-section__title">
             <span class="sigma-pli-conteiner__icon sigma-pli-conteiner__icon--lg">
+                <!-- icone: pasta com arquivos (quadro geral de relatorios) -->
                 <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             </span>
-            <span>2. Quadro de Relatórios por situação</span>
+            <span>2. Quadro geral de relatórios por situação</span>
         </h2>
     </div>
-    <div class="sra-section__body">
-    <p class="sra-section__description">
-        Visualize e gerencie todos os relatórios do sistema. Os relatórios em produção são aqueles atualmente em elaboração,
-        enquanto os relatórios finalizados estão armazenados na biblioteca para uso como modelos em futuras clonagens.
-    </p>
 
-    <!-- 2.1 Relatórios em Produção -->
-    <div class="sra-card">
-        <div class="sra-card__header">
-            <h3 class="sra-card__title">2.1 Relatórios em Produção</h3>
-        </div>
-        <div class="sra-card__content">
-            {% from "components/relatorio/lista_relatorios_producao.html" import lista_relatorios_producao %}
-            {{ lista_relatorios_producao(relatorios_producao) }}
-        </div>
+    {# Subseções 2.1 e 2.2 — os macros renderizam apenas
+       sub-titulo + tabela. O invólucro PLI é o sigma-pli-conteiner
+       acima (a propria seção 2). #}
+    {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
+    {{ lista_relatorios_base(relatorios_finalizados, indice='2.1') }}
+
+    {% from "components/relatorio/lista_relatorios_producao.html" import lista_relatorios_producao %}
+    {{ lista_relatorios_producao(relatorios_producao, indice='2.2') }}
+</div>
+
+<!-- Container 3: Acompanhamento de Envios de Conteúdo -->
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    <div class="sra-section__header">
+        <h2 class="sra-section__title">
+            <span class="sigma-pli-conteiner__icon sigma-pli-conteiner__icon--lg">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </span>
+            <span>3. Envios de Conteúdo dos Autores</span>
+        </h2>
     </div>
 
-    <!-- 2.2 Relatórios Finalizados (Biblioteca) -->
-    <div class="sra-card">
-        <div class="sra-card__header">
-            <h3 class="sra-card__title">2.2 Relatórios Finalizados (Biblioteca)</h3>
-        </div>
-        <div class="sra-card__content">
-            {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
-            {{ lista_relatorios_base(relatorios_finalizados) }}
-        </div>
-    </div>
-    </div>
+    {# Tabela direto sob o conteiner principal — sem sra-section__body
+       nem sra-card extra. A `tabela_envios_conteudo` ja gera seu
+       proprio `sra-table-container`. #}
+    {% from "components/relatorio/tabela_envios_conteudo.html" import tabela_envios_conteudo %}
+    {{ tabela_envios_conteudo(envios or [], perfil_ativo) }}
 </div>
 
 <script>

@@ -46,7 +46,7 @@ sra-pli-5/
 - Classes em `PascalCase` (`RelatorioProducao`).
 - Todos os modelos importados em `app/models/__init__.py` (registro central para o SQLAlchemy e Alembic).
 - Mixins reutilizáveis em `mixins.py` (ex.: `AuditoriaMixin`).
-- Tabelas de domínio (enums persistidos) em `dominio.py` com prefixo `Dom*` (`DomPerfilUsuario`, `DomStatusRelatorio`).
+- Tabelas de domínio (enums persistidos) unificadas em `dominio.py` na classe `Dominio` (tabela `public.dominios`). Cada registro é identificado por `(tipo, valor)` — ex.: `tipo='perfil_usuario'`, `tipo='status_relatorio'`, `tipo='status_capitulo'`, etc.
 
 ### `app/routes/`
 

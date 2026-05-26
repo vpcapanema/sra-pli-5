@@ -1,468 +1,377 @@
-/* ==========================================================================
-   Editor do Autor — JS
+/* ============================================================
+   Editor do Autor — JS INDEPENDENTE
 
-   Responsabilidades:
-     1. Carregar o DOCX inteiro via fetch e renderizar com docx-preview.
-     2. Controlar zoom da visualizacao (botoes + / -).
-     3. Reagir ao seletor de capitulo: rola ate o capitulo escolhido
-        (busca pelo titulo no DOM gerado pelo docx-preview).
-     4. Destacar visualmente os capitulos pelos quais o autor logado
-        e responsavel (caps_meus passado pelo backend).
-
-   A edicao em si continua sendo via fluxo de upload-de-DOCX por
-   capitulo (botao "upload" ao lado de cada capitulo MEU na
-   sidebar) — sem mudancas.
-   ========================================================================== */
+   Funcao unica:
+   - Monta o @eigenpal/docx-editor-react no container PROPRIO
+     (#ea-docxEditorMount) em modo editing
+   - Totalmente independente do editor_coordenador.js
+   - Sem conflitos, sem double-mounting
+   ============================================================ */
 (function () {
     'use strict';
 
     if (typeof SRALogger !== 'undefined') {
-        SRALogger.info('editor_autor.js carregado');
+        SRALogger.info('[ea-editor-autor.js] carregado');
     }
 
-    var dataEl = document.getElementById('ea-data');
+    var dataEl = document.getElementById('ea-editor-data');
     if (!dataEl) {
-        if (typeof SRALogger !== 'undefined') {
-            SRALogger.warn('Elemento ea-data não encontrado');
-        }
+        console.warn('[ea-editor-autor] elemento de dados ausente');
         return;
     }
 
-    var docxUrl = dataEl.dataset.docxUrl;
-    var capsMeus = [];
-    try {
-        capsMeus = JSON.parse(dataEl.dataset.capsMeus || '[]');
-        if (typeof SRALogger !== 'undefined') {
-            SRALogger.debug('Capítulos do autor carregados: ' + capsMeus.length);
-        }
-    } catch (e) {
-        console.warn('caps_meus invalido', e);
-        if (typeof SRALogger !== 'undefined') {
-            SRALogger.error('Erro ao parsear caps_meus', e);
-        }
-    }
-
-    var mount = document.getElementById('docxEditorMount');
-    var capSelect = document.getElementById('ea-cap-select');
-    var capLivreSelect = document.getElementById('ea-cap-livre-select');
-    var btnAddCapLivre = document.getElementById('ea-add-cap-livre');
-    var capsSelecionados = document.getElementById('ea-caps-selecionados');
-    var capsHiddenInputs = document.getElementById('ea-caps-hidden-inputs');
-    var btnDocxZoomIn = document.getElementById('ea-docx-zoom-in');
-    var btnDocxZoomOut = document.getElementById('ea-docx-zoom-out');
-    var btnDocxZoomReset = document.getElementById('ea-docx-zoom-reset');
-    var docxZoomValue = document.getElementById('ea-docx-zoom-value');
-
-    var currentZoom = 1.0;
-    var capitulosEscolhidos = [];
-
-    function inicializarColapsaveis() {
-        var triggers = document.querySelectorAll('.ea__collapse-trigger');
-        triggers.forEach(function (trigger) {
-            trigger.addEventListener('click', function () {
-                var wrapper = trigger.closest('.ea__collapse');
-                if (!wrapper) return;
-
-                var panel = wrapper.querySelector('.ea__collapse-panel');
-                if (!panel) return;
-
-                var vaiAbrir = panel.hasAttribute('hidden');
-                panel.toggleAttribute('hidden', !vaiAbrir);
-                trigger.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
-                wrapper.classList.toggle('is-open', vaiAbrir);
-            });
-        });
-    }
-
-    function atualizarListaCapitulosEscolhidos() {
-        if (!capsSelecionados || !capsHiddenInputs) return;
-        capsSelecionados.innerHTML = '';
-        capsHiddenInputs.innerHTML = '';
-
-        if (!capitulosEscolhidos.length) {
-            capsSelecionados.innerHTML = '<li class="ea__selected-empty">' +
-                'Nenhum capítulo adicionado.</li>';
-            return;
-        }
-
-        capitulosEscolhidos.forEach(function (item) {
-            var li = document.createElement('li');
-            li.className = 'ea__selected-item';
-            li.innerHTML = '<span>' + item.label + '</span>' +
-                '<button type="button" data-cap-id="' + item.id + '">' +
-                '<i class="ph ph-x"></i></button>';
-            capsSelecionados.appendChild(li);
-
-            var input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'capitulos';
-            input.value = item.id;
-            capsHiddenInputs.appendChild(input);
-        });
-    }
-
-    function inicializarSeletorCapitulosLivres() {
-        if (!capLivreSelect || !btnAddCapLivre) return;
-
-        btnAddCapLivre.addEventListener('click', function () {
-            var opt = capLivreSelect.options[capLivreSelect.selectedIndex];
-            if (!opt || !opt.value) return;
-            var jaExiste = capitulosEscolhidos.some(function (item) {
-                return item.id === opt.value;
-            });
-            if (jaExiste) return;
-
-            capitulosEscolhidos.push({
-                id: opt.value,
-                label: (opt.textContent || '').trim()
-            });
-            opt.disabled = true;
-            capLivreSelect.value = '';
-            atualizarListaCapitulosEscolhidos();
-        });
-
-        if (capsSelecionados) {
-            capsSelecionados.addEventListener('click', function (ev) {
-                var btn = ev.target.closest('button[data-cap-id]');
-                if (!btn) return;
-                var id = btn.dataset.capId;
-                capitulosEscolhidos = capitulosEscolhidos.filter(
-                    function (item) { return item.id !== id; }
-                );
-                var opt = capLivreSelect.querySelector(
-                    'option[value="' + id + '"]'
-                );
-                if (opt) opt.disabled = false;
-                atualizarListaCapitulosEscolhidos();
-            });
-        }
-    }
-
-    // ======================================================
-    // 1. Destaca os capitulos do autor no DOM renderizado.
-    //    Estrategia: percorre as <option> do seletor que tem
-    //    data-editavel="1" e procura o texto do titulo no doc.
-    // ======================================================
-    function marcarCapitulosEditaveis() {
-        if (!capSelect) return;
-        var opts = capSelect.querySelectorAll('option[data-editavel="1"]');
-        if (!opts.length) return;
-
-        var headings = mount.querySelectorAll(
-            'h1, h2, h3, h4, p[class*="Heading"], p[class*="Titulo"]'
-        );
-
-        opts.forEach(function (opt) {
-            var label = (opt.textContent || '').replace(/★ MEU/i, '').trim();
-            if (!label) return;
-            for (var i = 0; i < headings.length; i++) {
-                var txt = (headings[i].textContent || '').trim();
-                if (txt && label.indexOf(txt) !== -1) {
-                    headings[i].classList.add('ea-hl-meu');
-                    headings[i].setAttribute(
-                        'data-cap-id', opt.value || ''
-                    );
-                    break;
-                }
-            }
-        });
-    }
-
-    // ======================================================
-    // Seletor de relatorio: navega para o valor da option
-    // (migrado de onchange inline em editor_autor.html — R11)
-    // ======================================================
-    const selRel = document.getElementById('ea-rel-select');
-    if (selRel) {
-        selRel.addEventListener('change', (ev) => {
-            const v = ev.target.value;
-            if (v) window.location.href = v;
-        });
-    }
-
-    // ======================================================
-    // Form de envio final: confirmação antes de submeter
-    // (migrado de onsubmit inline em editor_autor.html — R12)
-    // ======================================================
-    const formEnvio = document.querySelector('form.acao-form[data-envio-final="1"]');
-    if (formEnvio) {
-        formEnvio.addEventListener('submit', (ev) => {
-            if (!window.confirm('Enviar conteúdo final ao coordenador? Depois disso sua edição ficará bloqueada.')) {
-                ev.preventDefault();
-                ev.stopPropagation();
-            }
-        });
-    }
-
-    // ======================================================
-    // 4. Scroll ate o capitulo selecionado
-    // ======================================================
-    if (capSelect) {
-        capSelect.addEventListener('change', function () {
-            var capId = this.value;
-            if (typeof SRALogger !== 'undefined') {
-                SRALogger.info('Capítulo selecionado: ' + capId);
-            }
-            if (!capId) {
-                mount.scrollTop = 0;
-                return;
-            }
-            var alvo = mount.querySelector(
-                '[data-cap-id="' + capId + '"]'
-            );
-            if (alvo) {
-                alvo.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
-    }
-
-    function aplicarZoomDocx() {
-        var mountEditor = document.getElementById('docxEditorMount');
-        if (!mountEditor) return;
-        var alvo = mountEditor.querySelector(
-            '.sra-docx-viewer, .sra-docx-editor, .docx-wrapper, [class*="docx"]'
-        ) || mountEditor.firstElementChild;
-        if (!alvo) return;
-        alvo.style.transform = 'scale(' + currentZoom + ')';
-        alvo.style.transformOrigin = 'top center';
-        alvo.style.width = (100 / currentZoom) + '%';
-        if (docxZoomValue) {
-            docxZoomValue.textContent = Math.round(currentZoom * 100) + '%';
-        }
-    }
-
-    function inicializarZoomDocx() {
-        function alterar(delta) {
-            currentZoom = Math.max(.5, Math.min(1.75, currentZoom + delta));
-            aplicarZoomDocx();
-        }
-        if (btnDocxZoomIn) {
-            btnDocxZoomIn.addEventListener('click', function () {
-                alterar(.1);
-            });
-        }
-        if (btnDocxZoomOut) {
-            btnDocxZoomOut.addEventListener('click', function () {
-                alterar(-.1);
-            });
-        }
-        if (btnDocxZoomReset) {
-            btnDocxZoomReset.addEventListener('click', function () {
-                currentZoom = 1;
-                aplicarZoomDocx();
-            });
-        }
-        setTimeout(aplicarZoomDocx, 800);
-        setTimeout(aplicarZoomDocx, 1600);
-    }
-
-    inicializarColapsaveis();
-    inicializarSeletorCapitulosLivres();
-    inicializarZoomDocx();
-    setTimeout(marcarCapitulosEditaveis, 1500);
-    inicializarEnvioContainers();
+    var DOCX_URL = dataEl.dataset.docxUrl;
+    var MODE = dataEl.dataset.mode || 'editing';
+    var MOUNT_ID = 'ea-docxEditorMount';
 
     if (typeof SRALogger !== 'undefined') {
-        SRALogger.info('Editor do autor inicializado');
+        SRALogger.info('[ea-editor-autor] Configuração: modo=' + MODE + ', url=' + DOCX_URL);
     }
 
-    // ======================================================
-    // Carregar conteúdo dos containers de envio
-    // ======================================================
-    function inicializarEnvioContainers() {
-        var envioData = document.getElementById('ea-envio-data');
-        if (!envioData) return;
+    var editorHandle = null;
 
-        var idEnvio = envioData.dataset.idEnvio;
-        if (!idEnvio) return;
-
-        // Carregar DOCX original quando o container for aberto
-        var docxOriginalTrigger = document.querySelector(
-            '[data-collapse-target="ea-preview-docx-original"]'
-        );
-        if (docxOriginalTrigger) {
-            docxOriginalTrigger.addEventListener('click', function () {
-                var mount = document.getElementById('ea-docx-original-mount');
-                if (!mount || mount.children.length > 0) return; // Já carregado
-
-                carregarDocxOriginal(idEnvio, mount);
-            });
-        }
-
-        // Carregar segmentos quando o container for aberto
-        var segmentosTrigger = document.querySelector('[data-collapse-target="ea-preview-segmentos"]');
-        if (segmentosTrigger) {
-            segmentosTrigger.addEventListener('click', function () {
-                var treeMount = document.getElementById('ea-estrutura-tree');
-                if (!treeMount || treeMount.children.length > 0) return;
-                carregarSegmentos(idEnvio, treeMount);
-            });
-        }
-    }
-
-    function carregarDocxOriginal(idEnvio, mount) {
-        var url = '/api/envios/' + idEnvio + '/docx';
-        fetch(url)
-            .then(function (res) {
-                if (!res.ok) throw new Error('Erro ao carregar DOCX');
-                return res.arrayBuffer();
-            })
-            .then(function (buffer) {
-                if (window.docx && window.docx.renderAsync) {
-                    return window.docx.renderAsync(buffer, mount);
-                }
-                throw new Error('docx-preview não disponível');
-            })
-            .catch(function (err) {
-                console.error('Erro ao carregar DOCX original:', err);
-                mount.innerHTML = '<p class="ea__panel-text">Erro ao carregar DOCX original.</p>';
-            });
-    }
-
-    function carregarSegmentos(idEnvio, mount) {
-        var url = '/api/envios/' + idEnvio + '/estrutura';
-        fetch(url)
-            .then(function (res) {
-                if (!res.ok) throw new Error('Erro ao carregar estrutura');
-                return res.json();
-            })
-            .then(function (data) {
-                if (!data) return;
-
-                var treeMount = document.getElementById('ea-estrutura-tree');
-                var contentMount = document.getElementById('ea-estrutura-content');
-
-                if (!treeMount || !contentMount) return;
-
-                // Renderizar árvore de capítulos
-                renderizarArvoreCapitulos(data.capitulos || [], treeMount);
-
-                // Renderizar conteúdo preenchido
-                renderizarConteudoPreenchido(data, contentMount);
-            })
-            .catch(function (err) {
-                console.error('Erro ao carregar estrutura:', err);
-                mount.innerHTML = '<p class="ea__panel-text">Erro ao carregar estrutura.</p>';
-            });
-    }
-
-    function renderizarArvoreCapitulos(capitulos, mount) {
-        mount.innerHTML = '';
-
-        if (!capitulos || capitulos.length === 0) {
-            mount.innerHTML = '<p class="ea__panel-text">Nenhum capítulo encontrado.</p>';
+    /**
+     * Monta o editor React no container próprio
+     * @param {boolean} isManualReload - True se foi acionado explicitamente pelo botão
+     */
+    function montarEditor(isManualReload) {
+        var mountEl = document.getElementById(MOUNT_ID);
+        if (!mountEl) {
+            console.warn('[ea-editor-autor] container de mount não encontrado');
             return;
         }
 
-        capitulos.forEach(function (cap) {
-            var node = criarNoCapitulo(cap, 1);
-            mount.appendChild(node);
-        });
-    }
-
-    function criarNoCapitulo(cap, nivel) {
-        var div = document.createElement('div');
-        div.className = 'ea__capitulo-node ea__capitulo-node--level-' + nivel;
-
-        var header = document.createElement('div');
-        header.className = 'ea__capitulo-header';
-        header.innerHTML = '<span class="ea__capitulo-indice">' +
-            (cap.indice || '') + '</span>' +
-            '<span class="ea__capitulo-titulo">' + (cap.titulo || '') + '</span>';
-
-        div.appendChild(header);
-
-        // Renderizar filhos (subcapítulos)
-        if (cap.filhos && cap.filhos.length > 0) {
-            var childrenDiv = document.createElement('div');
-            childrenDiv.className = 'ea__capitulo-children';
-            cap.filhos.forEach(function (filho) {
-                childrenDiv.appendChild(criarNoCapitulo(filho, nivel + 1));
-            });
-            div.appendChild(childrenDiv);
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.info('[ea-editor-autor] montando editor... (manual: ' + isManualReload + ')');
         }
 
-        return div;
-    }
+        // Desmontar handle anterior (se houver)
+        if (editorHandle && window.SRADocxEditor
+            && window.SRADocxEditor.unmountFullViewer) {
+            try {
+                window.SRADocxEditor.unmountFullViewer(editorHandle);
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.debug('[ea-editor-autor] editor anterior desmontado');
+                }
+            } catch (e) { /* ignore */ }
+            editorHandle = null;
+        }
 
-    function renderizarConteudoPreenchido(data, mount) {
-        mount.innerHTML = '';
+        // Mostrar loading
+        mountEl.innerHTML = ''
+            + '<div class="ea__viewer-loading">'
+            + '<i class="ph ph-spinner ph-spin"></i> '
+            + 'Carregando editor...'
+            + '</div>';
 
-        if (!data.capitulos || data.capitulos.length === 0) {
-            mount.innerHTML = '<p class="ea__panel-text">Nenhum conteúdo para exibir.</p>';
+        // Verificar se bundle carregou
+        if (!window.SRADocxEditor || !window.SRADocxEditor.mountFullViewer) {
+            mountEl.innerHTML = ''
+                + '<div class="ea__viewer-error">'
+                + '<i class="ph ph-warning"></i> '
+                + 'Bundle docx-editor não carregou. '
+                + 'Verifique a conexão e recarregue a página.'
+                + '</div>';
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.error('[ea-editor-autor] Bundle docx-editor não disponível');
+            }
             return;
         }
 
-        // Renderizar figuras e tabelas
-        if (data.legendas) {
-            if (data.legendas.figuras && data.legendas.figuras.total_ocorrencias > 0) {
-                var figDiv = document.createElement('div');
-                figDiv.style.marginBottom = '1rem';
-                figDiv.style.padding = '0.75rem';
-                figDiv.style.background = 'white';
-                figDiv.style.borderRadius = '6px';
-                figDiv.innerHTML = '<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #004b36;">Figuras encontradas</h4>';
+        // Cache-bust
+        var url = DOCX_URL
+            + (DOCX_URL.indexOf('?') >= 0 ? '&' : '?')
+            + '_t=' + Date.now();
 
-                var figInfo = document.createElement('div');
-                figInfo.style.fontSize = '0.8rem';
-                figInfo.style.color = '#52635e';
-                figInfo.innerHTML = '<p>Total: ' + data.legendas.figuras.total_ocorrencias + '</p>';
-                if (data.legendas.figuras.estilo_predominante) {
-                    figInfo.innerHTML += '<p>Estilo: ' + data.legendas.figuras.estilo_predominante + '</p>';
-                }
-                if (data.legendas.figuras.exemplos && data.legendas.figuras.exemplos.length > 0) {
-                    figInfo.innerHTML += '<p>Exemplos: ' + data.legendas.figuras.exemplos.join(', ') + '</p>';
-                }
-                figDiv.appendChild(figInfo);
-                mount.appendChild(figDiv);
-            }
-
-            if (data.legendas.tabelas && data.legendas.tabelas.total_ocorrencias > 0) {
-                var tabDiv = document.createElement('div');
-                tabDiv.style.marginBottom = '1rem';
-                tabDiv.style.padding = '0.75rem';
-                tabDiv.style.background = 'white';
-                tabDiv.style.borderRadius = '6px';
-                tabDiv.innerHTML = '<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #004b36;">Tabelas encontradas</h4>';
-
-                var tabInfo = document.createElement('div');
-                tabInfo.style.fontSize = '0.8rem';
-                tabInfo.style.color = '#52635e';
-                tabInfo.innerHTML = '<p>Total: ' + data.legendas.tabelas.total_ocorrencias + '</p>';
-                if (data.legendas.tabelas.estilo_predominante) {
-                    tabInfo.innerHTML += '<p>Estilo: ' + data.legendas.tabelas.estilo_predominante + '</p>';
-                }
-                if (data.legendas.tabelas.exemplos && data.legendas.tabelas.exemplos.length > 0) {
-                    tabInfo.innerHTML += '<p>Exemplos: ' + data.legendas.tabelas.exemplos.join(', ') + '</p>';
-                }
-                tabDiv.appendChild(tabInfo);
-                mount.appendChild(tabDiv);
-            }
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.httpRequest('GET', url);
         }
 
-        // Renderizar sequência linear de capítulos
-        data.capitulos.forEach(function (cap) {
-            var capDiv = document.createElement('div');
-            capDiv.style.marginBottom = '1rem';
-            capDiv.style.padding = '0.75rem';
-            capDiv.style.background = 'white';
-            capDiv.style.borderRadius = '6px';
+        // MONTAR EDITOR
+        editorHandle = window.SRADocxEditor.mountFullViewer(MOUNT_ID, {
+            url: url,
+            mode: MODE,
+        });
 
-            capDiv.innerHTML = '<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #004b36;">' +
-                (cap.indice || '') + ' ' + (cap.titulo || '') + '</h4>';
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.info('[ea-editor-autor] editor montado com sucesso');
+        }
 
-            if (cap.nivel) {
-                var nivelDiv = document.createElement('div');
-                nivelDiv.style.fontSize = '0.8rem';
-                nivelDiv.style.color = '#52635e';
-                nivelDiv.innerHTML = 'Nível: ' + cap.nivel;
-                capDiv.appendChild(nivelDiv);
+        // Aplicar estilos após render
+        setTimeout(aplicarEstilosViewer, 500);
+    }
+
+    /**
+     * Aplica estilos finais (zoom branco, etc)
+     */
+    function aplicarEstilosViewer() {
+        // Zoom value em branco
+        var zoomValue = document.getElementById('ea-docx-zoom-value');
+        if (zoomValue) {
+            zoomValue.style.color = '#fff';
+            zoomValue.style.fontWeight = '600';
+        }
+    }
+
+    /**
+     * Bind do botão Recarregar (ÚNICO evento que recarrega o editor)
+     */
+    function bindRecarregar() {
+        var btn = document.getElementById('ea-btnRecarregarViewer');
+        if (!btn) return;
+        btn.addEventListener('click', function (evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.click(btn, 'ea-recarregar-editor');
             }
-
-            mount.appendChild(capDiv);
+            montarEditor(true);
         });
     }
+
+    /**
+     * Bind dos botões de zoom
+     */
+    function bindZoom() {
+        var zoomOut = document.getElementById('ea-docx-zoom-out');
+        var zoomIn = document.getElementById('ea-docx-zoom-in');
+        var zoomReset = document.getElementById('ea-docx-zoom-reset');
+        var zoomValue = document.getElementById('ea-docx-zoom-value');
+
+        if (!zoomValue) return;
+
+        var currentZoom = 100;
+
+        if (zoomOut) {
+            zoomOut.addEventListener('click', function () {
+                currentZoom = Math.max(50, currentZoom - 10);
+                zoomValue.textContent = currentZoom + '%';
+                aplicarZoom(currentZoom);
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.click(zoomOut, 'ea-zoom-out-' + currentZoom);
+                }
+            });
+        }
+
+        if (zoomIn) {
+            zoomIn.addEventListener('click', function () {
+                currentZoom = Math.min(200, currentZoom + 10);
+                zoomValue.textContent = currentZoom + '%';
+                aplicarZoom(currentZoom);
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.click(zoomIn, 'ea-zoom-in-' + currentZoom);
+                }
+            });
+        }
+
+        if (zoomReset) {
+            zoomReset.addEventListener('click', function () {
+                currentZoom = 100;
+                zoomValue.textContent = currentZoom + '%';
+                aplicarZoom(currentZoom);
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.click(zoomReset, 'ea-zoom-reset');
+                }
+            });
+        }
+    }
+
+    /**
+     * Aplica zoom ao conteúdo
+     */
+    function aplicarZoom(percent) {
+        var mountEl = document.getElementById(MOUNT_ID);
+        if (mountEl) {
+            var scale = percent / 100;
+            mountEl.style.transform = 'scale(' + scale + ')';
+            mountEl.style.transformOrigin = 'top center';
+            mountEl.scrollTop = 0;
+            mountEl.scrollLeft = 0;
+        }
+    }
+
+    /**
+     * Bloqueia recarregamentos automáticos na montagem inicial
+     * e em mudanças de seletor — o editor SÓ recarrega ao clicar
+     * no botão "Recarregar" explicitamente.
+     */
+    function prevenirRecarregamentosAutomaticos() {
+        var relSelect = document.getElementById('ea-rel-select');
+        var capSelect = document.getElementById('ea-cap-select');
+
+        if (relSelect) {
+            relSelect.addEventListener('change', function () {
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.info('[ea-editor-autor] seletor de relatório alterado → redirecionando');
+                }
+                // Deixa o navegador fazer o redirecionamento para nova página
+                // Não recarrega editor aqui
+            });
+        }
+
+        if (capSelect) {
+            capSelect.addEventListener('change', function () {
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.info('[ea-editor-autor] seletor de capítulo alterado');
+                }
+                // Apenas loga, não recarrega editor
+                // O usuário clica em "Recarregar" se quiser atualizar
+            });
+        }
+    }
+
+    /**
+     * Handler para atualização do formulário de atribuição
+     * Quando o capítulo muda, atualiza:
+     * - Form action para a rota correta
+     * - Pre-seleciona o autor responsável
+     * - Atualiza os formulários de upload também
+     */
+    function setupAttributionForm() {
+        var capSelect = document.getElementById('ea-atribuir-cap');
+        var autorSelect = document.getElementById('ea-atribuir-autor');
+        var form = document.getElementById('ea-atribuir-form');
+        var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        var uploadForm = document.querySelector('.ea__upload-form');
+        
+        if (!capSelect || !autorSelect || !form) {
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.warn('[ea-editor-autor] Elementos de atribuição não encontrados');
+            }
+            return;
+        }
+        
+        var versaoId = form.getAttribute('data-versao-id');
+        if (!versaoId) {
+            if (typeof SRALogger !== 'undefined') {
+                SRALogger.error('[ea-editor-autor] data-versao-id não encontrado no form');
+            }
+            return;
+        }
+        
+        /**
+         * Atualiza o form action e autor quando capítulo é selecionado
+         */
+        function atualizarForm() {
+            var capId = capSelect.value;
+            
+            if (capId) {
+                // Atualizar form action para a rota de atribuição
+                var novaAction = '/relatorio/versao-trabalho/' + versaoId 
+                    + '/capitulo/' + capId + '/atribuir';
+                form.action = novaAction;
+                
+                // Atualizar upload form action também
+                if (uploadForm) {
+                    var novaUploadAction = '/relatorio/versao-trabalho/' + versaoId
+                        + '/capitulo/' + capId + '/upload';
+                    uploadForm.action = novaUploadAction;
+                    if (typeof SRALogger !== 'undefined') {
+                        SRALogger.info('[ea-editor-autor] Upload form action atualizado para: ' + novaUploadAction);
+                    }
+                }
+                
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.info('[ea-editor-autor] Form action atualizado para: ' + novaAction);
+                }
+                
+                // Pre-selecionar autor responsável do capítulo
+                var selectedOption = capSelect.options[capSelect.selectedIndex];
+                var respId = selectedOption.getAttribute('data-resp');
+                
+                if (respId) {
+                    autorSelect.value = respId;
+                    if (typeof SRALogger !== 'undefined') {
+                        SRALogger.debug('[ea-editor-autor] Autor pré-selecionado: ' + respId);
+                    }
+                } else {
+                    autorSelect.value = '';
+                }
+                
+                // Habilitar botão de submit
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+            } else {
+                form.action = '';
+                if (uploadForm) {
+                    uploadForm.action = '';
+                }
+                autorSelect.value = '';
+                
+                // Desabilitar botão de submit se nenhum capítulo estiver selecionado
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+                
+                if (typeof SRALogger !== 'undefined') {
+                    SRALogger.debug('[ea-editor-autor] Form limpo');
+                }
+            }
+        }
+        
+        /**
+         * Prevenir submit sem capítulo selecionado
+         */
+        if (form) {
+            form.addEventListener('submit', function (evt) {
+                if (!capSelect.value) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                    if (typeof SRALogger !== 'undefined') {
+                        SRALogger.warn('[ea-editor-autor] Tentativa de submit sem capítulo selecionado');
+                    }
+                    alert('Por favor, selecione um capítulo antes de confirmar.');
+                    return false;
+                }
+            });
+        }
+        
+        /**
+         * Event listener para mudança de capítulo
+         */
+        capSelect.addEventListener('change', atualizarForm);
+        
+        /**
+         * Executar ao carregar se houver capítulo pré-selecionado
+         */
+        if (capSelect.value) {
+            setTimeout(atualizarForm, 100);
+        } else if (submitBtn) {
+            // Desabilitar submit button se nenhum capítulo pré-selecionado
+            submitBtn.disabled = true;
+        }
+        
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.info('[ea-editor-autor] Attribution form listeners configurados');
+        }
+    }
+
+    /**
+     * Inicialização
+     */
+    document.addEventListener('DOMContentLoaded', function () {
+        bindRecarregar();
+        bindZoom();
+        prevenirRecarregamentosAutomaticos();
+        setupAttributionForm();
+        montarEditor(false);
+        
+        if (typeof SRALogger !== 'undefined') {
+            SRALogger.info('[ea-editor-autor] inicializado completamente');
+        }
+    });
+
+    /**
+     * Limpeza ao descarregar
+     */
+    window.addEventListener('beforeunload', function () {
+        if (editorHandle && window.SRADocxEditor
+            && window.SRADocxEditor.unmountFullViewer) {
+            try {
+                window.SRADocxEditor.unmountFullViewer(editorHandle);
+            } catch (e) { /* ignore */ }
+        }
+    });
 })();
+

@@ -19,7 +19,7 @@ class Usuario(db.Model, UserMixin):
     senha_hash = db.Column(db.String(256), nullable=False)
     perfil_id = db.Column(
         db.Integer,
-        db.ForeignKey('dom_perfis_usuario.id'),
+        db.ForeignKey('dominios.id_dominio'),
         nullable=False
     )
     ativo = db.Column(db.Boolean, default=True, nullable=False)
@@ -36,7 +36,7 @@ class Usuario(db.Model, UserMixin):
     atualizado_em = db.Column(db.DateTime, nullable=True)
     desativado_em = db.Column(db.DateTime, nullable=True)
 
-    perfil = db.relationship('DomPerfilUsuario')
+    perfil = db.relationship('Dominio')
     notificacoes = db.relationship(
         'Notificacao', back_populates='usuario'
     )

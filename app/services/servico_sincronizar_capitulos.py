@@ -276,15 +276,23 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
 
         for entrada in info['criar']:
             max_ordem += 1
+            from app.utils.auditoria import usuario_atual_id  # noqa: C0415
+            titulo = entrada['titulo'] or '(sem titulo)'
             novo = CapituloDocumento(
                 id_relatorio=rel.id,
-                titulo_capitulo=entrada['titulo'] or '(sem titulo)',
+                titulo_capitulo=titulo,
+                # Espelha o titulo em nome_capitulo na criacao automatica.
+                nome_capitulo=titulo,
                 indice_capitulo=entrada['indice'],
                 nivel_capitulo=entrada['nivel'] or 1,
                 tipo_elemento=entrada['tipo'] or 'textual',
                 ordem_capitulo=max_ordem,
                 status_capitulo='em_edicao',
                 ativo=True,
+                # Capitulo descoberto pela sincronizacao com o DOCX —
+                # se houver usuario logado (rota chamando o servico),
+                # registra ele; senao, sistema.
+                criado_por=usuario_atual_id(),
             )
             db.session.add(novo)
             criados += 1

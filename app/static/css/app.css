@@ -442,6 +442,28 @@ ul {
   gap: 0.5rem;
   text-align: left;
 }
+/* Variante para sub-titulos colocados DENTRO de um sigma-pli-conteiner
+   pai (fundo claro) — texto escuro, icone verde-PLI. Usado quando uma
+   lista que normalmente vive em um card proprio (ex.: Relatorios em
+   Producao) e renderizada como sub-secao do container pai. */
+.sra-card__title--inner {
+  color: var(--sra-color-text, #1a1a1a);
+  margin: 1.25rem 0.875rem 0.5rem;
+  font-size: 0.9375rem;
+  text-transform: uppercase;
+}
+.sra-card__title--inner .sigma-pli-conteiner__icon {
+  color: var(--sra-color-icon-green);
+}
+.sra-card__title--inner .sigma-pli-conteiner__icon svg,
+.sra-card__title--inner .sigma-pli-conteiner__icon svg * {
+  stroke: var(--sra-color-icon-green);
+  fill: none;
+}
+.sra-card__title--inner .sigma-pli-conteiner__index {
+  color: var(--sra-color-icon-green);
+  font-weight: 700;
+}
 .sra-card__actions {
   margin-left: auto;
   display: flex;
@@ -616,6 +638,20 @@ ul {
   width: 1%;
   white-space: nowrap;
 }
+
+/* Container interno da coluna Acoes — alinha varios botoes-icone em
+   linha com gap pequeno. Usado pela tabela de envios de conteudo. */
+.sra-actions-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.sra-actions-cell .sra-inline-form {
+  display: inline-flex;
+  margin: 0;
+}
 .sra-table__cell {
   padding: 0.5rem 0.625rem;
   font-size: 0.8125rem;
@@ -679,6 +715,36 @@ ul {
   background: #fff;
   overflow: hidden;
 }
+/* ==========================================================================
+   Section colapsavel via <details>/<summary>
+   ========================================================================== */
+
+/* Reset do marker padrao do <summary> */
+.sra-collapsible__summary {
+  cursor: pointer;
+  list-style: none;
+  /* Mantem o flex padrao do .sra-section__header e adiciona o icone
+     alinhado a direita via margin-left:auto. */
+}
+.sra-collapsible__summary::-webkit-details-marker { display: none; }
+.sra-collapsible__summary::marker { content: ''; }
+
+/* Setinha ao lado direito do header */
+.sra-collapsible__icon {
+  margin-left: auto;
+  color: #fff;
+  font-size: 1.1rem;
+  transition: transform 0.18s ease;
+}
+.sra-collapsible[open] .sra-collapsible__icon {
+  transform: rotate(180deg);
+}
+/* Garante que o <details> sem [open] nao mostre nada alem do summary
+   (browsers ja fazem isso por padrao, mas explicitamos por seguranca). */
+.sra-collapsible:not([open]) > .sra-section__body {
+  display: none;
+}
+
 /* Cabeçalho de seção com padrão sigma-pli (azul + título branco uppercase)
    Garante full-width independentemente do contexto */
 .sra-section__header {
@@ -1465,4 +1531,34 @@ details[open] .sra-collapse__header i {
   padding: 3rem;
   color: var(--sra-color-text-muted);
   font-size: 0.95rem;
+}
+
+/* ==========================================================================
+   Utilitarios de tabela: celula com duas linhas empilhadas
+   (ex.: nome do usuario + timestamp)
+   ========================================================================== */
+.sra-cell-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  gap: 1px;
+}
+.sra-cell-stack__line {
+  display: block;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sra-text--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+.sra-text--muted {
+  color: var(--sra-color-text-muted, #6c757d);
+}
+.sra-text--bold {
+  font-weight: 700;
 }

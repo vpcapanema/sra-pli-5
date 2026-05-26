@@ -1,110 +1,255 @@
-{% from "components/compartilhados/tabela.html" import tabela %}
-{% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar %}
+{#
+  Tabela de envios de conteudo (envios_conteudo).
 
-{% macro tabela_envios_conteudo(envios) %}
+  Cabecalhos exigidos pela UI:
+    - Status de envio do conteudo  -> codigo curto do status do AUTOR
+                                       (notificado / aguardando envio /
+                                        em preparacao / enviado).
+    - Status do capitulo            -> codigo curto do status do CAPITULO
+                                       destino (em edicao / aguardando
+                                        aprovacao / aprovado / rejeitado).
+    - Enviado por                   -> usuario + data/hora do envio.
+    - Atualizado por                -> usuario + data/hora da ultima
+                                       modificacao.
+
+  Coluna Acoes:
+    - Visualizar (todos)            -> baixa o DOCX do envio.
+    - Editar     (todos)            -> abre o editor do autor focado no
+                                       capitulo destino.
+    - Excluir    (coordenador)      -> remove envio + arquivo.
+    - Aprovar    (coordenador, condicional)  -> chama
+                                       relatorio.aprovar_capitulo quando
+                                       o capitulo destino esta em
+                                       'aguardando_aprovacao'.
+    - Reprovar   (coordenador, condicional)  -> chama
+                                       relatorio.rejeitar_capitulo nas
+                                       mesmas condicoes.
+
+  Parametros:
+    envios            : lista de EnvioConteudo (com relacionamentos
+                        carregados: relatorio, capitulo_destino,
+                        status_envio_dominio, status_capitulo_dominio,
+                        criador, criado_por_user, atualizado_por_user).
+    perfil_ativo      : 'autor' | 'coordenador' | 'admin'
+#}
+{% from "components/compartilhados/tabela.html" import tabela %}
+
+{% macro tabela_envios_conteudo(envios, perfil_ativo='autor') %}
+
 {% set linhas = [] %}
 {% for envio in envios %}
-    {% set status %}
-        <span class="sra-badge sra-badge--{{ envio.status_envio }}">{{ envio.status_envio|capitalize }}</span>
+    {% set status_envio_codigo = envio.codigo_status_envio %}
+    {% set status_capitulo_codigo = envio.codigo_status_capitulo %}
+
+    {# Apenas o codigo (sem descricao longa). title= explica em hover. #}
+    {% set status_envio_label %}
+        <span class="sra-badge sra-badge--{{ status_envio_codigo }}"
+              title="{{ envio.descricao_status_envio }}">
+            {{ envio.rotulo_status_envio }}
+        </span>
     {% endset %}
-    {% set data %}
-        {% if envio.criado_em %}{{ envio.criado_em.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}
+
+    {% set status_capitulo_label %}
+        {% if status_capitulo_codigo %}
+        <span class="sra-badge sra-badge--{{ status_capitulo_codigo }}"
+              title="{{ envio.descricao_status_capitulo }}">
+            {{ envio.rotulo_status_capitulo }}
+        </span>
+        {% else %}
+        <span class="sra-text--muted">—</span>
+        {% endif %}
     {% endset %}
+
+    {% set arquivo %}
+        <span class="sra-text--mono" title="{{ envio.caminho_arquivo }}">
+            {{ envio.nome_arquivo }}
+        </span>
+    {% endset %}
+
+    {% set capitulo_label %}
+        {% if envio.capitulo_destino %}
+            <span class="sra-text--bold">{{ envio.capitulo_destino.indice_capitulo or '—' }}</span>
+            {{ envio.capitulo_destino.titulo_capitulo }}
+        {% else %}
+            <span class="sra-text--muted">(sem destino)</span>
+        {% endif %}
+    {% endset %}
+
+    {% set autor_label %}
+        {% if envio.autor_responsavel %}
+            {{ envio.autor_responsavel.nome }}
+        {% else %}
+            <span class="sra-text--muted">(sem responsável)</span>
+        {% endif %}
+    {% endset %}
+
+    {% set enviado_por %}
+        {% set criador_user = envio.criado_por_user or envio.criador %}
+        <div class="sra-cell-stack">
+            <span class="sra-cell-stack__line">
+                {% if criador_user %}
+                    {{ criador_user.nome }}
+                {% elif envio.criado_por %}
+                    {# id existe mas nao foi resolvido — usuario foi
+                       removido do sistema apos o envio. #}
+                    <span class="sra-text--muted">usuário removido</span>
+                {% else %}
+                    {# Sem criado_por preenchido = registro gerado pelo
+                       proprio sistema (ex.: clonagem automatica). #}
+                    <span class="sra-text--muted">Sistema (clonagem)</span>
+                {% endif %}
+            </span>
+            <span class="sra-cell-stack__line sra-text--muted sra-text--mono">
+                {% if envio.criado_em %}
+                    {{ envio.criado_em.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    —
+                {% endif %}
+            </span>
+        </div>
+    {% endset %}
+
+    {% set atualizado_por %}
+        <div class="sra-cell-stack">
+            <span class="sra-cell-stack__line">
+                {% if envio.atualizado_por_user %}
+                    {{ envio.atualizado_por_user.nome }}
+                {% elif envio.atualizado_em %}
+                    <span class="sra-text--muted">(automático)</span>
+                {% else %}
+                    <span class="sra-text--muted">—</span>
+                {% endif %}
+            </span>
+            <span class="sra-cell-stack__line sra-text--muted sra-text--mono">
+                {% if envio.atualizado_em %}
+                    {{ envio.atualizado_em.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    —
+                {% endif %}
+            </span>
+        </div>
+    {% endset %}
+
+    {% set relatorio_label %}
+        {% if envio.relatorio %}
+            <a class="sra-link"
+               href="{{ url_for('relatorio.detalhe_versao', id_versao=envio.relatorio.id) }}"
+               title="Abrir detalhe do relatorio">
+                {{ envio.relatorio.codigo_d20 or 'D-?' }}
+            </a>
+        {% else %}
+            —
+        {% endif %}
+    {% endset %}
+
     {% set acoes %}
-        {{ btn_visualizar('#') }}
-        {{ btn_editar(
-            classe='btn-editar-envio',
-            dados={
-                'id': envio.id_envio_conteudo,
-                'nome': envio.nome_arquivo,
-                'status': envio.status_envio
-            }
-        ) }}
+        <div class="sra-actions-cell">
+            {# 1. Visualizar (todos): baixa o DOCX do envio #}
+            <a class="sra-btn-icon sra-btn-icon--view"
+               href="{{ url_for('api.baixar_envio_docx', id_envio=envio.id_envio_conteudo) }}"
+               title="Visualizar DOCX enviado"
+               target="_blank"
+               rel="noopener">
+                <i class="ph ph-eye" aria-hidden="true"></i>
+                <span class="sra-sr-only">Visualizar</span>
+            </a>
+
+            {# 2. Editar (todos): abre o editor do autor focado no capitulo destino #}
+            {% if envio.capitulo_destino %}
+            <a class="sra-btn-icon sra-btn-icon--edit"
+               href="{{ url_for('relatorio.editor_autor', id_versao=envio.id_relatorio, capitulo=envio.capitulo_destino.id_capitulo_documento) }}"
+               title="Editar conteudo deste capitulo">
+                <i class="ph ph-pencil-simple" aria-hidden="true"></i>
+                <span class="sra-sr-only">Editar</span>
+            </a>
+            {% else %}
+            <span class="sra-btn-icon sra-btn-icon--edit sra-btn-icon--disabled"
+                  title="Sem capitulo destino — nao pode editar">
+                <i class="ph ph-pencil-simple-slash" aria-hidden="true"></i>
+            </span>
+            {% endif %}
+
+            {# 3. Acoes de coordenador #}
+            {% if perfil_ativo in ('coordenador', 'admin') %}
+                {# Aprovar e Reprovar so aparecem ativos quando o capitulo
+                   destino esta aguardando aprovacao do coordenador. #}
+                {% if envio.capitulo_destino and status_capitulo_codigo == 'aguardando_aprovacao' %}
+                <form method="POST"
+                      action="{{ url_for('relatorio.aprovar_capitulo', id_capitulo=envio.capitulo_destino.id_capitulo_documento) }}"
+                      class="sra-inline-form"
+                      data-confirm
+                      data-confirm-message="Aprovar o capitulo {{ envio.capitulo_destino.indice_capitulo or '' }} {{ envio.capitulo_destino.titulo_capitulo }}? Renomeacoes pendentes serao aplicadas no DOCX em producao.">
+                    <button type="submit"
+                            class="sra-btn-icon sra-btn-icon--save"
+                            title="Aprovar conteudo enviado">
+                        <i class="ph-fill ph-check-circle" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Aprovar</span>
+                    </button>
+                </form>
+                <form method="POST"
+                      action="{{ url_for('relatorio.rejeitar_capitulo', id_capitulo=envio.capitulo_destino.id_capitulo_documento) }}"
+                      class="sra-inline-form"
+                      data-confirm
+                      data-confirm-message="Reprovar o capitulo {{ envio.capitulo_destino.indice_capitulo or '' }} {{ envio.capitulo_destino.titulo_capitulo }}? O autor sera notificado e o capitulo voltara para edicao.">
+                    <button type="submit"
+                            class="sra-btn-icon sra-btn-icon--danger"
+                            title="Reprovar conteudo enviado">
+                        <i class="ph-fill ph-x-circle" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Reprovar</span>
+                    </button>
+                </form>
+                {% else %}
+                <span class="sra-btn-icon sra-btn-icon--save sra-btn-icon--disabled"
+                      title="Aprovar — disponivel quando o capitulo estiver 'aguardando_aprovacao'">
+                    <i class="ph ph-check-circle" aria-hidden="true"></i>
+                </span>
+                <span class="sra-btn-icon sra-btn-icon--danger sra-btn-icon--disabled"
+                      title="Reprovar — disponivel quando o capitulo estiver 'aguardando_aprovacao'">
+                    <i class="ph ph-x-circle" aria-hidden="true"></i>
+                </span>
+                {% endif %}
+
+                {# Excluir: sempre disponivel para coordenador. #}
+                <form method="POST"
+                      action="{{ url_for('relatorio.excluir_envio', id_envio=envio.id_envio_conteudo) }}"
+                      class="sra-inline-form"
+                      data-confirm
+                      data-confirm-message="Excluir definitivamente este envio? O arquivo sera removido do storage.">
+                    <button type="submit"
+                            class="sra-btn-icon sra-btn-icon--delete"
+                            title="Excluir envio">
+                        <i class="ph ph-trash" aria-hidden="true"></i>
+                        <span class="sra-sr-only">Excluir</span>
+                    </button>
+                </form>
+            {% endif %}
+        </div>
     {% endset %}
+
     {% set _ = linhas.append([
         envio.id_envio_conteudo,
-        envio.relatorio.codigo_d20 or envio.relatorio.titulo_curto,
-        envio.usuario.nome,
-        envio.nome_arquivo,
-        envio.caminho_arquivo,
-        status,
-        data,
-        acoes
+        relatorio_label,
+        capitulo_label,
+        autor_label,
+        arquivo,
+        status_envio_label,
+        status_capitulo_label,
+        enviado_por,
+        atualizado_por,
+        acoes,
     ]) %}
 {% endfor %}
+
 {{ tabela(
-    colunas=['Relatório', 'Usuário', 'Nome do Arquivo', 'Caminho', 'Status', 'Data', 'Ações'],
+    colunas=['Relatório', 'Capítulo', 'Autor responsável', 'Arquivo',
+             'Status de envio do conteúdo', 'Status do capítulo',
+             'Enviado por', 'Atualizado por', 'Ações'],
     linhas=linhas,
-    vazio='Nenhum envio de conteúdo encontrado.'
+    vazio='Nenhum envio de conteúdo registrado.'
 ) }}
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.btn-editar-envio').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            const nome = this.getAttribute('data-nome');
-            const status = this.getAttribute('data-status');
-
-            Swal.fire({
-                title: 'Editar Envio de Conteúdo',
-                html:
-                    '<div class="sra-swal-form">' +
-                    '<label class="sra-swal-form__label">Nome do Arquivo</label>' +
-                    '<input id="swal-nome" class="swal2-input" value="' + nome + '">' +
-                    '<label class="sra-swal-form__label">Status</label>' +
-                    '<select id="swal-status" class="swal2-input">' +
-                    '<option value="pendente"' + (status === 'pendente' ? ' selected' : '') + '>Pendente</option>' +
-                    '<option value="aprovado"' + (status === 'aprovado' ? ' selected' : '') + '>Aprovado</option>' +
-                    '<option value="rejeitado"' + (status === 'rejeitado' ? ' selected' : '') + '>Rejeitado</option>' +
-                    '</select>' +
-                    '</div>',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'Salvar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#2a9450',
-                cancelButtonColor: '#6b7280',
-                preConfirm: () => {
-                    return {
-                        nome_arquivo: document.getElementById('swal-nome').value,
-                        status_envio: document.getElementById('swal-status').value
-                    };
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/relatorio/envio/${id}/editar-inline`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(result.value)
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.erro) {
-                            Swal.fire({ icon: 'error', title: 'Erro', text: data.erro });
-                        } else {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Salvo',
-                                text: data.mensagem,
-                                timer: 1200,
-                                showConfirmButton: false
-                            }).then(() => {
-                                window.location.href = '/';
-                            });
-                        }
-                    })
-                    .catch(err => {
-                        Swal.fire({ icon: 'error', title: 'Erro de conexão', text: String(err) });
-                    });
-                }
-            });
-        });
-    });
-});
-</script>
 {% endmacro %}
 
 {% if envios is defined %}
-{{ tabela_envios_conteudo(envios) }}
+{{ tabela_envios_conteudo(envios, perfil_ativo or 'autor') }}
 {% endif %}

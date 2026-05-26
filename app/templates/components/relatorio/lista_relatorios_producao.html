@@ -1,11 +1,19 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
-{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli_inner %}
 {% from "components/_acoes_tabela.html" import btn_visualizar, btn_abrir, btn_editar, btn_custom %}
 
-{% macro lista_relatorios_producao(relatorios_producao) %}
-<div class="sra-card sigma-pli-conteiner" id="relatorios-producao-container">
-    {{ cabecalho_pli('file-edit', '1.', 'Relatórios em Produção') }}
-    <div class="sra-card__content">
+{#
+  Lista de Relatórios em Produção.
+
+  Renderiza apenas o sub-titulo + a tabela. Quando precisar do
+  invólucro PLI, envolva no chamador com:
+
+      <div class="sra-section sra-section--bordered sigma-pli-conteiner">
+          {{ lista_relatorios_producao(...) }}
+      </div>
+#}
+{% macro lista_relatorios_producao(relatorios_producao, indice='') %}
+{{ cabecalho_pli_inner('file-edit', indice, 'Relatórios em Produção') }}
         {% set linhas = [] %}
         {% for rel in relatorios_producao %}
             {% set badge_status %}
@@ -64,8 +72,6 @@
             linhas=linhas,
             vazio='Nenhum relatório em produção.'
         ) }}
-    </div>
-</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

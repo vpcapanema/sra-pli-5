@@ -66,3 +66,18 @@
     {%- endif %}
 </div>
 {%- endmacro %}
+
+{# ============================================================
+   Macro: cabecalho_pli_inner(icone, indice, titulo)
+   Variante para uso quando o componente ja vive DENTRO de um
+   sigma-pli-conteiner pai. Em vez do cabecalho azul-escuro, gera
+   um <h3 class="sra-card__title sra-card__title--inner"> com texto
+   escuro e icone verde-PLI sobre fundo claro.
+   ============================================================ #}
+{% macro cabecalho_pli_inner(icone, indice, titulo) -%}
+<h3 class="sra-card__title sra-card__title--inner">
+    <span class="sigma-pli-conteiner__icon">{{ _svg(icone) }}</span>
+    {%- if indice %}<span class="sigma-pli-conteiner__index">{{ indice }}</span>{% endif %}
+    <span>{{ titulo }}</span>
+</h3>
+{%- endmacro %}

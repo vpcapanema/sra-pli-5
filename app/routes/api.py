@@ -121,14 +121,18 @@ def criar_capitulo(id_vt):
     """Cria um novo capítulo/subcapítulo."""
     RelatorioProducao.query.get_or_404(id_vt)
     data = request.get_json()
+    titulo = data['titulo']
     cap = CapituloDocumento(
         id_relatorio=id_vt,
-        titulo_capitulo=data['titulo'],
+        titulo_capitulo=titulo,
+        # `nome_capitulo` espelha o titulo quando nao informado.
+        nome_capitulo=data.get('nome') or titulo,
         ordem_capitulo=data.get('ordem', 0),
         nivel_capitulo=data.get('nivel', 1),
         id_capitulo_pai=data.get('id_pai'),
         id_usuario_responsavel=data.get('id_responsavel'),
         status_capitulo='em_edicao',
+        criado_por=current_user.id,
     )
     db.session.add(cap)
     db.session.commit()
@@ -145,12 +149,16 @@ def atualizar_capitulo(id_cap):
 
     if 'titulo' in data:
         cap.titulo_capitulo = data['titulo']
+        # Mantem nome_capitulo em sincronia se ainda estiver vazio.
+        if not cap.nome_capitulo:
+            cap.nome_capitulo = data['titulo']
     if 'ordem' in data:
         cap.ordem_capitulo = data['ordem']
     if 'nivel' in data:
         cap.nivel_capitulo = data['nivel']
     if 'id_responsavel' in data:
         cap.id_usuario_responsavel = data['id_responsavel']
+    cap.atualizado_por = current_user.id
 
     db.session.commit()
     return jsonify(_serializar_capitulo(cap))
@@ -219,6 +227,52 @@ def buscar_estrutura_envio(id_envio):
             })
     except Exception as e:  # noqa: W0718
         return jsonify({'erro': f'Erro ao carregar estrutura: {e}'}), 500
+
+
+@api_bp.route(
+    '/envios/<int:id_envio>/renomeacoes/<int:id_capitulo>',
+    methods=['PATCH']
+)
+@login_required
+def atualizar_renomeacao_envio(id_envio, id_capitulo):
+    """Marca uma renomeação pendente como aprovada ou rejeitada.
+
+    Restrito a coordenador/admin. Recebe JSON `{"aprovado": true|false}`.
+    Persiste em `envio.sugestoes_json -> renomeacoes_pendentes`.
+    """
+    from app.models.envio_conteudo import EnvioConteudo
+
+    if session.get('perfil_ativo') not in ('coordenador', 'admin'):
+        return jsonify({'erro': 'Sem permissão'}), 403
+
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    payload = request.get_json(silent=True) or {}
+    aprovado = bool(payload.get('aprovado'))
+
+    import json  # noqa: C0415
+    try:
+        estrutura = json.loads(envio.sugestoes_json or '{}')
+    except (ValueError, TypeError):
+        estrutura = {}
+
+    pendentes = estrutura.get('renomeacoes_pendentes') or []
+    encontrada = False
+    for r in pendentes:
+        if r.get('id_capitulo_documento') == id_capitulo:
+            r['aprovado'] = aprovado
+            encontrada = True
+            break
+    if not encontrada:
+        return jsonify({'erro': 'Renomeação não encontrada'}), 404
+
+    estrutura['renomeacoes_pendentes'] = pendentes
+    envio.sugestoes_json = json.dumps(estrutura)
+    db.session.commit()
+    return jsonify({
+        'ok': True,
+        'id_capitulo_documento': id_capitulo,
+        'aprovado': aprovado,
+    })
 
 
 @api_bp.route('/envios/<int:id_envio>/segmentos')
@@ -485,7 +539,7 @@ def finalizar_capitulo(id_cap):
         return jsonify({'erro': 'Sem permissão'}), 403
     cap.status_capitulo = 'finalizado'
     # Notificar coordenador(es)
-    # NOTE: Implementar query de coordenadores usando dom_perfis_usuario
+    # NOTE: Implementar query de coordenadores via Dominio (tipo='perfil_usuario')
     # coordenadores = Usuario.query.filter(
     #     Usuario.perfil_id == 2,  # coordenador
     #     Usuario.ativo
@@ -645,11 +699,30 @@ def vincular_biblioteca(id_vt):
 @api_bp.route('/usuarios-autores')
 @login_required
 def listar_autores():
-    """Lista usuários com perfil 'autor' ativos."""
-    autores = Usuario.query.filter(
-        Usuario.perfil_id == 1,  # NOTE: usar codigo do perfil
-        Usuario.ativo
-    ).order_by(Usuario.nome).all()
+    """Lista usuários com perfil 'autor' ativos.
+    
+    Retorna lista de autores cadastrados, utilizando a tabela de domínios
+    para buscar o perfil 'autor' dinamicamente.
+    """
+    from app.models import Dominio
+    
+    # Busca dinamicamente o ID do perfil 'autor' via domínios
+    perfil_autor = Dominio.query.filter_by(
+        tipo="perfil_usuario", valor="autor"
+    ).first()
+    
+    if not perfil_autor:
+        return jsonify([]), 200
+    
+    autores = (
+        Usuario.query.filter(
+            Usuario.perfil_id == perfil_autor.id_dominio,
+            Usuario.ativo == True
+        )
+        .order_by(Usuario.nome)
+        .all()
+    )
+    
     return jsonify([
         {'id': u.id, 'nome': u.nome}
         for u in autores

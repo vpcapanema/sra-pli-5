@@ -18,7 +18,7 @@ from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.modelo_relatorio import ModeloRelatorio
 from app.models.relatorio_base import RelatorioBase
 from app.models.relatorio_finalizado import RelatorioFinalizado
-from app.models.dominio import DomStatusRelatorio
+from app.models.dominio import Dominio
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_relatorio import ServicoRelatorio
 from app.utils.htmx import render_conteudo
@@ -263,8 +263,9 @@ def criar_relatorio_base():
         arquivo.save(caminho)
 
         # Obter status inicial
-        status = DomStatusRelatorio.query.filter_by(
-            codigo='finalizado'
+        status = Dominio.query.filter_by(
+            tipo='status_relatorio',
+            valor='finalizado'
         ).first()
 
         # Mapeamento de meses em português para inglês

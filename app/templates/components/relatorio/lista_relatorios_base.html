@@ -1,11 +1,24 @@
 {% from "components/compartilhados/tabela.html" import tabela %}
-{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli %}
+{% from "components/compartilhados/cabecalho_pli.html" import cabecalho_pli_inner %}
 {% from "components/_acoes_tabela.html" import btn_visualizar, btn_editar, btn_excluir %}
 
-{% macro lista_relatorios_base(relatorios_finalizados) %}
-<div class="sra-card sigma-pli-conteiner">
-    {{ cabecalho_pli('archive', '2.', 'Relatórios Finalizados') }}
-    <div class="sra-card__content">
+{#
+  Lista de Relatórios Finalizados.
+
+  Renderiza apenas o sub-titulo (h3.sra-card__title--inner) + a tabela.
+  Quando precisar do involucro PLI (cabecalho azul-escuro), envolva
+  no chamador com:
+
+      <div class="sra-section sra-section--bordered sigma-pli-conteiner">
+          {{ lista_relatorios_base(...) }}
+      </div>
+
+  Parametros:
+    - relatorios_finalizados : lista de RelatorioFinalizado
+    - indice                 : prefixo opcional (ex: "2.1"); default vazio
+#}
+{% macro lista_relatorios_base(relatorios_finalizados, indice='') %}
+{{ cabecalho_pli_inner('archive', indice, 'Relatórios Finalizados') }}
         {% set linhas = [] %}
         {% for r in relatorios_finalizados %}
             {% set badge_status %}
@@ -53,8 +66,6 @@
             linhas=linhas,
             vazio='Nenhum relatório finalizado.'
         ) }}
-    </div>
-</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

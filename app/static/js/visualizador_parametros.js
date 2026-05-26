@@ -436,7 +436,7 @@
             const nPar = bloco.fim_paragrafo
                 - bloco.inicio_paragrafo + 1;
             let secInfo = '';
-            if (bloco.secoes_indices && bloco.secoes_indices.length) {
+            if (bloco.secoes_indices && Array.isArray(bloco.secoes_indices) && bloco.secoes_indices.length) {
                 secInfo = ' · Seções: '
                     + bloco.secoes_indices.map(function (si) {
                         return si + 1;
@@ -660,7 +660,9 @@
         }
         nums.forEach(function (num) {
             const card = el('div', 'vp__fmt-card');
-            const niveis = (num.niveis || []).map(function (n) {
+            // Ensure niveis is always an array
+            const niveisArray = Array.isArray(num.niveis) ? num.niveis : [];
+            const niveis = niveisArray.map(function (n) {
                 return fmtTag('Nv' + n.nivel,
                     (n.formato || '?') + ' "'
                     + (n.texto_nivel || '') + '"');

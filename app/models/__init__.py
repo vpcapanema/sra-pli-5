@@ -2,9 +2,7 @@
 
 from app.models.mixins import AuditoriaMixin
 from app.models.usuario import Usuario
-from app.models.dominio import (
-    Dominio, DomPerfilUsuario, DomStatusRelatorio
-)
+from app.models.dominio import Dominio
 from app.models.modelo_relatorio import ModeloRelatorio
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.relatorio_finalizado import RelatorioFinalizado
@@ -24,8 +22,6 @@ __all__ = [
     'AuditoriaMixin',
     'Usuario',
     'Dominio',
-    'DomPerfilUsuario',
-    'DomStatusRelatorio',
     'ModeloRelatorio',
     'RelatorioProducao',
     'RelatorioFinalizado',

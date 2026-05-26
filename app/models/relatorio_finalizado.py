@@ -28,7 +28,7 @@ class RelatorioFinalizado(db.Model):
     )
     status_id = db.Column(
         db.Integer,
-        db.ForeignKey('dom_status_relatorios.id'),
+        db.ForeignKey('dominios.id_dominio'),
         nullable=True
     )
     snapshot_conteudo = db.Column(db.JSON, nullable=True)
@@ -70,4 +70,4 @@ class RelatorioFinalizado(db.Model):
         'BibliotecaFormatacaoCanonica',
         foreign_keys=[biblioteca_id]
     )
-    status = db.relationship('DomStatusRelatorio', foreign_keys=[status_id])
+    status = db.relationship('Dominio', foreign_keys=[status_id])

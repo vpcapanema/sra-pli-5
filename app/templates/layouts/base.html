@@ -3,18 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Permissions-Policy" content="storage-access=*">
     <title>SRA - Sistema de Relatórios e Atas</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/estilo.css') }}">
-    <script src="https://unpkg.com/@phosphor-icons/web@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.20/dist/docx-preview.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web@2" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js" crossorigin="anonymous"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
+    {# Bloqueia warnings de Tracking Prevention do Firefox/Safari #}
+    <script>
+        (function() {
+            try {
+                // Intercepta acesso ao localStorage para evitar warnings
+                if (typeof window !== 'undefined' && !window.localStorage.__wrapped) {
+                    var originalSetItem = window.localStorage.setItem;
+                    var originalGetItem = window.localStorage.getItem;
+                    window.localStorage.setItem = function(key, value) {
+                        try {
+                            return originalSetItem.call(this, key, value);
+                        } catch(e) {
+                            // Silencia erro de Tracking Prevention
+                            return undefined;
+                        }
+                    };
+                    window.localStorage.getItem = function(key) {
+                        try {
+                            return originalGetItem.call(this, key);
+                        } catch(e) {
+                            // Silencia erro de Tracking Prevention
+                            return null;
+                        }
+                    };
+                    window.localStorage.__wrapped = true;
+                }
+            } catch(e) {}
+        })();
+    </script>
+    
     {% block conteudo %}{% endblock %}
 
     {% with mensagens = get_flashed_messages(with_categories=true) %}

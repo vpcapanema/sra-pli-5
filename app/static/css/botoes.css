@@ -1,0 +1,256 @@
+/* ============================================================
+   BOTÕES — Estilos centralizados
+   
+   Todos os botões da aplicação (primários, secundários, ações,
+   viewers) com dimensões e alinhamento uniformes.
+   
+   Padronização:
+   - padding: .75rem 1.25rem (altura aumentada)
+   - font-size: .9rem
+   - min-height: 42px (altura mínima)
+   - display: inline-flex (alinhamento)
+   
+   ============================================================ */
+
+/* ============================================================
+   BOTÕES PRIMÁRIOS (Atribuir, Salvar, Enviar, etc)
+   ============================================================ */
+.ea__primary-btn,
+.ea__secondary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #004b36, #007a55);
+    color: #fff;
+    padding: .75rem 1.25rem;
+    font-weight: 800;
+    font-size: .9rem;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgba(0, 75, 54, .18);
+    font-family: inherit;
+    min-height: 42px;
+    transition: all 0.15s;
+}
+
+.ea__secondary-btn {
+    background: #e8f3ed;
+    color: #004b36;
+    border: 1px solid rgba(0, 75, 54, .16);
+    box-shadow: none;
+}
+
+.ea__primary-btn:hover:not(:disabled):not(.ea__primary-btn--disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(0, 75, 54, .25);
+}
+
+.ea__secondary-btn:hover:not(:disabled):not(.ea__secondary-btn--disabled) {
+    background: #d6eae1;
+    border-color: rgba(0, 75, 54, .32);
+}
+
+.ea__primary-btn--disabled,
+.ea__secondary-btn--disabled {
+    background: #c5e0d3;
+    color: #2d5a4a;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.ea__primary-btn i,
+.ea__secondary-btn i {
+    font-size: 1rem;
+}
+
+/* ============================================================
+   BOTÕES DE AÇÃO (Painel de Comandos)
+   ============================================================ */
+.acao-btn {
+    width: 100%;
+    padding: .75rem 1.25rem;
+    background: var(--ea-color-bg);
+    color: var(--ea-color-text);
+    border: 1px solid var(--ea-color-border);
+    border-radius: 8px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    transition: all 0.15s;
+    text-align: left;
+    line-height: 1.3;
+    font-family: inherit;
+    min-height: 42px;
+}
+
+.acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
+    background: var(--ea-color-primary);
+    border-color: var(--ea-color-primary);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.acao-btn:hover:not(:disabled):not(.acao-btn--disabled) i {
+    color: var(--ea-color-icon-green);
+}
+
+.acao-btn:disabled,
+.acao-btn--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.acao-btn i {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    color: var(--ea-color-primary);
+}
+
+.acao-btn__label {
+    flex: 1;
+    line-height: 1.3;
+}
+
+.ea__acao-grupo--finalizacao .acao-btn {
+    background: var(--ea-color-secondary);
+    color: #fff;
+    border-color: var(--ea-color-secondary);
+    font-weight: 700;
+    padding: .75rem 1.25rem;
+    min-height: 42px;
+}
+
+.ea__acao-grupo--finalizacao .acao-btn i {
+    color: #fff;
+}
+
+.ea__acao-grupo--finalizacao .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
+    background: #1f7b3d;
+    border-color: #1f7b3d;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(47, 158, 68, .18);
+}
+
+/* ============================================================
+   BOTÕES DO VIEWER (Zoom, Recarregar)
+   ============================================================ */
+.ea__viewer-action {
+    padding: .5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    font-size: .85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    transition: all 0.15s;
+    font-weight: 700;
+    font-family: inherit;
+    min-height: 36px;
+    white-space: nowrap;
+}
+
+.ea__viewer-action:hover {
+    background: var(--ea-color-icon-green);
+    color: var(--ea-color-primary-dark);
+    border-color: var(--ea-color-icon-green);
+    transform: translateY(-1px);
+}
+
+.ea__viewer-action i {
+    font-size: .9rem;
+}
+
+/* ============================================================
+   BOTÕES DE COLLAPSE (Expandir/Recolher)
+   ============================================================ */
+.ea__collapse-trigger {
+    width: 100%;
+    padding: .65rem 1rem;
+    background: rgba(0, 75, 54, .05);
+    color: #004b36;
+    border: 1px solid rgba(0, 75, 54, .12);
+    border-radius: 8px;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s;
+    font-family: inherit;
+    min-height: 38px;
+}
+
+.ea__collapse-trigger:hover {
+    background: rgba(0, 75, 54, .10);
+    border-color: rgba(0, 75, 54, .24);
+}
+
+.ea__collapse-trigger i {
+    font-size: 1rem;
+    transition: transform 0.2s;
+}
+
+.ea__collapse-trigger[aria-expanded="true"] i {
+    transform: rotate(180deg);
+}
+
+/* ============================================================
+   BOTÕES EM LINHAS DE AÇÃO (.ea__buttons-row)
+   ============================================================ */
+.ea__buttons-row {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.ea__buttons-row button {
+    flex: 1;
+    min-width: 140px;
+    padding: .75rem 1.25rem;
+    font-size: .9rem;
+    font-weight: 800;
+    min-height: 42px;
+}
+
+.ea__buttons-row .ea__primary-btn,
+.ea__buttons-row .ea__secondary-btn {
+    padding: .75rem 1.25rem;
+    font-size: .9rem;
+    font-weight: 800;
+    min-height: 42px;
+}
+
+/* ============================================================
+   ESTADOS DESABILITADOS
+   ============================================================ */
+button:disabled,
+button[disabled] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ============================================================
+   VARIÁVEIS CSS (fallback para componentes)
+   ============================================================ */
+:root {
+    --btn-primary-padding: .75rem 1.25rem;
+    --btn-primary-font-size: .9rem;
+    --btn-primary-height: 42px;
+    --btn-primary-border-radius: 10px;
+    --btn-secondary-padding: .75rem 1.25rem;
+    --btn-secondary-font-size: .9rem;
+    --btn-secondary-height: 42px;
+}

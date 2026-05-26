@@ -39,7 +39,7 @@ from typing import Optional
 from werkzeug.utils import secure_filename
 
 from app import db
-from app.models.dominio import DomStatusRelatorio
+from app.models.dominio import Dominio
 from app.models.relatorio_finalizado import RelatorioFinalizado
 from app.models.relatorio_producao import RelatorioProducao
 
@@ -200,8 +200,10 @@ def finalizar(
 
     # 3. Status 'finalizado' (busca por código; pode não existir em
     # ambientes antigos sem a migration `add_finalizado_status`).
-    status_finalizado: Optional[DomStatusRelatorio] = (
-        DomStatusRelatorio.query.filter_by(codigo='finalizado').first()
+    status_finalizado: Optional[Dominio] = (
+        Dominio.query.filter_by(
+            tipo='status_relatorio', valor='finalizado'
+        ).first()
     )
 
     # 4. Persistir RelatorioFinalizado (snapshot dos metadados)

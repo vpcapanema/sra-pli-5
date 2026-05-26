@@ -69,6 +69,8 @@ class ServicoRelatorio:
     def _criar_capitulos_da_arvore(itens, id_relatorio,
                                    id_pai=None, ordem_inicial=1):
         """Percorre árvore de capítulos e cria registros no banco."""
+        from app.utils.auditoria import usuario_atual_id  # noqa: C0415
+        criador_id = usuario_atual_id()
         ordem = ordem_inicial
         for item in itens:
             capitulo = CapituloDocumento(
@@ -78,7 +80,8 @@ class ServicoRelatorio:
                 titulo_capitulo=item['titulo'],
                 nivel_capitulo=item['nivel'],
                 nome_capitulo=item.get('nome') or item['titulo'],
-                indice_capitulo=str(item['nivel'])
+                indice_capitulo=str(item['nivel']),
+                criado_por=criador_id,
             )
             db.session.add(capitulo)
             db.session.flush()
@@ -163,15 +166,15 @@ class ServicoRelatorio:
     def criar_relatorio_producao(relatorio_id, titulo):
         from flask_login import current_user
         from datetime import date
-        from app.models.dominio import DomStatusRelatorio
+        from app.models.dominio import Dominio
 
         # Buscar status 'em_producao' ou usar o primeiro ativo
-        status = DomStatusRelatorio.query.filter_by(
-            codigo='em_producao'
+        status = Dominio.query.filter_by(
+            tipo='status_relatorio', valor='em_producao'
         ).first()
         if not status:
-            status = DomStatusRelatorio.query.filter_by(
-                ativo=True
+            status = Dominio.query.filter_by(
+                tipo='status_relatorio', ativo=True
             ).first()
 
         relatorio = RelatorioProducao(
@@ -217,14 +220,20 @@ class ServicoRelatorio:
     @staticmethod
     def _clonar_capitulo(capitulo, id_relatorio,
                          id_capitulo_pai):
+        from app.utils.auditoria import usuario_atual_id  # noqa: C0415
         novo = CapituloDocumento(
             id_relatorio=id_relatorio,
             id_capitulo_pai=id_capitulo_pai,
             ordem_capitulo=capitulo.ordem_capitulo,
-            nome_capitulo=capitulo.nome_capitulo,
+            nome_capitulo=(
+                capitulo.nome_capitulo or capitulo.titulo_capitulo
+            ),
             titulo_capitulo=capitulo.titulo_capitulo,
             indice_capitulo=capitulo.indice_capitulo,
-            nivel_capitulo=capitulo.nivel_capitulo
+            nivel_capitulo=capitulo.nivel_capitulo,
+            # Clonagem disparada pelo coordenador (request) -> id dele.
+            # Clonagem em background -> None ("Sistema").
+            criado_por=usuario_atual_id(),
         )
         db.session.add(novo)
         db.session.flush()
@@ -349,15 +358,18 @@ class ServicoRelatorio:
                        nome_capitulo=None,
                        indice_capitulo=None,
                        tipo_elemento='textual'):
+        from app.utils.auditoria import usuario_atual_id  # noqa: C0415
         capitulo = CapituloDocumento(
             id_relatorio=id_relatorio,
             titulo_capitulo=titulo_capitulo,
             ordem_capitulo=ordem_capitulo,
             nivel_capitulo=nivel_capitulo,
             id_capitulo_pai=id_capitulo_pai,
-            nome_capitulo=nome_capitulo,
+            # Espelha o titulo no nome quando nao informado.
+            nome_capitulo=nome_capitulo or titulo_capitulo,
             indice_capitulo=indice_capitulo,
-            tipo_elemento=tipo_elemento
+            tipo_elemento=tipo_elemento,
+            criado_por=usuario_atual_id(),
         )
         db.session.add(capitulo)
         db.session.commit()

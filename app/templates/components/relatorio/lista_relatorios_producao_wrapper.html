@@ -1,2 +1,8 @@
 {% from "components/relatorio/lista_relatorios_producao.html" import lista_relatorios_producao %}
-{{ lista_relatorios_producao(relatorios_producao) }}
+
+{# Wrapper para paginas standalone — envolve a lista no container PLI
+   padrao (cabecalho azul-escuro). O macro em si renderiza apenas
+   sub-titulo + tabela. #}
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    {{ lista_relatorios_producao(relatorios_producao) }}
+</div>

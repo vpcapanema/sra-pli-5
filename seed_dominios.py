@@ -1,9 +1,14 @@
-"""Script de seed para dominios do sistema SRA."""
+"""Script de seed para dominios do sistema SRA.
+
+Apos a unificacao (migration 006), todas as tabelas de dominio
+(`dom_*`) foram fundidas em `public.dominios`. Cada registro e
+identificado por `(tipo, valor)`.
+"""
 
 from app import create_app, db
-from app.models.dominio import Dominio, DomStatusRelatorio
+from app.models.dominio import Dominio
 
-# Status de relatório usa tabela específica dom_status_relatorios
+# Status de relatorio agora vivem em `dominios` com tipo='status_relatorio'.
 STATUS_RELATORIO = [
     ('em_producao', 'Em produção', 10),
     ('em_revisao', 'Em revisão', 20),
@@ -11,7 +16,14 @@ STATUS_RELATORIO = [
     ('cancelado', 'Cancelado', 90),
 ]
 
-# Outros dominios usam tabela generica dominios
+# Perfis de usuario (anteriormente em dom_perfis_usuario).
+PERFIS_USUARIO = [
+    ('admin', 'Administrador do sistema', 100),
+    ('coordenador', 'Coordenador de relatório', 50),
+    ('autor', 'Autor de conteúdo', 10),
+]
+
+# Outros dominios (tabela unica `dominios`).
 DOMINIOS = {
     'status_versao': [
         ('rascunho', 'Versão em elaboração'),
@@ -28,6 +40,26 @@ DOMINIOS = {
         ('pendente', 'Revisão pendente'),
         ('aprovada', 'Revisão aprovada'),
         ('rejeitada', 'Revisão rejeitada'),
+    ],
+    'status_capitulo': [
+        ('em_edicao', 'Capítulo em edição pelo autor'),
+        ('aguardando_aprovacao', 'Capítulo aguardando aprovação do coordenador'),
+        ('aprovado', 'Capítulo aprovado pelo coordenador'),
+        ('rejeitado', 'Capítulo rejeitado pelo coordenador'),
+    ],
+    # Status do ciclo de envio do AUTOR (monitora o comportamento
+    # do autor frente ao periodo de envio do relatorio vigente).
+    # Distinto de `status_envio` da tabela `envios_conteudo`, que
+    # descreve o ciclo de um upload especifico.
+    'status_envio_conteudo': [
+        ('notificado',
+         'Autor notificado da abertura do periodo de envio de conteudo'),
+        ('aguardando_envio',
+         'Autor leu o e-mail mas ainda nao atribuiu nenhum capitulo'),
+        ('em_preparacao',
+         'Autor atribuido a algum capitulo (status_capitulo = em_edicao)'),
+        ('enviado',
+         'Autor enviou conteudo (status_capitulo = aguardando_aprovacao)'),
     ],
     'tipo_elemento': [
         ('paragrafo', 'Parágrafo de texto'),
@@ -64,16 +96,35 @@ DOMINIOS = {
         ('equacao', 'Equação'),
         ('lista', 'Lista'),
     ],
-    'tipo_perfil': [
-        ('administrador', 'Administrador do sistema'),
-        ('coordenador', 'Coordenador de relatório'),
-        ('autor', 'Autor de conteúdo'),
-    ],
     'tipo_previsualizacao': [
         ('html', 'Pré-visualização em HTML'),
         ('pdf', 'Pré-visualização em PDF'),
     ],
 }
+
+
+def _seed_tipo(tipo, registros):
+    """Insere registros (valor, descricao[, ordem]) em `dominios` se
+    nao existirem. Retorna a quantidade de novos registros criados.
+    """
+    inseridos = 0
+    for item in registros:
+        if len(item) == 3:
+            valor, descricao, ordem = item
+        else:
+            valor, descricao = item
+            ordem = 0
+        existe = Dominio.query.filter_by(tipo=tipo, valor=valor).first()
+        if not existe:
+            db.session.add(Dominio(
+                tipo=tipo,
+                valor=valor,
+                descricao=descricao,
+                ordem=ordem,
+            ))
+            inseridos += 1
+    return inseridos
+
 
 app = create_app()
 
@@ -81,32 +132,12 @@ with app.app_context():
     db.create_all()
     INSERIDOS = 0
 
-    # Seed de status de relatorio (tabela dom_status_relatorios)
-    for codigo, descricao, ordem in STATUS_RELATORIO:
-        existe = DomStatusRelatorio.query.filter_by(codigo=codigo).first()
-        if not existe:
-            db.session.add(DomStatusRelatorio(
-                codigo=codigo,
-                descricao=descricao,
-                ordem=ordem
-            ))
-            INSERIDOS += 1
+    INSERIDOS += _seed_tipo('status_relatorio', STATUS_RELATORIO)
+    INSERIDOS += _seed_tipo('perfil_usuario', PERFIS_USUARIO)
 
-    # Seed de outros dominios (tabela dominios)
     for tipo, valores in DOMINIOS.items():
-        for valor, descricao in valores:
-            existe = Dominio.query.filter_by(
-                tipo=tipo, valor=valor
-            ).first()
-            if not existe:
-                db.session.add(Dominio(
-                    tipo=tipo,
-                    valor=valor,
-                    descricao=descricao
-                ))
-                INSERIDOS += 1
+        INSERIDOS += _seed_tipo(tipo, valores)
 
     db.session.commit()
-    total_status = DomStatusRelatorio.query.count()
-    total_dominios = Dominio.query.count()
-    print(f'Seed concluído: {INSERIDOS} novos, {total_status} status_relatorio, {total_dominios} dominios.')
+    total = Dominio.query.count()
+    print(f'Seed concluído: {INSERIDOS} novos registros, {total} dominios totais.')

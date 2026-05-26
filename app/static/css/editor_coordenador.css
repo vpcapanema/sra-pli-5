@@ -456,7 +456,12 @@
 .ec__cap--aprovado { border-left-color: var(--sra-color-info); }
 .ec__cap--em_revisao,
 .ec__cap--em_edicao { border-left-color: var(--sra-color-warning); }
-.ec__cap--reprovado { border-left-color: var(--sra-color-danger); }
+.ec__cap--reprovado,
+.ec__cap--rejeitado { border-left-color: var(--sra-color-danger); }
+.ec__cap--aguardando_aprovacao {
+    border-left-color: #d6a419;
+    background: #fffbe6;
+}
 .ec__cap--pendente { border-left-color: var(--sra-color-border); }
 
 .ec__cap-idx {
@@ -492,6 +497,42 @@
     padding: 1.5rem 0.5rem;
     font-style: italic;
 }
+
+/* Acoes de aprovacao/rejeicao quando capitulo esta aguardando_aprovacao */
+.ec__cap-acoes {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+    flex-wrap: wrap;
+}
+.ec__cap-acao-form {
+    margin: 0;
+}
+.ec__cap-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.ec__cap-btn--aprovar {
+    background: linear-gradient(135deg, #2a9450, #1f7b3d);
+    color: #fff;
+}
+.ec__cap-btn--aprovar:hover { filter: brightness(1.1); }
+.ec__cap-btn--rejeitar {
+    background: #fdecec;
+    color: #7a1212;
+    border: 1px solid rgba(122, 18, 18, 0.18);
+}
+.ec__cap-btn--rejeitar:hover { background: #fbd7d7; }
+.ec__cap-btn i { font-size: 0.85rem; }
 
 /* Separadores de grupo na lista de capitulos (pre/textual/pos) */
 .ec__cap-grupo {

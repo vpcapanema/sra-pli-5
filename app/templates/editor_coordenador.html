@@ -200,10 +200,37 @@
                             {{ cap.titulo_capitulo }}
                         </span>
                         <span class="ec__cap-status"
-                              title="{{ cap.status_capitulo or 'pendente' }}">
-                            {{ (cap.status_capitulo or 'pendente')
-                               | replace('_', ' ') }}
+                              title="{{ cap.descricao_status }}">
+                            {{ cap.descricao_status }}
                         </span>
+                        {% if cap.status_capitulo == 'aguardando_aprovacao' %}
+                        <div class="ec__cap-acoes">
+                            <form method="POST"
+                                  action="{{ url_for('relatorio.aprovar_capitulo', id_capitulo=cap.id_capitulo_documento) }}"
+                                  class="ec__cap-acao-form"
+                                  data-confirm
+                                  data-confirm-message="Aprovar o capítulo {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }}? Renomeações pendentes serão aplicadas no DOCX em produção.">
+                                <button type="submit"
+                                        class="ec__cap-btn ec__cap-btn--aprovar"
+                                        title="Aprovar capítulo">
+                                    <i class="ph-fill ph-check"></i>
+                                    Aprovar
+                                </button>
+                            </form>
+                            <form method="POST"
+                                  action="{{ url_for('relatorio.rejeitar_capitulo', id_capitulo=cap.id_capitulo_documento) }}"
+                                  class="ec__cap-acao-form"
+                                  data-confirm
+                                  data-confirm-message="Rejeitar o capítulo {{ cap.indice_capitulo or '' }} {{ cap.titulo_capitulo }} e devolver para o autor? O conteúdo já mesclado no DOCX permanece (será sobrescrito no próximo envio).">
+                                <button type="submit"
+                                        class="ec__cap-btn ec__cap-btn--rejeitar"
+                                        title="Rejeitar capítulo">
+                                    <i class="ph-fill ph-x"></i>
+                                    Rejeitar
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                 {% else %}
                     <div class="ec__cap-empty">

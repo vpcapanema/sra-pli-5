@@ -18,7 +18,7 @@ from __future__ import annotations
 from flask import (
     Blueprint, redirect, url_for, flash, session, request,
 )
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from app import db
 from app.models.capitulo_documento import CapituloDocumento
@@ -106,8 +106,16 @@ def criar(id_relatorio):
         ),
         ordem_capitulo=ordem,
         indice_capitulo=request.form.get('indice_capitulo'),
-        nome_capitulo=request.form.get('nome_capitulo'),
+        # `nome_capitulo` espelha o titulo quando o coordenador nao
+        # informa explicitamente. Mantem a coluna preenchida em vez de
+        # NULL e facilita queries por nome canonico.
+        nome_capitulo=(
+            request.form.get('nome_capitulo')
+            or titulo
+        ),
         status_capitulo='em_edicao',
+        # Auditoria: registra quem criou. `criado_em` vem do mixin.
+        criado_por=current_user.id if current_user.is_authenticated else None,
     )
     db.session.add(cap)
     db.session.commit()
@@ -159,6 +167,16 @@ def salvar(id_capitulo):
     if 'id_capitulo_pai' in request.form:
         v = request.form.get('id_capitulo_pai', type=int)
         cap.id_capitulo_pai = v if v else None
+
+    # Espelha titulo -> nome_capitulo se nome ainda estiver vazio.
+    # Mantem a coluna util em queries por nome canonico do capitulo.
+    if not cap.nome_capitulo and cap.titulo_capitulo:
+        cap.nome_capitulo = cap.titulo_capitulo
+
+    # Auditoria: quem fez a alteracao. `atualizado_em` vem do mixin
+    # via `onupdate`.
+    if current_user.is_authenticated:
+        cap.atualizado_por = current_user.id
 
     db.session.commit()
     flash(
@@ -212,6 +230,9 @@ def mover(id_capitulo):
     cap.ordem_capitulo, vizinho.ordem_capitulo = (
         vizinho.ordem_capitulo, cap.ordem_capitulo
     )
+    if current_user.is_authenticated:
+        cap.atualizado_por = current_user.id
+        vizinho.atualizado_por = current_user.id
     db.session.commit()
     flash(
         f'Capítulo "{cap.titulo_capitulo}" movido para '

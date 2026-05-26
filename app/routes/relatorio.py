@@ -31,7 +31,7 @@ from app.models.capitulo_documento import CapituloDocumento
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.envio_conteudo import EnvioConteudo
 from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
-from app.models.dominio import DomStatusRelatorio
+from app.models.dominio import Dominio
 from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.services.servico_relatorio import ServicoRelatorio
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
@@ -84,6 +84,15 @@ def _criar_capitulo_recursivo(
     tipo = cap_dict.get("tipo_elemento", "textual")
     ordem_db = ordem_absoluta if ordem_absoluta is not None else ordem
 
+    # Auditoria: registra quem disparou a clonagem como criador dos
+    # capitulos. Em fluxos sem usuario logado (jobs), `criado_por` cai
+    # para None — coluna eh nullable.
+    criador_id = (
+        current_user.id
+        if current_user and current_user.is_authenticated
+        else None
+    )
+
     capitulo = CapituloDocumento(
         id_relatorio=id_relatorio,
         id_capitulo_pai=id_pai,
@@ -92,7 +101,10 @@ def _criar_capitulo_recursivo(
         nivel_capitulo=cap_dict["nivel"],
         tipo_elemento=tipo,
         indice_capitulo=indice,
+        # `nome_capitulo` espelha o titulo na criacao automatica.
+        nome_capitulo=cap_dict.get("nome") or cap_dict["titulo"],
         status_capitulo="em_edicao",
+        criado_por=criador_id,
     )
     db.session.add(capitulo)
     db.session.flush()  # Para obter o ID antes de criar filhos
@@ -284,19 +296,30 @@ def detalhe_versao(id_versao):
 
     capitulos_flat.sort(key=_sort_indice)
     bibliotecas = BibliotecaFormatacaoCanonica.query.filter_by(ativa=True).all()
-    autores = (
-        Usuario.query.filter(
-            Usuario.perfil_id.in_([1, 2, 3]),  # NOTE: usar codigo do perfil
-            Usuario.ativo,
+
+    # Lista de autores ativos (perfil 'autor' em `dominios`).
+    # Usado no select "Responsável" da tabela "Painel de Edição —
+    # Coordenador" e no painel de atribuicao do editor.
+    perfil_autor = Dominio.query.filter_by(
+        tipo="perfil_usuario", valor="autor"
+    ).first()
+    if perfil_autor:
+        autores = (
+            Usuario.query
+            .filter_by(perfil_id=perfil_autor.id_dominio, ativo=True)
+            .order_by(Usuario.nome)
+            .all()
         )
-        .order_by(Usuario.nome)
-        .all()
-    )
+    else:
+        autores = []
     # Relatórios em produção para o seletor
     relatorios_prod = (
         db.session.query(RelatorioProducao)
-        .join(DomStatusRelatorio, RelatorioProducao.status_id == DomStatusRelatorio.id)
-        .filter(DomStatusRelatorio.codigo == "em_producao")
+        .join(Dominio, RelatorioProducao.status_id == Dominio.id_dominio)
+        .filter(
+            Dominio.tipo == "status_relatorio",
+            Dominio.valor == "em_producao",
+        )
         .order_by(RelatorioProducao.criado_em.desc())
         .all()
     )
@@ -384,7 +407,45 @@ def atribuir_responsavel(id_versao, id_capitulo):
     cap.id_usuario_responsavel = id_resp if id_resp else None
     db.session.commit()
     flash("Responsável atualizado.", "sucesso")
+
+    # Memoriza a ultima atribuicao por relatorio na sessao do
+    # coordenador. O editor do autor usa isso para congelar os
+    # selects da seção 1 ate que ele mude de relatorio (estado dura
+    # ate logout ou troca explicita pelo botao "Editar selecao").
+    ultima = session.get("ultima_atribuicao", {})
+    if not isinstance(ultima, dict):
+        ultima = {}
+    ultima[str(id_versao)] = {
+        "id_capitulo": id_capitulo,
+        "id_usuario_responsavel": id_resp,
+    }
+    session["ultima_atribuicao"] = ultima
+
+    # Se o coordenador atribuiu pelo editor do autor, voltamos pra ele
+    # preservando o id_versao no contexto. Senao, vai para o detalhe.
+    referer = request.referrer or ""
+    if "/editor-autor" in referer:
+        return redirect(
+            url_for("relatorio.editor_autor", id_versao=id_versao)
+        )
     return redirect(url_for("relatorio.detalhe_versao", id_versao=id_versao))
+
+
+@relatorio_bp.route(
+    "/versao-trabalho/<int:id_versao>/limpar-ultima-atribuicao",
+    methods=["POST"],
+)
+def limpar_ultima_atribuicao(id_versao):
+    """Coordenador clica em 'Editar seleção' — descongela os selects
+    da seção 1 do editor do autor removendo o registro da ultima
+    atribuicao para este relatorio na sessao."""
+    ultima = session.get("ultima_atribuicao", {})
+    if isinstance(ultima, dict) and str(id_versao) in ultima:
+        ultima.pop(str(id_versao), None)
+        session["ultima_atribuicao"] = ultima
+    return redirect(
+        url_for("relatorio.editor_autor", id_versao=id_versao)
+    )
 
 
 # ==============================================================
@@ -446,11 +507,22 @@ def editor_autor():
     capitulos_livres = [c for c in caps_autor if c.id_usuario_responsavel is None]
     rel_bloqueado = ServicoRelatorio.esta_bloqueado(versao)
 
-    # Capitulo selecionado para upload (via query string)
+    # Capitulo selecionado para upload (via query string).
+    # - Autor: so carrega o painel de upload se ele for responsavel.
+    # - Coordenador/admin: pode carregar qualquer capitulo do relatorio
+    #   (ele upa em nome do autor).
     id_capitulo_selecionado = request.args.get("capitulo", type=int)
     capitulo_selecionado = None
     envio_pendente = None
-    if id_capitulo_selecionado and id_capitulo_selecionado in capitulos_do_autor_ids:
+    perfil_ativo_inicial = session.get("perfil_ativo")
+    pode_abrir_capitulo = (
+        id_capitulo_selecionado is not None
+        and (
+            id_capitulo_selecionado in capitulos_do_autor_ids
+            or perfil_ativo_inicial in ("coordenador", "admin")
+        )
+    )
+    if pode_abrir_capitulo:
         capitulo_selecionado = next(
             (
                 c
@@ -474,6 +546,36 @@ def editor_autor():
         rel_bloqueado=rel_bloqueado,
     )
 
+    # Coordenador pode atribuir qualquer capítulo a qualquer autor
+    # ativo. Listamos apenas usuários com perfil 'autor' para popular
+    # o seletor "Autor responsável" no painel.
+    perfil_ativo = session.get("perfil_ativo")
+    autores_disponiveis = []
+    if perfil_ativo in ("coordenador", "admin"):
+        from app.models.dominio import Dominio  # noqa: C0415
+
+        perfil_autor = Dominio.query.filter_by(
+            tipo="perfil_usuario", valor="autor"
+        ).first()
+        if perfil_autor:
+            autores_disponiveis = (
+                Usuario.query
+                .filter_by(perfil_id=perfil_autor.id, ativo=True)
+                .order_by(Usuario.nome)
+                .all()
+            )
+
+    # Estado de "ultima atribuicao" do coordenador para este relatorio.
+    # Usado para congelar os selects da seção 1 ate que ele clique em
+    # "Editar selecao" (que dispara /limpar-ultima-atribuicao).
+    ultima_atribuicao = None
+    if perfil_ativo in ("coordenador", "admin"):
+        registro = (session.get("ultima_atribuicao") or {}).get(
+            str(versao.id)
+        )
+        if isinstance(registro, dict):
+            ultima_atribuicao = registro
+
     return render_template(
         "editor_autor.html",
         versao=versao,
@@ -485,6 +587,10 @@ def editor_autor():
         grupos_acoes=grupos_acoes,
         capitulo_selecionado=capitulo_selecionado,
         envio_pendente=envio_pendente,
+        perfil_ativo=perfil_ativo,
+        autores_disponiveis=autores_disponiveis,
+        id_capitulo_selecionado=id_capitulo_selecionado,
+        ultima_atribuicao=ultima_atribuicao,
     )
 
 
@@ -569,24 +675,34 @@ def editor_autor_enviar_final(id_versao):
 def abrir_editor(id_relatorio):
     """Roteia o usuário para o editor adequado ao seu perfil ativo.
 
-    Usado pelo botão "Abrir" das tabelas (com `target="_blank"`),
-    centraliza a decisão de qual tela carregar:
-      - coordenador / admin -> editor_coordenador
-      - autor              -> editor_autor
-      - outros             -> volta para a lista de relatórios
+    Aceita `?capitulo=<id>` na query string e propaga para o editor
+    de destino — assim, o link "Abrir" dentro de uma linha da tabela
+    "Painel de Edição — Coordenador" pre-seleciona o capitulo no
+    `#ea-cap-select` e em `#ea-atribuir-cap`/`#ea-atribuir-autor` do
+    editor do autor (e idem para o coordenador).
     """
     rel = ServicoRelatorio.obter_versao_trabalho(id_relatorio)
     if not rel:
         flash("Relatório não encontrado.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
 
+    id_capitulo = request.args.get("capitulo", type=int)
     perfil_ativo = session.get("perfil_ativo")
     if perfil_ativo in ("coordenador", "admin"):
-        return redirect(url_for("relatorio.editor_coordenador", id_versao=id_relatorio))
-    if perfil_ativo == "autor":
-        return redirect(
-            url_for("relatorio.editor_autor") + "?id_versao=" + str(id_relatorio)
+        url = url_for(
+            "relatorio.editor_coordenador", id_versao=id_relatorio
         )
+        if id_capitulo:
+            url = f"{url}?capitulo={id_capitulo}"
+        return redirect(url)
+    if perfil_ativo == "autor":
+        url = (
+            url_for("relatorio.editor_autor")
+            + "?id_versao=" + str(id_relatorio)
+        )
+        if id_capitulo:
+            url = f"{url}&capitulo={id_capitulo}"
+        return redirect(url)
     flash("Sem permissão para abrir o editor deste relatório.", "erro")
     return redirect(url_for("relatorio.relatorios_producao"))
 
@@ -694,7 +810,9 @@ def criar_relatorio_producao():
         return redirect(url_for("principal.index"))
 
     # Obter status inicial (em_producao)
-    status_inicial = DomStatusRelatorio.query.filter_by(codigo="em_producao").first()
+    status_inicial = Dominio.query.filter_by(
+        tipo="status_relatorio", valor="em_producao"
+    ).first()
 
     if not status_inicial:
         flash("Status inicial não configurado.", "erro")
@@ -816,7 +934,9 @@ def clonar_da_biblioteca():
     if not biblioteca_id:
         return jsonify({"erro": "Biblioteca de formatação não fornecida"}), 400
 
-    status_inicial = DomStatusRelatorio.query.filter_by(codigo="em_producao").first()
+    status_inicial = Dominio.query.filter_by(
+        tipo="status_relatorio", valor="em_producao"
+    ).first()
     if not status_inicial:
         return jsonify({"erro": "Status inicial não configurado"}), 500
 
@@ -1592,6 +1712,117 @@ def confirmar_envio(id_envio, acao):
         flash("Envio rejeitado.", "info")
 
     return redirect(url_for("relatorio.detalhe_versao", id_versao=envio.id_relatorio))
+
+
+@relatorio_bp.route(
+    "/capitulo/<int:id_capitulo>/aprovar",
+    methods=["POST"],
+)
+def aprovar_capitulo(id_capitulo):
+    """Coordenador aprova o conteúdo do capítulo (aplica renomeações
+    pendentes nível 1/2 e marca como aprovado)."""
+    if session.get("perfil_ativo") not in ("coordenador", "admin"):
+        flash("Apenas coordenadores podem aprovar capítulos.", "erro")
+        return redirect(url_for("principal.index"))
+
+    capitulo = CapituloDocumento.query.get_or_404(id_capitulo)
+    observacao = (request.form.get("observacao") or "").strip()
+
+    resultado = ServicoEnvioAutor.aprovar_capitulo(
+        capitulo=capitulo,
+        coordenador=current_user,
+        observacao=observacao or None,
+    )
+    if not resultado.get("ok"):
+        flash(resultado.get("erro") or "Falha ao aprovar.", "erro")
+    else:
+        n_renom = len(resultado.get("renomeacoes_aplicadas") or [])
+        msg = "Capítulo aprovado."
+        if n_renom:
+            msg += (
+                f" {n_renom} renomeação(ões) aplicada(s) "
+                "(banco e DOCX em produção)."
+            )
+        flash(msg, "sucesso")
+
+    return redirect(
+        url_for(
+            "relatorio.editor_coordenador",
+            id_versao=capitulo.id_relatorio,
+        )
+    )
+
+
+@relatorio_bp.route(
+    "/capitulo/<int:id_capitulo>/rejeitar",
+    methods=["POST"],
+)
+def rejeitar_capitulo(id_capitulo):
+    """Coordenador rejeita o capítulo, devolvendo-o para edição."""
+    if session.get("perfil_ativo") not in ("coordenador", "admin"):
+        flash("Apenas coordenadores podem rejeitar capítulos.", "erro")
+        return redirect(url_for("principal.index"))
+
+    capitulo = CapituloDocumento.query.get_or_404(id_capitulo)
+    observacao = (request.form.get("observacao") or "").strip()
+
+    resultado = ServicoEnvioAutor.rejeitar_capitulo(
+        capitulo=capitulo,
+        coordenador=current_user,
+        observacao=observacao or None,
+    )
+    if not resultado.get("ok"):
+        flash(resultado.get("erro") or "Falha ao rejeitar.", "erro")
+    else:
+        flash(
+            "Capítulo devolvido para edição. O autor foi notificado.",
+            "info",
+        )
+
+    return redirect(
+        url_for(
+            "relatorio.editor_coordenador",
+            id_versao=capitulo.id_relatorio,
+        )
+    )
+
+
+@relatorio_bp.route(
+    "/envios-conteudo/<int:id_envio>/excluir",
+    methods=["POST"],
+)
+@login_required
+def excluir_envio(id_envio):
+    """Exclui um envio de conteudo (registro + arquivo no storage).
+
+    Restrito a coordenador/admin (impacta o registro consolidado da
+    tabela de envios). O autor remove via "Rejeitar e reenviar" no
+    proprio fluxo de upload, que invalida o envio anterior.
+    """
+    if session.get("perfil_ativo") not in ("coordenador", "admin"):
+        flash("Apenas coordenadores podem excluir envios.", "erro")
+        return redirect(url_for("principal.index"))
+
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    id_relatorio = envio.id_relatorio
+
+    # Remove arquivo do storage e cascateia previsualizacoes.
+    try:
+        if envio.caminho_arquivo and os.path.exists(envio.caminho_arquivo):
+            os.remove(envio.caminho_arquivo)
+    except OSError:
+        pass
+
+    for prev in list(envio.previsualizacoes or []):
+        db.session.delete(prev)
+    db.session.delete(envio)
+    db.session.commit()
+    flash("Envio excluído.", "sucesso")
+
+    proximo = request.form.get("proximo") or url_for(
+        "relatorio.editor_coordenador", id_versao=id_relatorio
+    )
+    return redirect(proximo)
 
 
 @relatorio_bp.route("/envios-conteudo/<int:id_envio>/conteudo", methods=["POST"])

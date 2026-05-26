@@ -23,6 +23,8 @@ import unicodedata
 from io import BytesIO
 from typing import Optional
 
+from lxml import etree
+
 from docx import Document
 from docxcompose.composer import Composer
 
@@ -286,16 +288,23 @@ def sincronizar_subcapitulos(
                 indice_filho = f'{indice_pai}.{ordem}'
             elif not indice_filho:
                 indice_filho = str(ordem)
+            from app.utils.auditoria import usuario_atual_id  # noqa: C0415
             novo = CapituloDocumento(
                 id_relatorio=capitulo_pai.id_relatorio,
                 id_capitulo_pai=capitulo_pai.id_capitulo_documento,
                 titulo_capitulo=item['titulo'],
+                # `nome_capitulo` espelha o titulo na criacao automatica.
+                nome_capitulo=item['titulo'],
                 ordem_capitulo=ordem,
                 nivel_capitulo=nivel_pai + 1,
                 tipo_elemento=capitulo_pai.tipo_elemento or 'textual',
                 indice_capitulo=indice_filho,
                 status_capitulo='em_edicao',
                 ativo=True,
+                # Subcapitulo detectado a partir do upload do autor —
+                # preenche com o usuario logado (autor) se houver
+                # request context; senao fica como sistema.
+                criado_por=usuario_atual_id(),
             )
             db_session.add(novo)
             inseridos += 1
@@ -369,6 +378,65 @@ def extrair_capitulo_como_docx(
     buf = BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def _substituir_texto_heading(p_element, novo_texto: str) -> None:
+    """Substitui o texto visível de um `<w:p>` heading preservando
+    pPr (estilo, numeração) e os bookmarks anchor de cross-refs.
+
+    Estratégia:
+    - Mantém o primeiro `<w:r>` (cópia das propriedades de run) e
+      substitui o texto do primeiro `<w:t>` por `novo_texto`.
+    - Remove os demais `<w:r>` (que carregavam o restante do título
+      antigo) sem mexer em `<w:bookmarkStart/>` `<w:bookmarkEnd/>`
+      `<w:pPr>` (filhos diretos do `<w:p>` que NÃO são `<w:r>`).
+    - Se o heading não tinha nenhum `<w:r>`, cria um novo.
+    """
+    runs = p_element.findall(f'{{{W_NS}}}r')
+    if runs:
+        primeiro = runs[0]
+        # Localiza o primeiro <w:t> dentro do primeiro run
+        t_primeiro = primeiro.find(f'{{{W_NS}}}t')
+        if t_primeiro is None:
+            t_primeiro = etree.SubElement(primeiro, f'{{{W_NS}}}t')
+        t_primeiro.text = novo_texto
+        # Limpa demais <w:t> dentro do primeiro run para não duplicar
+        for t in primeiro.findall(f'{{{W_NS}}}t')[1:]:
+            primeiro.remove(t)
+        # Remove os runs subsequentes (carregavam o resto do título)
+        for r in runs[1:]:
+            p_element.remove(r)
+    else:
+        novo_run = etree.SubElement(p_element, f'{{{W_NS}}}r')
+        novo_t = etree.SubElement(novo_run, f'{{{W_NS}}}t')
+        novo_t.text = novo_texto
+
+
+def atualizar_titulo_capitulo(
+    caminho_master: str,
+    capitulo,
+    novo_titulo: str,
+) -> bool:
+    """Atualiza apenas o texto do parágrafo de heading do capítulo
+    no DOCX em produção, preservando estilo, numeração automática,
+    bookmarks de cross-reference e demais marcadores.
+
+    Retorna True se o heading foi localizado e atualizado.
+    """
+    if not novo_titulo or not novo_titulo.strip():
+        return False
+    master = Document(caminho_master)
+    rng = localizar_range_capitulo(master, capitulo)
+    if rng is None:
+        return False
+    inicio, _ = rng
+    body = master.element.body
+    p_heading = body[inicio]
+    if p_heading.tag != f'{{{W_NS}}}p':
+        return False
+    _substituir_texto_heading(p_heading, novo_titulo.strip())
+    master.save(caminho_master)
+    return True
 
 
 def substituir_capitulo(

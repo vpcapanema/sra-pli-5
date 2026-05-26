@@ -18,7 +18,8 @@
             {% set linhas_cap = [] %}
             {% for cap in capitulos_flat %}
                 {% set badge_status %}
-                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }}">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }}"
+                          title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                 {% endset %}
                 {% set responsavel_nome = cap.responsavel.nome if cap.responsavel else '—' %}
                 {% set acoes %}

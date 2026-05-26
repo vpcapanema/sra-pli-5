@@ -1,5 +1,18 @@
 {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
 {% from "components/relatorio/lista_relatorios_producao.html" import lista_relatorios_producao %}
+{% from "components/relatorio/tabela_envios_conteudo.html" import tabela_envios_conteudo %}
 
-{{ lista_relatorios_base(relatorios_finalizados) }}
-{{ lista_relatorios_producao(relatorios_producao) }}
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    {{ lista_relatorios_base(relatorios_finalizados) }}
+</div>
+
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    {{ lista_relatorios_producao(relatorios_producao) }}
+</div>
+
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    <div class="sra-section__header">
+        <h2 class="sra-section__title">Meus envios de conteúdo</h2>
+    </div>
+    {{ tabela_envios_conteudo(envios or [], perfil_ativo) }}
+</div>

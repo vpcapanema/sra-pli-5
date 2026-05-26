@@ -1,7 +1,9 @@
 {% from "components/relatorio/lista_relatorios_base.html" import lista_relatorios_base %}
 
 <!-- Seção 1: Tabela de Relatórios Base (Relatórios Finalizados) -->
-{{ lista_relatorios_base(relatorios_finalizados) }}
+<div class="sra-section sra-section--bordered sigma-pli-conteiner">
+    {{ lista_relatorios_base(relatorios_finalizados, indice='1.') }}
+</div>
 
 <!-- Seção 2: Cadastrar Novo Relatório Base -->
 <div class="sra-card">

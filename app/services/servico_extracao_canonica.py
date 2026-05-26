@@ -836,6 +836,7 @@ class ServicoExtracaoCanonica:
                 'nivel': nivel_final,
                 'estilo': style_name,
                 'tipo_elemento': tipo_elemento,
+                'indice_paragrafo': i,
                 'filhos': [],
             })
 

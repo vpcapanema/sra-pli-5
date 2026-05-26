@@ -107,7 +107,8 @@
                                     <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
                                     <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
-                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs"
+                                          title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                                 </span>
                             </div>
                             {% endfor %}
@@ -134,7 +135,8 @@
                                     <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
                                     <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
-                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs"
+                                          title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                                 </span>
                             </div>
                             {% endfor %}
@@ -164,7 +166,8 @@
                                     <button type="button" class="sra-tree__toggle" {% if cap.id_capitulo_documento not in ids_com_filhos %}hidden{% endif %} aria-label="Expandir"><i class="ph ph-caret-right"></i></button>
                                     <span class="sra-tree__index">{{ cap.indice_capitulo or '—' }}</span>
                                     <span class="sra-tree__title">{{ cap.titulo_capitulo }}</span>
-                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                                    <span class="sra-badge sra-badge--{{ cap.status_capitulo }} sra-badge--xs"
+                                          title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                                 </span>
                             </div>
                             {% endfor %}
@@ -282,7 +285,8 @@
                                         {{ cap.titulo_capitulo }}
                                     </td>
                                     <td class="sra-table__cell">
-                                        <span class="sra-badge sra-badge--{{ cap.status_capitulo }}">{{ cap.status_capitulo | replace('_', ' ') | capitalize }}</span>
+                                        <span class="sra-badge sra-badge--{{ cap.status_capitulo }}"
+                                              title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                                     </td>
                                     <td class="sra-table__cell sra-cap-cell--responsavel">
                                         <form method="POST" action="{{ url_for('capitulos.salvar', id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
@@ -331,8 +335,11 @@
                                             {{ btn_subir(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
                                             {{ btn_descer(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
 
-                                            {# Abrir editor (nova aba) #}
-                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id),
+                                            {# Abrir editor (nova aba) na linha do capitulo —
+                                               propaga `?capitulo=<id>` para que o editor de
+                                               destino abra ja focado neste capitulo, com
+                                               os selects de atribuicao pre-preenchidos. #}
+                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id, capitulo=cap.id_capitulo_documento),
                                                           icone='arrow-square-out',
                                                           titulo='Abrir editor (nova aba)',
                                                           classe='') }}

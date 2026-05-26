@@ -6,7 +6,7 @@ from werkzeug.security import (
 )
 from app import db
 from app.models.usuario import Usuario
-from app.models.dominio import DomPerfilUsuario
+from app.models.dominio import Dominio
 from app.services.servico_email import ServicoEmail
 
 PERFIS_VALIDOS = ('admin', 'coordenador', 'autor')
@@ -34,9 +34,9 @@ class ServicoUsuario:
 
     @staticmethod
     def autenticar(email, senha, perfil):
-        # Converter perfil string para ID
-        perfil_obj = DomPerfilUsuario.query.filter_by(
-            codigo=perfil
+        # Converter perfil string para ID via tabela `dominios`
+        perfil_obj = Dominio.query.filter_by(
+            tipo='perfil_usuario', valor=perfil
         ).first()
         if not perfil_obj:
             return None
@@ -61,8 +61,9 @@ class ServicoUsuario:
             raise ValueError(
                 f'Perfil inválido: {perfil}'
             )
-        perfil_obj = DomPerfilUsuario.query.filter_by(
-            codigo=perfil,
+        perfil_obj = Dominio.query.filter_by(
+            tipo='perfil_usuario',
+            valor=perfil,
             ativo=True
         ).first()
         if not perfil_obj:
@@ -184,8 +185,8 @@ class ServicoUsuario:
 
     @staticmethod
     def solicitar_recuperacao(email, perfil):
-        perfil_obj = DomPerfilUsuario.query.filter_by(
-            codigo=perfil
+        perfil_obj = Dominio.query.filter_by(
+            tipo='perfil_usuario', valor=perfil
         ).first()
         if not perfil_obj:
             return None

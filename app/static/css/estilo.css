@@ -411,6 +411,61 @@ body {
     color: #991b1b;
 }
 
+/* Status do CAPITULO (`status_capitulo`) — alinhamento com a paleta
+   acima. `aguardando_aprovacao` usa azul (em revisao); `rejeitado`
+   espelha `reprovado`. */
+.sra-badge--aguardando_aprovacao {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.sra-badge--rejeitado {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Status do AUTOR (`status_envio_conteudo`). Pensado em progressao:
+   - notificado:        cinza (acao do sistema, autor inerte)
+   - aguardando_envio:  amarelo (atencao do autor)
+   - em_preparacao:     azul (em andamento)
+   - enviado:           verde (autor cumpriu sua parte). */
+.sra-badge--notificado {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.sra-badge--aguardando_envio {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.sra-badge--em_preparacao {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.sra-badge--enviado {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+/* Compatibilidade com o ciclo legado de envios_conteudo
+   (em_previa / importado / pendente). */
+.sra-badge--em_previa {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.sra-badge--importado {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.sra-badge--pendente {
+    background: #e5e7eb;
+    color: #374151;
+}
+
 .sra-badge--gerado {
     background: #f3e8ff;
     color: #6b21a8;
@@ -625,18 +680,21 @@ body {
 .sra-preview__body {
     display: flex;
     flex: 1;
-    min-height: 400px;
-    max-height: 70vh;
+    min-height: 844px;  /* Altura A4 */
+    max-height: 844px;  /* Limita altura */
     overflow: hidden;
 }
 
 .sra-preview__nav {
     width: 220px;
     min-width: 220px;
+    max-width: 220px;
     border-right: 1px solid var(--sra-color-border-light);
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0.5rem 0;
     background: var(--sra-color-bg-alt);
+    height: 100%;  /* Estica para altura total */
 }
 
 .sra-preview__nav-list {
@@ -665,7 +723,8 @@ body {
 
 .sra-preview__content {
     flex: 1;
-    overflow-y: auto;
+    overflow-x: auto;  /* Scroll horizontal */
+    overflow-y: auto;  /* Scroll vertical */
     display: flex;
     flex-direction: column;
 }

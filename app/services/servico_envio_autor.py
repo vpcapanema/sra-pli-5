@@ -136,6 +136,43 @@ class ServicoEnvioAutor:
         )
 
     @classmethod
+    def _descartar_envios_anteriores(cls, *, id_relatorio,
+                                     id_capitulo_destino,
+                                     id_envio_atual=None):
+        """Descarta TODOS os envios anteriores do mesmo
+        (relatório, capítulo) — qualquer status. Garante a regra
+        de unicidade total (1 envio por capítulo) suportada pelo
+        UNIQUE INDEX `ux_envios_por_capitulo` no Postgres.
+
+        Quando `id_envio_atual` for informado, esse envio é
+        preservado; caso contrário, todos são descartados (uso
+        antes de criar um novo).
+        """
+        q = EnvioConteudo.query.filter(
+            EnvioConteudo.id_relatorio == id_relatorio,
+            EnvioConteudo.id_capitulo_destino == id_capitulo_destino,
+        )
+        if id_envio_atual is not None:
+            q = q.filter(
+                EnvioConteudo.id_envio_conteudo != id_envio_atual
+            )
+        for ev in q.all():
+            cls._descartar_envio(ev)
+
+    @classmethod
+    def _descartar_envio(cls, envio):
+        """Remove envio do banco e seu arquivo de storage. Cascata
+        para PrevisualizacaoConteudo (não há cascade no model)."""
+        try:
+            if envio.caminho_arquivo and os.path.exists(envio.caminho_arquivo):
+                os.remove(envio.caminho_arquivo)
+        except OSError:
+            pass
+        for prev in list(envio.previsualizacoes or []):
+            db.session.delete(prev)
+        db.session.delete(envio)
+
+    @classmethod
     def processar_upload(cls, *, id_relatorio, id_usuario,
                          arquivo_storage, base_dir,
                          id_capitulo_destino=None):
@@ -155,6 +192,16 @@ class ServicoEnvioAutor:
                 'envio do autor — o destino do conteúdo é fixado pela '
                 'URL de upload.'
             )
+
+        # Regra: só 1 envio por (relatório, capítulo), qualquer status.
+        # Descarta tudo que ja existe para esse par antes de criar o
+        # novo registro. Garante consistencia com o UNIQUE INDEX
+        # `ux_envios_por_capitulo` no Postgres.
+        cls._descartar_envios_anteriores(
+            id_relatorio=id_relatorio,
+            id_capitulo_destino=id_capitulo_destino,
+        )
+
         dir_destino = cls.diretorio_uploads(base_dir, id_relatorio)
         os.makedirs(dir_destino, exist_ok=True)
 
@@ -221,6 +268,23 @@ class ServicoEnvioAutor:
 
         # Extrair estrutura completa do DOCX usando ServicoExtracaoCanonica
         estrutura = cls._extrair_estrutura_completa(doc)
+
+        # Detectar renomeações de capítulos: o autor pode ter mudado
+        # o título de capítulos cujos índices já existem no banco.
+        # - nível 1 e 2: vão para fila de aprovação do coordenador
+        # - nível >= 3: aplicam automaticamente NO MOMENTO DA IMPORTAÇÃO
+        # Aqui apenas registramos as duas listas; a aplicação real
+        # acontece em `confirmar(importar)` onde temos `caminho_master`.
+        renomeacoes = cls._detectar_renomeacoes(
+            estrutura.get('arvore_estrutural', []), capitulos
+        )
+        pendentes = renomeacoes.get('pendentes', [])
+        automaticas = renomeacoes.get('automaticas', [])
+        if automaticas:
+            estrutura['renomeacoes_automaticas_pendentes'] = automaticas
+        if pendentes:
+            estrutura['renomeacoes_pendentes'] = pendentes
+            cls._notificar_coordenadores_renomeacao(envio, pendentes)
 
         # Armazenar estrutura no envio para uso na prévia
         import json  # noqa: C0415
@@ -456,8 +520,36 @@ class ServicoEnvioAutor:
                 ),
             }
 
-        cap_destino.status_capitulo = 'em_edicao'
+        cap_destino.status_capitulo = 'aguardando_aprovacao'
+        # Espelha o novo status do capitulo no proprio envio para que
+        # a tabela `envios_conteudo` reflita o estado atual sem
+        # depender de JOIN. O listener do modelo so dispara quando o
+        # `id_capitulo_destino` e (re)atribuido — aqui ja temos o
+        # id, entao copiamos diretamente.
+        envio.status_capitulo_id = cap_destino.status_capitulo_id
         envio.status_envio = 'importado'
+
+        # Regra: só 1 envio por (relatório, capítulo). Descarta os
+        # anteriores (qualquer status) para garantir o constraint
+        # UNIQUE total. Em principio nao existem anteriores nesta
+        # fase porque processar_upload ja descarta tudo, mas mantemos
+        # a chamada como defesa em profundidade.
+        cls._descartar_envios_anteriores(
+            id_relatorio=envio.id_relatorio,
+            id_capitulo_destino=envio.id_capitulo_destino,
+            id_envio_atual=envio.id_envio_conteudo,
+        )
+
+        # Aplicar renomeações de capítulos:
+        # 1) Automáticas (nível >= 3) — aplicam sempre na importação
+        # 2) Pendentes (nível 1 e 2) — ficam guardadas; coordenador
+        #    aprova/rejeita ao revisar o capítulo.
+        # Atualizamos tanto banco quanto DOCX em produção para que
+        # cabeçalho e árvore de capítulos fiquem consistentes.
+        renom_auto = cls._aplicar_renomeacoes_automaticas(
+            envio, rel.caminho_template
+        )
+        renomeacoes_aplicadas = renom_auto or []
 
         # Sincronizar subcapítulos no banco a partir dos subheadings
         # que o autor enviou no DOCX. Isso garante que a árvore na UI
@@ -508,6 +600,151 @@ class ServicoEnvioAutor:
             'subcapitulos_sync': sync,
             'captions': captions,
             'cross_refs': cross_refs,
+            'renomeacoes_aplicadas': renomeacoes_aplicadas,
+        }
+
+    @classmethod
+    def aprovar_capitulo(cls, *, capitulo, coordenador,
+                         observacao=None):
+        """Coordenador aprova um capítulo que está aguardando.
+
+        Aplica renomeações pendentes (nível 1/2) que ainda não foram
+        aplicadas — banco + DOCX em produção. Atualiza status do
+        capítulo para 'aprovado' e notifica o autor.
+        """
+        from app.models.envio_conteudo import EnvioConteudo  # noqa: C0415
+        from app.models.relatorio_producao import (  # noqa: C0415
+            RelatorioProducao,
+        )
+        from app.models.notificacao import Notificacao  # noqa: C0415
+
+        if capitulo.status_capitulo != 'aguardando_aprovacao':
+            return {
+                'ok': False,
+                'erro': (
+                    'Capítulo não está aguardando aprovação '
+                    f'(status atual: {capitulo.status_capitulo}).'
+                ),
+            }
+
+        rel = RelatorioProducao.query.get(capitulo.id_relatorio)
+        if not rel or not rel.caminho_template:
+            return {
+                'ok': False,
+                'erro': 'Relatório não localizado ou sem DOCX.',
+            }
+
+        # Aplicar renomeações pendentes do envio mais recente do
+        # capítulo (nível 1/2). Se houver mais de um envio importado,
+        # processamos todos em ordem de criação.
+        envios = (
+            EnvioConteudo.query
+            .filter_by(
+                id_capitulo_destino=capitulo.id_capitulo_documento,
+                status_envio='importado',
+            )
+            .order_by(EnvioConteudo.criado_em.asc())
+            .all()
+        )
+        renomeacoes_aplicadas = []
+        for envio in envios:
+            aplicadas = cls._aplicar_renomeacoes_pendentes(
+                envio, caminho_master=rel.caminho_template
+            )
+            if aplicadas:
+                renomeacoes_aplicadas.extend(aplicadas)
+
+        capitulo.status_capitulo = 'aprovado'
+
+        # Espelha o novo status do capitulo em todos os envios desse
+        # capitulo para manter a tabela `envios_conteudo` consistente.
+        for envio in envios:
+            envio.status_capitulo_id = capitulo.status_capitulo_id
+
+        # Notifica o autor (último a enviar) sobre a aprovação.
+        if envios:
+            ultimo = envios[-1]
+            obs = observacao.strip() if observacao else ''
+            mensagem = (
+                f'O coordenador aprovou o capítulo '
+                f'"{capitulo.titulo_capitulo}".'
+            )
+            if obs:
+                mensagem += f' Observação: {obs}'
+            db.session.add(Notificacao(
+                id_usuario_destino=ultimo.id_usuario,
+                tipo_notificacao='revisao',
+                mensagem=mensagem,
+                lida=False,
+            ))
+
+        db.session.commit()
+        return {
+            'ok': True,
+            'acao': 'aprovado',
+            'capitulo_id': capitulo.id_capitulo_documento,
+            'renomeacoes_aplicadas': renomeacoes_aplicadas,
+        }
+
+    @classmethod
+    def rejeitar_capitulo(cls, *, capitulo, coordenador,
+                          observacao=None):
+        """Coordenador rejeita um capítulo aguardando aprovação.
+
+        Volta o status para 'em_edicao' e notifica o autor com a
+        observação. NÃO reverte o conteúdo já mesclado no DOCX em
+        produção — o autor pode fazer um novo envio para sobrescrever.
+        """
+        from app.models.envio_conteudo import EnvioConteudo  # noqa: C0415
+        from app.models.notificacao import Notificacao  # noqa: C0415
+
+        if capitulo.status_capitulo != 'aguardando_aprovacao':
+            return {
+                'ok': False,
+                'erro': (
+                    'Capítulo não está aguardando aprovação '
+                    f'(status atual: {capitulo.status_capitulo}).'
+                ),
+            }
+
+        capitulo.status_capitulo = 'em_edicao'
+
+        # Espelha o novo status nos envios do capitulo.
+        envios_do_cap = EnvioConteudo.query.filter_by(
+            id_capitulo_destino=capitulo.id_capitulo_documento,
+        ).all()
+        for envio in envios_do_cap:
+            envio.status_capitulo_id = capitulo.status_capitulo_id
+
+        ultimo = (
+            EnvioConteudo.query
+            .filter_by(
+                id_capitulo_destino=capitulo.id_capitulo_documento,
+                status_envio='importado',
+            )
+            .order_by(EnvioConteudo.criado_em.desc())
+            .first()
+        )
+        if ultimo:
+            obs = observacao.strip() if observacao else ''
+            mensagem = (
+                f'O coordenador solicitou ajustes no capítulo '
+                f'"{capitulo.titulo_capitulo}".'
+            )
+            if obs:
+                mensagem += f' Observação: {obs}'
+            db.session.add(Notificacao(
+                id_usuario_destino=ultimo.id_usuario,
+                tipo_notificacao='revisao',
+                mensagem=mensagem,
+                lida=False,
+            ))
+
+        db.session.commit()
+        return {
+            'ok': True,
+            'acao': 'rejeitado',
+            'capitulo_id': capitulo.id_capitulo_documento,
         }
 
     @classmethod
@@ -516,7 +753,11 @@ class ServicoEnvioAutor:
 
         Retorna dict com:
         - capitulos: árvore hierárquica de capítulos e subcapítulos
-        - legendas: figuras e tabelas com legendas
+        - legendas: figuras e tabelas com legendas (agregados)
+        - arvore_estrutural: árvore que mistura capítulos com figuras,
+          tabelas e equações como nós individuais (cada um com seu
+          índice, título e capítulo pai), pronta para a UI exibir
+          como árvore só de estrutura.
         """
         from app.services.servico_extracao_canonica import (  # noqa: C0415
             ServicoExtracaoCanonica,
@@ -531,16 +772,467 @@ class ServicoEnvioAutor:
         if not capitulos_arvore:
             capitulos_arvore = cls._extrair_capitulos_por_padrao(doc)
 
-        # Extrair legendas (figuras e tabelas)
+        # Extrair legendas (figuras e tabelas) — agregados
         legendas = ServicoExtracaoCanonica._extrair_legendas(doc)  # noqa: SLF001, E501
+
+        # Construir árvore estrutural (capítulos + figuras + tabelas
+        # + equações como nós individuais sob seu capítulo pai).
+        arvore_estrutural = cls._construir_arvore_estrutural(
+            doc, capitulos_arvore
+        )
 
         # Organizar figuras e tabelas por capítulo
         estrutura = {
             'capitulos': capitulos_arvore,
             'legendas': legendas,
+            'arvore_estrutural': arvore_estrutural,
         }
 
         return estrutura
+
+    @classmethod
+    def _construir_arvore_estrutural(cls, doc, capitulos_arvore):
+        """Constrói árvore estrutural rica: capítulos + figuras +
+        tabelas + equações, cada um como nó individual com índice
+        próprio, ancorado sob o capítulo pai mais próximo no DOCX.
+
+        Cada nó tem o formato:
+            {
+                'tipo': 'capitulo'|'figura'|'tabela'|'equacao',
+                'indice': '1.2'|'Figura 1.1'|'Tabela 2.3'|'Equação 1',
+                'titulo': '...',
+                'nivel': 1..N (apenas para capitulos),
+                'filhos': [...]   (apenas para capitulos)
+            }
+        """
+        # 1. Localizar os parágrafos índice de cada heading (capítulo)
+        #    para ancorar os elementos visuais.
+        capitulos_planos = cls._achatar_capitulos(capitulos_arvore)
+
+        # 2. Coletar elementos visuais (figuras, tabelas, equações)
+        #    com índice de parágrafo e capítulo pai.
+        elementos = cls._coletar_elementos_visuais(doc)
+
+        # 3. Distribuir elementos sob seus capítulos pais.
+        #    Para cada capítulo plano, anexamos os elementos cujo
+        #    índice de parágrafo cai entre o início do capítulo e o
+        #    início do próximo capítulo.
+        cls._distribuir_elementos_em_capitulos(
+            capitulos_planos, elementos
+        )
+
+        # 4. Re-aninhar os capítulos planos preservando filhos
+        #    (capítulos_arvore mantém a hierarquia; capitulos_planos
+        #    agora carrega filhos extras: figuras, tabelas, equações).
+        return capitulos_arvore
+
+    @classmethod
+    @classmethod
+    def _aplicar_renomeacoes_automaticas(cls, envio, caminho_master):
+        """Aplica as renomeações de subcapítulos (nível >= 3) que
+        foram detectadas no upload e armazenadas em
+        `renomeacoes_automaticas_pendentes`. Sempre aplica no
+        momento da importação — não exige aprovação."""
+        import json  # noqa: C0415
+        if not envio.sugestoes_json:
+            return []
+        try:
+            estrutura = json.loads(envio.sugestoes_json)
+        except (ValueError, TypeError):
+            return []
+
+        auto = estrutura.get('renomeacoes_automaticas_pendentes') or []
+        if not auto:
+            return []
+
+        cls._aplicar_renomeacoes_imediatas(auto, caminho_master)
+
+        aplicadas = [
+            {
+                'id_capitulo_documento': r.get('id_capitulo_documento'),
+                'de': r.get('titulo_atual'),
+                'para': r.get('titulo_proposto'),
+                'indice': r.get('indice'),
+                'nivel': r.get('nivel'),
+            }
+            for r in auto
+        ]
+        estrutura['renomeacoes_automaticas_pendentes'] = []
+        estrutura['renomeacoes_aplicadas'] = (
+            estrutura.get('renomeacoes_aplicadas', []) + aplicadas
+        )
+        envio.sugestoes_json = json.dumps(estrutura)
+        return aplicadas
+
+    @classmethod
+    def _aplicar_renomeacoes_imediatas(cls, lista, caminho_master=None):
+        """Aplica em `CapituloDocumento.titulo_capitulo` a lista
+        de renomeações automáticas (subcapítulos nível >= 3) sem
+        exigir aprovação. Quando `caminho_master` é informado,
+        atualiza também o texto do heading no DOCX em produção
+        (preservando estilo, numeração e bookmarks)."""
+        from app.services.servico_merge_docx import (  # noqa: C0415
+            atualizar_titulo_capitulo,
+        )
+
+        for r in lista or []:
+            cap = CapituloDocumento.query.get(
+                r.get('id_capitulo_documento')
+            )
+            if not cap:
+                continue
+            novo = (r.get('titulo_proposto') or '').strip()
+            if not novo or novo == (cap.titulo_capitulo or '').strip():
+                continue
+            # Atualiza o DOCX antes de mudar o titulo no banco — assim
+            # `localizar_range_capitulo` ainda casa pelo nome antigo.
+            if caminho_master:
+                try:
+                    atualizar_titulo_capitulo(caminho_master, cap, novo)
+                except (OSError, ValueError, RuntimeError):
+                    pass
+            cap.titulo_capitulo = novo
+
+    @classmethod
+    def _notificar_coordenadores_renomeacao(cls, envio, pendentes):
+        """Notifica coordenadores quando há renomeações de capítulo
+        nível 1/2 propostas pelo autor que precisam de aprovação."""
+        from app.models.notificacao import Notificacao  # noqa: C0415
+        from app.models.usuario import Usuario  # noqa: C0415
+        from app.models.dominio import Dominio  # noqa: C0415
+
+        if not pendentes:
+            return
+
+        try:
+            perfil_coord = Dominio.query.filter_by(
+                tipo='perfil_usuario', valor='coordenador'
+            ).first()
+            if not perfil_coord:
+                return
+            coordenadores = Usuario.query.filter_by(
+                perfil_id=perfil_coord.id, ativo=True
+            ).all()
+        except (OSError, ValueError, RuntimeError):
+            return
+
+        n = len(pendentes)
+        plural = 'ões' if n != 1 else 'ão'
+        mensagem = (
+            f'O autor propôs {n} renomeaç{plural} de capítulo no '
+            f'envio "{envio.nome_arquivo}" — requer aprovação.'
+        )
+        for coord in coordenadores:
+            db.session.add(Notificacao(
+                id_usuario_destino=coord.id,
+                tipo_notificacao='renomeacao_pendente',
+                mensagem=mensagem,
+                lida=False,
+            ))
+
+    @classmethod
+    def _aplicar_renomeacoes_pendentes(cls, envio, caminho_master=None):
+        """Aplica renomeações de capítulos sugeridas durante o upload.
+
+        Lê `envio.sugestoes_json -> renomeacoes_pendentes` e atualiza
+        `CapituloDocumento.titulo_capitulo` para os capítulos não
+        rejeitados explicitamente. Quando `caminho_master` é informado,
+        atualiza também o texto do heading no DOCX em produção.
+
+        Retorna lista de aplicadas:
+            [{'id_capitulo_documento': X, 'de': '...', 'para': '...'}]
+        """
+        from app.services.servico_merge_docx import (  # noqa: C0415
+            atualizar_titulo_capitulo,
+        )
+        import json  # noqa: C0415
+        if not envio.sugestoes_json:
+            return []
+        try:
+            estrutura = json.loads(envio.sugestoes_json)
+        except (ValueError, TypeError):
+            return []
+
+        pendentes = estrutura.get('renomeacoes_pendentes') or []
+        aplicadas = []
+        for r in pendentes:
+            if r.get('aprovado') is False:
+                continue
+            cap = CapituloDocumento.query.get(
+                r.get('id_capitulo_documento')
+            )
+            if not cap:
+                continue
+            de = (cap.titulo_capitulo or '').strip()
+            para = (r.get('titulo_proposto') or '').strip()
+            if not para or de == para:
+                continue
+            # Atualiza heading no DOCX em produção ANTES de trocar o
+            # titulo no banco — `localizar_range_capitulo` casa por
+            # `titulo_capitulo` (precisa ser o atual no DOCX).
+            if caminho_master:
+                try:
+                    atualizar_titulo_capitulo(
+                        caminho_master, cap, para
+                    )
+                except (OSError, ValueError, RuntimeError):
+                    pass
+            cap.titulo_capitulo = para
+            aplicadas.append({
+                'id_capitulo_documento': cap.id_capitulo_documento,
+                'de': de,
+                'para': para,
+            })
+
+        if aplicadas:
+            estrutura['renomeacoes_pendentes'] = []
+            estrutura['renomeacoes_aplicadas'] = (
+                estrutura.get('renomeacoes_aplicadas', []) + aplicadas
+            )
+            envio.sugestoes_json = json.dumps(estrutura)
+
+        return aplicadas
+
+    @classmethod
+    def _detectar_renomeacoes(cls, arvore, capitulos_banco):
+        """Compara capítulos da árvore do envio (com índice) contra
+        capítulos do banco (mesmo índice) e devolve sugestões de
+        renomeação quando o título difere.
+
+        Devolve dict com duas listas:
+            {
+                'pendentes': [...],   # nível 1 e 2: requer aprovação
+                'automaticas': [...], # nível >= 3: aplica direto
+            }
+
+        Cada item:
+            {
+                'id_capitulo_documento': <int>,
+                'indice': '1.2',
+                'titulo_atual': '...',
+                'titulo_proposto': '...',
+                'nivel': <int>,
+            }
+        """
+        # Indexar capítulos do banco por índice
+        por_indice = {}
+        for cap in capitulos_banco:
+            ind = (cap.indice_capitulo or '').strip()
+            if ind:
+                por_indice[ind] = cap
+
+        # Achata árvore do envio (só capítulos, ignora figuras/tabelas)
+        propostos = []
+
+        def visitar(lst):
+            for n in lst:
+                if n.get('tipo') in (None, 'capitulo'):
+                    if n.get('indice') and n.get('titulo'):
+                        propostos.append({
+                            'indice': n['indice'].strip(),
+                            'titulo': n['titulo'].strip(),
+                            'nivel': n.get('nivel') or (
+                                n['indice'].count('.') + 1
+                            ),
+                        })
+                if n.get('filhos'):
+                    visitar(n['filhos'])
+
+        visitar(arvore or [])
+
+        pendentes = []
+        automaticas = []
+        for p in propostos:
+            cap = por_indice.get(p['indice'])
+            if not cap:
+                continue
+            atual = (cap.titulo_capitulo or '').strip()
+            if (_normalizar(atual) == _normalizar(p['titulo'])
+                    or atual == p['titulo']):
+                continue
+            item = {
+                'id_capitulo_documento': cap.id_capitulo_documento,
+                'indice': p['indice'],
+                'titulo_atual': atual,
+                'titulo_proposto': p['titulo'],
+                'nivel': p['nivel'],
+            }
+            # Nível 1 e 2: precisa aprovação do coordenador.
+            # Nível >= 3: aplica direto (subcapítulo).
+            if p['nivel'] <= 2:
+                pendentes.append(item)
+            else:
+                automaticas.append(item)
+        return {
+            'pendentes': pendentes,
+            'automaticas': automaticas,
+        }
+
+    @staticmethod
+    def _achatar_capitulos(arvore):
+        """Achata árvore de capítulos preservando referência (mesmas
+        instâncias dos dicts), para anexar elementos sem perder a
+        hierarquia."""
+        planos = []
+
+        def visitar(lst):
+            for cap in lst:
+                planos.append(cap)
+                if cap.get('filhos'):
+                    visitar(cap['filhos'])
+
+        visitar(arvore)
+        return planos
+
+    @staticmethod
+    def _coletar_elementos_visuais(doc):
+        """Percorre o DOCX em ordem e coleta figuras (com legenda),
+        tabelas (com legenda) e equações.
+
+        Retorna lista ordenada por índice de parágrafo:
+            [{'tipo': 'figura', 'indice_paragrafo': 12,
+              'rotulo': 'Figura 1.1', 'legenda': '...'}, ...]
+        """
+        elementos = []
+        ns = {
+            'w': ('http://schemas.openxmlformats.org'
+                  '/wordprocessingml/2006/main'),
+            'm': ('http://schemas.openxmlformats.org/officeDocument'
+                  '/2006/math'),
+        }
+
+        # Padrões para detectar legendas/equações
+        padrao_fig = re.compile(
+            r'^(?:figura|fig\.)\s*(\d+(?:[\.\-]\d+)*)\s*[-–:]?\s*(.*)$',
+            re.IGNORECASE,
+        )
+        padrao_tab = re.compile(
+            r'^(?:tabela|tab\.|quadro)\s*(\d+(?:[\.\-]\d+)*)\s*[-–:]?\s*(.*)$',
+            re.IGNORECASE,
+        )
+        padrao_eq = re.compile(
+            r'^(?:equa[cç][aã]o|eq\.)\s*(\d+(?:[\.\-]\d+)*)\s*[-–:]?\s*(.*)$',
+            re.IGNORECASE,
+        )
+
+        for i, para in enumerate(doc.paragraphs):
+            texto = para.text.strip()
+            if not texto:
+                # Equações OOXML (omml) podem aparecer em parágrafos
+                # sem texto nos runs — detectar pelo elemento <m:oMath>
+                tem_math = bool(
+                    para._element.findall('.//m:oMath', ns)  # noqa: SLF001
+                    or para._element.findall(  # noqa: SLF001
+                        './/m:oMathPara', ns
+                    )
+                )
+                if tem_math:
+                    elementos.append({
+                        'tipo': 'equacao',
+                        'indice_paragrafo': i,
+                        'rotulo': 'Equação',
+                        'legenda': '',
+                    })
+                continue
+
+            # Figura: legenda começa com "Figura N"
+            m = padrao_fig.match(texto)
+            if m:
+                elementos.append({
+                    'tipo': 'figura',
+                    'indice_paragrafo': i,
+                    'rotulo': f'Figura {m.group(1)}',
+                    'legenda': (m.group(2) or '').strip(),
+                })
+                continue
+
+            # Tabela: legenda começa com "Tabela N" ou "Quadro N"
+            m = padrao_tab.match(texto)
+            if m:
+                elementos.append({
+                    'tipo': 'tabela',
+                    'indice_paragrafo': i,
+                    'rotulo': f'Tabela {m.group(1)}',
+                    'legenda': (m.group(2) or '').strip(),
+                })
+                continue
+
+            # Equação: legenda começa com "Equação N"
+            m = padrao_eq.match(texto)
+            if m:
+                elementos.append({
+                    'tipo': 'equacao',
+                    'indice_paragrafo': i,
+                    'rotulo': f'Equação {m.group(1)}',
+                    'legenda': (m.group(2) or '').strip(),
+                })
+                continue
+
+            # Equação OOXML embutida em parágrafo com texto
+            tem_math = bool(
+                para._element.findall('.//m:oMath', ns)  # noqa: SLF001
+                or para._element.findall('.//m:oMathPara', ns)  # noqa: SLF001
+            )
+            if tem_math:
+                elementos.append({
+                    'tipo': 'equacao',
+                    'indice_paragrafo': i,
+                    'rotulo': 'Equação',
+                    'legenda': texto[:80],
+                })
+
+        # Numerar equações sem número explícito (rotulo == 'Equação')
+        contador_eq = 0
+        for el in elementos:
+            if el['tipo'] == 'equacao' and el['rotulo'] == 'Equação':
+                contador_eq += 1
+                el['rotulo'] = f'Equação {contador_eq}'
+
+        return elementos
+
+    @staticmethod
+    def _distribuir_elementos_em_capitulos(capitulos_planos, elementos):
+        """Anexa cada elemento visual à lista de filhos do capítulo
+        pai mais próximo (capítulo cuja faixa de parágrafos contém
+        o elemento). Mutação in-place: cada capítulo recebe os
+        elementos como filhos com tipo apropriado.
+        """
+        if not capitulos_planos or not elementos:
+            return
+
+        # Cada capítulo plano tem 'indice_paragrafo' (definido pelo
+        # _extrair_capitulos do ServicoExtracaoCanonica). Se não
+        # tiver, ignoramos e devolvemos a árvore como está.
+        capitulos_com_indice = [
+            c for c in capitulos_planos
+            if isinstance(c.get('indice_paragrafo'), int)
+        ]
+        if not capitulos_com_indice:
+            return
+
+        # Ordenar por índice de parágrafo
+        capitulos_com_indice.sort(
+            key=lambda c: c['indice_paragrafo']
+        )
+
+        for el in elementos:
+            ip = el['indice_paragrafo']
+            # Encontrar o último capítulo cujo indice_paragrafo <= ip.
+            cap_pai = None
+            for cap in capitulos_com_indice:
+                if cap['indice_paragrafo'] <= ip:
+                    cap_pai = cap
+                else:
+                    break
+            if cap_pai is None:
+                continue
+            cap_pai.setdefault('filhos', []).append({
+                'tipo': el['tipo'],
+                'indice': el['rotulo'],
+                'titulo': el.get('legenda') or '',
+                'nivel': (cap_pai.get('nivel') or 1) + 1,
+                'filhos': [],
+            })
 
     @staticmethod
     def _extrair_capitulos_por_padrao(doc):
@@ -555,7 +1247,7 @@ class ServicoEnvioAutor:
         padrao_numeracao = re.compile(r'^\s*(\d+(?:\.\d+)*)\s+(.+)')
 
         capitulos = []
-        for para in doc.paragraphs:
+        for idx, para in enumerate(doc.paragraphs):
             texto = para.text.strip()
             if not texto:
                 continue
@@ -572,6 +1264,7 @@ class ServicoEnvioAutor:
                     'nivel': nivel,
                     'estilo': para.style.name or 'Normal',
                     'tipo_elemento': 'textual',
+                    'indice_paragrafo': idx,
                     'filhos': [],
                 })
 
