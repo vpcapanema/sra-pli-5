@@ -88,4 +88,46 @@ def create_app(config_class=Config):
             'csrf_token': generate_csrf
         }
 
+    # ============================================================
+    # Handlers de erro com logging
+    # ============================================================
+    
+    @app.errorhandler(400)
+    def bad_request(error):
+        """Handler para erros 400 Bad Request."""
+        from flask import render_template
+        app.logger.error(f'400 Bad Request: {error}')
+        return render_template('error_400.html', message=str(error)), 400
+    
+    @app.errorhandler(403)
+    def forbidden(error):
+        """Handler para erros 403 Forbidden."""
+        app.logger.error(f'403 Forbidden: {error}')
+        return {
+            'error': 'Forbidden',
+            'message': str(error),
+            'status': 403
+        }, 403
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        """Handler para erros 404 Not Found."""
+        app.logger.error(f'404 Not Found: {error}')
+        return {
+            'error': 'Not Found',
+            'message': str(error),
+            'status': 404
+        }, 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        """Handler para erros 500 Internal Server Error."""
+        app.logger.error(f'500 Internal Server Error: {error}')
+        db.session.rollback()
+        return {
+            'error': 'Internal Server Error',
+            'message': 'Ocorreu um erro no servidor. Por favor, tente novamente.',
+            'status': 500
+        }, 500
+
     return app

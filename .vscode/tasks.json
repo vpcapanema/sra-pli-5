@@ -18,13 +18,16 @@
                 "panel": "dedicated",
                 "clear": true
             },
-            "isBackground": true,
-            "statusbar": {
-                "hide": false,
-                "label": "$(play) Run Backend",
-                "tooltip": "Inicia o servidor Flask na porta 5000",
-                "color": "#4CAF50"
-            }
+            "isBackground": true
+        },
+        {
+            "type": "npm",
+            "script": "install",
+            "path": "app/static/editor-react",
+            "group": "none",
+            "problemMatcher": [],
+            "label": "npm: install - app/static/editor-react",
+            "detail": "install dependencies from package"
         }
     ]
 }

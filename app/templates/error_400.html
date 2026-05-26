@@ -1,0 +1,110 @@
+{% extends "layouts/base.html" %}
+
+{% block head %}
+<style>
+    .error-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f7faf8 0%, #eef4f0 100%);
+        padding: 2rem;
+    }
+    
+    .error-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 3rem;
+        box-shadow: 0 12px 32px rgba(0, 75, 54, .10);
+        max-width: 600px;
+        text-align: center;
+    }
+    
+    .error-code {
+        font-size: 4rem;
+        font-weight: 800;
+        color: #004b36;
+        margin: 0;
+    }
+    
+    .error-title {
+        font-size: 1.5rem;
+        color: #1a1a2e;
+        margin: 1rem 0;
+    }
+    
+    .error-message {
+        color: #52635e;
+        font-size: 1rem;
+        margin: 1rem 0 2rem;
+        line-height: 1.6;
+    }
+    
+    .error-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: .75rem 1.25rem;
+        background: linear-gradient(135deg, #004b36, #007a55);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 10px;
+        font-weight: 800;
+        transition: all 0.15s;
+    }
+    
+    .error-back:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px rgba(0, 75, 54, .25);
+    }
+    
+    .error-details {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        text-align: left;
+        font-size: 0.85rem;
+        color: #495057;
+    }
+    
+    .error-details strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #1a1a2e;
+    }
+</style>
+{% endblock %}
+
+{% block conteudo %}
+<div class="error-container">
+    <div class="error-card">
+        <h1 class="error-code">400</h1>
+        <h2 class="error-title">Bad Request</h2>
+        <p class="error-message">
+            A solicitação enviada não pôde ser processada. 
+            Verifique os dados e tente novamente.
+        </p>
+        
+        <a href="{{ url_for('principal.index') }}" class="error-back">
+            <i class="ph ph-arrow-left"></i>
+            Voltar ao dashboard
+        </a>
+        
+        <div class="error-details">
+            <strong>Detalhes do erro:</strong>
+            {{ message or 'Erro na requisição (CSRF token ausente ou inválido)' }}
+        </div>
+    </div>
+</div>
+
+<script>
+    if (typeof SRALogger !== 'undefined') {
+        SRALogger.error('Página de erro 400 carregada');
+        SRALogger.error('Mensagem: {{ message or "Erro na requisição" }}');
+    } else {
+        console.error('[ERROR 400] Página de erro carregada');
+        console.error('[ERROR 400] Mensagem: {{ message or "Erro na requisição" }}');
+    }
+</script>
+{% endblock %}
