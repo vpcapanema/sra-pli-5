@@ -22,25 +22,44 @@
 #}
 
 {# -- Visualizar -------------------------------------------------- #}
-{% macro btn_visualizar(href, titulo='Visualizar') %}
+{% macro btn_visualizar(href, titulo='Visualizar', disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--view sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-eye" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% else %}
 <a href="{{ href }}" class="sra-btn-icon sra-btn-icon--view" title="{{ titulo }}">
     <i class="ph-fill ph-eye" aria-hidden="true"></i>
     <span class="sra-sr-only">{{ titulo }}</span>
 </a>
+{% endif %}
 {% endmacro %}
 
 {# -- Abrir editor (nova aba) ------------------------------------- #}
-{% macro btn_abrir(href, titulo='Abrir editor') %}
+{% macro btn_abrir(href, titulo='Abrir editor', disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--open sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-arrow-square-out" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% else %}
 <a href="{{ href }}" class="sra-btn-icon sra-btn-icon--open"
    target="_blank" rel="noopener" title="{{ titulo }} (nova aba)">
     <i class="ph-fill ph-arrow-square-out" aria-hidden="true"></i>
     <span class="sra-sr-only">{{ titulo }}</span>
 </a>
+{% endif %}
 {% endmacro %}
 
 {# -- Editar (link OU trigger de modal) --------------------------- #}
-{% macro btn_editar(href=None, titulo='Editar', classe='', dados={}) %}
-{% if href %}
+{% macro btn_editar(href=None, titulo='Editar', classe='', dados={}, disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--edit sra-btn-icon--disabled {{ classe }}" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-pencil-simple" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% elif href %}
 <a href="{{ href }}" class="sra-btn-icon sra-btn-icon--edit {{ classe }}" title="{{ titulo }}">
     <i class="ph-fill ph-pencil-simple" aria-hidden="true"></i>
     <span class="sra-sr-only">{{ titulo }}</span>
@@ -55,15 +74,21 @@
 {% endmacro %}
 
 {# -- Salvar (submit de form que envolve a macro) ----------------- #}
-{% macro btn_salvar(titulo='Salvar', classe='') %}
-<button type="submit" class="sra-btn-icon sra-btn-icon--save {{ classe }}" title="{{ titulo }}">
+{% macro btn_salvar(titulo='Salvar', classe='', disabled=false) %}
+<button type="submit" class="sra-btn-icon sra-btn-icon--save {% if disabled %}sra-btn-icon--disabled {% endif %}{{ classe }}" title="{{ titulo }}"{% if disabled %} disabled aria-disabled="true"{% endif %}>
     <i class="ph-fill ph-floppy-disk" aria-hidden="true"></i>
     <span class="sra-sr-only">{{ titulo }}</span>
 </button>
 {% endmacro %}
 
 {# -- Excluir (form POST com confirm) ----------------------------- #}
-{% macro btn_excluir(action_url, confirmacao='Excluir este item e seu arquivo associado?', titulo='Excluir') %}
+{% macro btn_excluir(action_url, confirmacao='Excluir este item e seu arquivo associado?', titulo='Excluir', disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--delete sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-trash" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% else %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form"
       data-confirm
       data-confirm-message="{{ confirmacao }}">
@@ -73,10 +98,17 @@
         <span class="sra-sr-only">{{ titulo }}</span>
     </button>
 </form>
+{% endif %}
 {% endmacro %}
 
 {# -- Subir / Descer ---------------------------------------------- #}
-{% macro btn_subir(action_url, titulo='Subir') %}
+{% macro btn_subir(action_url, titulo='Subir', disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--move sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-arrow-up" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% else %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <input type="hidden" name="direcao" value="cima">
@@ -85,9 +117,16 @@
         <span class="sra-sr-only">{{ titulo }}</span>
     </button>
 </form>
+{% endif %}
 {% endmacro %}
 
-{% macro btn_descer(action_url, titulo='Descer') %}
+{% macro btn_descer(action_url, titulo='Descer', disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--move sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-arrow-down" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% else %}
 <form method="POST" action="{{ action_url }}" class="sra-inline-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
     <input type="hidden" name="direcao" value="baixo">
@@ -96,11 +135,17 @@
         <span class="sra-sr-only">{{ titulo }}</span>
     </button>
 </form>
+{% endif %}
 {% endmacro %}
 
 {# -- Substituir conteudo (upload de DOCX) ------------------------ #}
-{% macro btn_substituir(href=None, titulo='Substituir conteudo', classe='', dados={}) %}
-{% if href %}
+{% macro btn_substituir(href=None, titulo='Substituir conteudo', classe='', dados={}, disabled=false) %}
+{% if disabled %}
+<button type="button" class="sra-btn-icon sra-btn-icon--upload sra-btn-icon--disabled {{ classe }}" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-upload-simple" aria-hidden="true"></i>
+    <span class="sra-sr-only">{{ titulo }}</span>
+</button>
+{% elif href %}
 <a href="{{ href }}" class="sra-btn-icon sra-btn-icon--upload {{ classe }}" title="{{ titulo }}">
     <i class="ph-fill ph-upload-simple" aria-hidden="true"></i>
     <span class="sra-sr-only">{{ titulo }}</span>
@@ -117,9 +162,14 @@
 {# -- Escape hatch: botao custom (link ou button) -----------------
    `variante` define a cor: view, open, edit, save, delete, move,
    upload, neutral. Default = neutral (cinza). #}
-{% macro btn_custom(href=None, icone='dots-three', titulo='', classe='', dados={}, variante='neutral') %}
+{% macro btn_custom(href=None, icone='dots-three', titulo='', classe='', dados={}, variante='neutral', disabled=false) %}
 {% set cls = 'sra-btn-icon sra-btn-icon--' ~ variante ~ ' ' ~ classe %}
-{% if href %}
+{% if disabled %}
+<button type="button" class="{{ cls }} sra-btn-icon--disabled" title="{{ titulo }}" disabled aria-disabled="true">
+    <i class="ph-fill ph-{{ icone }}" aria-hidden="true"></i>
+    {% if titulo %}<span class="sra-sr-only">{{ titulo }}</span>{% endif %}
+</button>
+{% elif href %}
 <a href="{{ href }}" class="{{ cls }}" title="{{ titulo }}">
     <i class="ph-fill ph-{{ icone }}" aria-hidden="true"></i>
     {% if titulo %}<span class="sra-sr-only">{{ titulo }}</span>{% endif %}

@@ -289,7 +289,16 @@
                                               title="{{ cap.descricao_status }}">{{ cap.descricao_status }}</span>
                                     </td>
                                     <td class="sra-table__cell sra-cap-cell--responsavel">
-                                        <form method="POST" action="{{ url_for('capitulos.salvar', id_capitulo=cap.id_capitulo_documento) }}" class="sra-inline-form">
+                                        {% set tem_responsavel = cap.id_usuario_responsavel and cap.responsavel %}
+                                        {% set form_resp_id = 'form-resp-' ~ cap.id_capitulo_documento %}
+                                        <div class="sra-responsavel-display{% if not tem_responsavel %} sra-responsavel-display--hidden{% endif %}"
+                                             data-cap-id="{{ cap.id_capitulo_documento }}">
+                                            <span class="sra-responsavel-nome">{{ cap.responsavel.nome if tem_responsavel else '' }}</span>
+                                        </div>
+                                        <form id="{{ form_resp_id }}"
+                                              method="POST"
+                                              action="{{ url_for('capitulos.salvar', id_capitulo=cap.id_capitulo_documento) }}"
+                                              class="sra-inline-form sra-responsavel-form{% if tem_responsavel %} sra-responsavel-form--hidden{% endif %}">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
                                             <select name="id_usuario_responsavel" class="sra-input__field sra-input__field--sm" title="Selecionar responsável">
                                                 <option value="">Sem responsável</option>
@@ -297,7 +306,6 @@
                                                 <option value="{{ u.id }}" {{ 'selected' if cap.id_usuario_responsavel == u.id else '' }}>{{ u.nome }}</option>
                                                 {% endfor %}
                                             </select>
-                                            {{ btn_salvar(titulo='Salvar capitulo') }}
                                         </form>
                                     </td>
                                     <td class="sra-table__cell sra-table__cell--actions">
@@ -306,49 +314,77 @@
                                         {% set eh_coordenador = perfil_ativo in ('coordenador', 'admin') %}
                                         {% set pode_enviar = (not rel_bloqueado) and (eh_coordenador or (current_user.is_authenticated and cap.id_usuario_responsavel == current_user.id)) %}
 
-                                        {# Visualizar: inspeciona o capítulo no DOCX (modal) #}
+                                        <div class="sra-actions-grid sra-actions-grid--5x2">
+                                        {# Os 10 botoes ficam SEMPRE visiveis. Quando o usuario nao
+                                           tem permissao para uma acao, o botao aparece desativado
+                                           (cor desbotada, sem hover, cursor not-allowed). #}
+
+                                        {# 1. Alterar responsavel: alterna o display entre nome estilizado
+                                           e o select+save. Visivel quando ja existe responsavel salvo. #}
+                                        <button type="button"
+                                                class="sra-btn-icon sra-btn-icon--edit sra-responsavel-editar{% if not tem_responsavel %} sra-btn-icon--hidden{% endif %}{% if not eh_coordenador %} sra-btn-icon--disabled{% endif %}"
+                                                title="Alterar responsavel"
+                                                data-cap-id="{{ cap.id_capitulo_documento }}"
+                                                {% if not eh_coordenador %}disabled aria-disabled="true"{% endif %}>
+                                            <i class="ph-fill ph-pencil-simple" aria-hidden="true"></i>
+                                            <span class="sra-sr-only">Alterar responsavel</span>
+                                        </button>
+                                        {# 2. Salvar capitulo: submete o form da coluna Responsavel.
+                                           Visivel quando o select esta aparecendo. #}
+                                        <button type="submit"
+                                                form="{{ form_resp_id }}"
+                                                class="sra-btn-icon sra-btn-icon--save sra-responsavel-salvar{% if tem_responsavel %} sra-btn-icon--hidden{% endif %}{% if not eh_coordenador %} sra-btn-icon--disabled{% endif %}"
+                                                title="Salvar capitulo"
+                                                {% if not eh_coordenador %}disabled aria-disabled="true"{% endif %}>
+                                            <i class="ph-fill ph-floppy-disk" aria-hidden="true"></i>
+                                            <span class="sra-sr-only">Salvar capitulo</span>
+                                        </button>
+
+                                        {# 3. Visualizar: inspeciona o capítulo no DOCX (modal) #}
                                         {{ btn_custom(icone='eye', titulo='Visualizar capítulo no DOCX',
                                                       classe='btn-inspecionar',
                                                       dados={'cap-id': cap.id_capitulo_documento}) }}
 
-                                        {# Abrir editor do autor: leva para o editor do autor com o capítulo selecionado #}
-                                        {% if pode_enviar %}
-                                            {{ btn_custom(href=url_for('relatorio.editor_autor') + '?id_versao=' + versao_trabalho.id|string + '&capitulo=' + cap.indice_capitulo|string,
-                                                          icone='pencil-simple',
-                                                          titulo='Abrir no editor do autor',
-                                                          classe='') }}
-                                        {% endif %}
+                                        {# 4. Abrir editor do autor: leva para o editor do autor com o capítulo selecionado #}
+                                        {{ btn_custom(href=url_for('relatorio.editor_autor') + '?id_versao=' + versao_trabalho.id|string + '&capitulo=' + cap.indice_capitulo|string,
+                                                      icone='pencil-simple',
+                                                      titulo='Abrir no editor do autor',
+                                                      classe='',
+                                                      disabled=(not pode_enviar)) }}
 
-                                        {# Editar: leva para a página de edição do capítulo #}
-                                        {% if pode_enviar %}
-                                            {{ btn_editar(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
-                                                          titulo='Editar capítulo') }}
-                                        {% endif %}
+                                        {# 5. Editar: leva para a página de edição do capítulo #}
+                                        {{ btn_editar(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
+                                                      titulo='Editar capítulo',
+                                                      disabled=(not pode_enviar)) }}
 
-                                        {# Substituir conteúdo: upload de DOCX (autor ou coordenador) #}
-                                        {% if pode_enviar %}
-                                            {{ btn_substituir(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
-                                                              titulo='Substituir conteúdo (upload DOCX)') }}
-                                        {% endif %}
+                                        {# 6. Substituir conteúdo: upload de DOCX (autor ou coordenador) #}
+                                        {{ btn_substituir(href=url_for('capitulos.substituir_conteudo', id_capitulo=cap.id_capitulo_documento),
+                                                          titulo='Substituir conteúdo (upload DOCX)',
+                                                          disabled=(not pode_enviar)) }}
 
-                                        {% if eh_coordenador and not rel_bloqueado %}
-                                            {# Subir / Descer ordem dentro do mesmo nível #}
-                                            {{ btn_subir(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
-                                            {{ btn_descer(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento)) }}
+                                        {# 7. Subir ordem dentro do mesmo nível #}
+                                        {{ btn_subir(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento),
+                                                     disabled=(not (eh_coordenador and not rel_bloqueado))) }}
 
-                                            {# Abrir editor (nova aba) na linha do capitulo —
-                                               propaga `?capitulo=<indice>` para que o editor de
-                                               destino abra ja focado neste capitulo, com
-                                               os selects de atribuicao pre-preenchidos. #}
-                                            {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id, capitulo=cap.indice_capitulo),
-                                                          icone='arrow-square-out',
-                                                          titulo='Abrir editor (nova aba)',
-                                                          classe='') }}
+                                        {# 8. Descer ordem dentro do mesmo nível #}
+                                        {{ btn_descer(url_for('capitulos.mover', id_capitulo=cap.id_capitulo_documento),
+                                                      disabled=(not (eh_coordenador and not rel_bloqueado))) }}
 
-                                            {# Excluir capítulo (com confirmação) #}
-                                            {{ btn_excluir(url_for('capitulos.excluir', id_capitulo=cap.id_capitulo_documento),
-                                                           confirmacao='Excluir o capítulo "' ~ cap.titulo_capitulo ~ '" e seus subcapítulos? O range no DOCX também será removido.') }}
-                                        {% endif %}
+                                        {# 9. Abrir editor (nova aba) na linha do capitulo —
+                                           propaga `?capitulo=<indice>` para que o editor de
+                                           destino abra ja focado neste capitulo, com
+                                           os selects de atribuicao pre-preenchidos. #}
+                                        {{ btn_custom(href=url_for('relatorio.abrir_editor', id_relatorio=versao_trabalho.id, capitulo=cap.indice_capitulo),
+                                                      icone='arrow-square-out',
+                                                      titulo='Abrir editor (nova aba)',
+                                                      classe='',
+                                                      disabled=(not (eh_coordenador and not rel_bloqueado))) }}
+
+                                        {# 10. Excluir capítulo (com confirmação) #}
+                                        {{ btn_excluir(url_for('capitulos.excluir', id_capitulo=cap.id_capitulo_documento),
+                                                       confirmacao='Excluir o capítulo "' ~ cap.titulo_capitulo ~ '" e seus subcapítulos? O range no DOCX também será removido.',
+                                                       disabled=(not (eh_coordenador and not rel_bloqueado))) }}
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -772,9 +808,40 @@
     }
 
     // ============================================================
+    // Coluna "Responsavel" + "Acoes": alterna entre exibicao
+    // estilizada do nome e o form de selecao. Os botoes lapis
+    // (alterar) e disquete (salvar) vivem na coluna Acoes; o
+    // <select> vive na coluna Responsavel. O botao salvar usa o
+    // atributo HTML5 `form="..."` para submeter o form remoto.
+    // ============================================================
+    function setupResponsavelToggle() {
+        var rows = document.querySelectorAll('#tbl-capitulos .sra-cap-row');
+        rows.forEach(function (row) {
+            var btnEditar = row.querySelector('.sra-responsavel-editar');
+            var btnSalvar = row.querySelector('.sra-responsavel-salvar');
+            var display = row.querySelector('.sra-responsavel-display');
+            var form = row.querySelector('.sra-responsavel-form');
+            if (!btnEditar || !form) return;
+
+            if (!btnEditar.dataset.bound) {
+                btnEditar.dataset.bound = '1';
+                btnEditar.addEventListener('click', function () {
+                    if (display) display.classList.add('sra-responsavel-display--hidden');
+                    form.classList.remove('sra-responsavel-form--hidden');
+                    btnEditar.classList.add('sra-btn-icon--hidden');
+                    if (btnSalvar) btnSalvar.classList.remove('sra-btn-icon--hidden');
+                    var sel = form.querySelector('select[name="id_usuario_responsavel"]');
+                    if (sel) sel.focus();
+                });
+            }
+        });
+    }
+
+    // ============================================================
     // Init (executa imediatamente — funciona em fragments HTMX)
     // ============================================================
     setupCollapsibleTable();
     setupCollapsibleTree();
+    setupResponsavelToggle();
 })();
 </script>

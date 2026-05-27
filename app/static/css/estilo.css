@@ -815,3 +815,126 @@ body {
     margin-top: 0.75rem;
 }
 
+
+
+/* ============================================================
+   Coluna "Acoes" — grid 4x2 (4 colunas x 2 linhas)
+   Usado na tabela de capitulos do Painel de Edicao do Coordenador
+   (relatorio/versao-trabalho/<id>).
+   Botoes nesta grid usam o tamanho compacto (22x22).
+   ============================================================ */
+.sra-actions-grid {
+    display: inline-grid;
+    gap: 0.25rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.sra-actions-grid--4x2 {
+    grid-template-columns: repeat(4, 22px);
+    grid-auto-rows: 22px;
+}
+
+.sra-actions-grid--5x2 {
+    grid-template-columns: repeat(5, 22px);
+    grid-auto-rows: 22px;
+}
+
+/* Botoes nesta grid herdam o tamanho compacto (22x22).
+   Sobrescrevem o padrao 32x32 de .sra-btn-icon. */
+.sra-actions-grid > .sra-btn-icon {
+    width: 22px;
+    height: 22px;
+    border-width: 1px;
+    border-radius: 4px;
+}
+.sra-actions-grid > .sra-btn-icon i.ph,
+.sra-actions-grid > .sra-btn-icon i.ph-fill,
+.sra-actions-grid > .sra-btn-icon i.ph-bold {
+    font-size: 0.75rem;
+}
+
+/* As macros btn_excluir / btn_subir / btn_descer envolvem o botao
+   em um <form class="sra-inline-form">. Esses formularios precisam
+   ocupar a mesma celula 22x22 do grid para alinhar com os botoes
+   "soltos" (btn_visualizar, btn_editar, etc.). */
+.sra-actions-grid > .sra-inline-form {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+}
+
+.sra-actions-grid > .sra-inline-form > .sra-btn-icon {
+    width: 100%;
+    height: 100%;
+    border-width: 1px;
+    border-radius: 4px;
+}
+.sra-actions-grid > .sra-inline-form > .sra-btn-icon i.ph,
+.sra-actions-grid > .sra-inline-form > .sra-btn-icon i.ph-fill,
+.sra-actions-grid > .sra-inline-form > .sra-btn-icon i.ph-bold {
+    font-size: 0.75rem;
+}
+
+/* Variante --xs herdada do uso anterior; mantem-se para compat. */
+.sra-btn-icon--xs {
+    width: 22px;
+    height: 22px;
+    border-width: 1px;
+    border-radius: 4px;
+}
+.sra-btn-icon--xs i.ph,
+.sra-btn-icon--xs i.ph-fill {
+    font-size: 0.75rem;
+}
+
+/* Modificador para esconder um botao individualmente sem alterar
+   o layout do grid (mantem a celula reservada).
+   Usado na alternancia lapis<->disquete na coluna Acoes. */
+.sra-btn-icon--hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ============================================================
+   Coluna "Responsavel" — exibicao do nome apos salvar
+   Apos clicar no disquete (que vive na coluna Acoes), a celula
+   deixa de mostrar o select e passa a exibir apenas o nome do
+   responsavel em negrito, 1pt maior, em azul-escuro PLI com
+   halo verde-PLI.
+   ============================================================ */
+.sra-cap-cell--responsavel {
+    text-align: center;
+}
+
+.sra-responsavel-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.sra-responsavel-display--hidden {
+    display: none;
+}
+
+.sra-responsavel-nome {
+    font-weight: 700;
+    /* +1pt em relacao ao corpo da tabela (.sra-table__cell = 0.8125rem = 13px).
+       1pt ≈ 1.333px, entao usamos 14px = ~10.5pt. */
+    font-size: 14px;
+    color: var(--sra-color-primary);
+    /* Halo verde-PLI: text-shadow com varias copias do mesmo tom
+       espalhadas em torno do glifo, criando contorno difuso. */
+    text-shadow:
+        0 0 1px rgba(62, 194, 110, 0.85),
+        0 0 4px rgba(62, 194, 110, 0.55),
+        0 0 8px rgba(62, 194, 110, 0.35);
+    letter-spacing: 0.01em;
+}
+
+.sra-responsavel-form--hidden {
+    display: none;
+}

@@ -119,15 +119,18 @@
             {% set congelado = ultima_atribuicao is not none %}
             {% set cap_pre = (ultima_atribuicao.id_capitulo if ultima_atribuicao else None) or id_capitulo_selecionado %}
             {# Busca o capítulo pré-selecionado para extrair seu autor responsável.
-               Se cap_pre for um ID numerico, busca por id_capitulo_documento.
-               Se for um indice (string), busca por indice_capitulo. #}
+               Se cap_pre parecer numerico, busca por id_capitulo_documento.
+               Caso contrario (ou sem match), busca por indice_capitulo. #}
             {% if cap_pre %}
-                {% try %}
-                    {% set cap_pre_int = cap_pre | int %}
+                {% set cap_pre_str = cap_pre | string %}
+                {% set cap_obj = none %}
+                {% if cap_pre_str.isdigit() %}
+                    {% set cap_pre_int = cap_pre_str | int %}
                     {% set cap_obj = capitulos | selectattr('id_capitulo_documento', 'equalto', cap_pre_int) | first %}
-                {% except %}
-                    {% set cap_obj = capitulos | selectattr('indice_capitulo', 'equalto', cap_pre) | first %}
-                {% endtry %}
+                {% endif %}
+                {% if not cap_obj %}
+                    {% set cap_obj = capitulos | selectattr('indice_capitulo', 'equalto', cap_pre_str) | first %}
+                {% endif %}
             {% else %}
                 {% set cap_obj = None %}
             {% endif %}
