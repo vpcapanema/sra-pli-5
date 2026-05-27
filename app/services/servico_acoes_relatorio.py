@@ -119,17 +119,21 @@ def _h_sincronizar_capitulos(rel, perfil):
     """Reextrai a arvore de capitulos do DOCX em producao e atualiza
     o banco — garante que a sidebar mostre exatamente o que esta
     no documento renderizado.
+    
+    Integra classificacao de capitulos e mapeamento de secoes OOXML.
     """
     from app.services.servico_sincronizar_capitulos import (
-        ressincronizar_capitulos,
+        ressincronizar_capitulos_com_classificacao,
     )
-    info = ressincronizar_capitulos(rel)
-    if not info.get('aplicados'):
-        return info.get('erro', 'Falha desconhecida na sincronizacao.')
+    info = ressincronizar_capitulos_com_classificacao(rel)
+    if not info.get('sucesso'):
+        erros = info.get('erros_classificacao', [])
+        if erros:
+            return f"Erro na sincronização: {erros[0].get('mensagem', 'Falha desconhecida')}"
+        return 'Falha desconhecida na sincronizacao.'
     return (
-        f'{info.get("atualizados", 0)} atualizado(s), '
-        f'{info.get("criados", 0)} criado(s), '
-        f'{info.get("sumiram", 0)} sem correspondente no DOCX.'
+        f'{info.get("total_atualizados", 0)} atualizado(s), '
+        f'{info.get("total_criados", 0)} criado(s).'
     )
 
 

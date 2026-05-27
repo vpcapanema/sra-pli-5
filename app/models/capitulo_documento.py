@@ -185,7 +185,7 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         """Retorna True se for um capítulo de primeiro nível (textual)."""
         return (self.nivel_capitulo == 1 and 
                 self.tipo_elemento == 'textual' and 
-                self.classificacao is None)
+                self.classificacao in (None, 'textual'))
 
     @property
     def e_subcapitulo(self):
@@ -193,7 +193,7 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         return (self.nivel_capitulo >= 2 and 
                 self.tipo_elemento == 'textual' and 
                 self.id_capitulo_pai is not None and
-                self.classificacao is None)
+                self.classificacao in (None, 'textual'))
 
     @property
     def e_anexo(self):
@@ -288,15 +288,15 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
         if self.nivel_capitulo == 1:
             if self.id_capitulo_pai is not None:
                 erros.append("Capítulo de nível 1 não pode ter pai")
-            if self.classificacao is not None:
-                erros.append("Capítulo de nível 1 não deve ter classificação")
+            if self.classificacao not in (None, 'textual'):
+                erros.append("Capítulo de nível 1 deve ter classificação 'textual' ou None")
         
         # Subcapítulo (nível ≥ 2)
         elif self.nivel_capitulo >= 2:
             if self.id_capitulo_pai is None:
                 erros.append("Subcapítulo deve ter um capítulo pai")
-            if self.classificacao is not None:
-                erros.append("Subcapítulo não deve ter classificação")
+            if self.classificacao not in (None, 'textual'):
+                erros.append("Subcapítulo deve ter classificação 'textual' ou None")
         
         return erros
 

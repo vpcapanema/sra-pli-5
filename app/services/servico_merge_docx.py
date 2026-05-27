@@ -627,15 +627,27 @@ def _substituir_capitulo_interno(
     caminho_autor: str,
     *,
     preservar_heading: bool = True,
-) -> bool:
-    """Implementação interna de substituir_capitulo."""
+) -> dict | bool:
+    """Implementação interna de substituir_capitulo.
+    
+    Returns:
+        dict ou bool: Retorna dict de erro com 'sugestoes' se capítulo não encontrado,
+                      ou True se bem-sucedido, ou False se erro na substituição.
+    """
     master = Document(caminho_master)
     autor = Document(caminho_autor)
 
     # Usar localização robusta com cascata de estratégias
     resultado_localizacao = localizar_range_capitulo_robusto(master, capitulo)
     if not resultado_localizacao['encontrado']:
-        return False
+        # Retornar dict de erro com alternativas sugeridas
+        return {
+            'sucesso': False,
+            'erro': f"Capítulo '{capitulo.titulo_capitulo}' não localizado no documento",
+            'sugestoes': resultado_localizacao.get('alternativas', []),
+            'diagnostico': resultado_localizacao.get('diagnostico', 'Capítulo não encontrado')
+        }
+    
     inicio = resultado_localizacao['inicio']
     fim = resultado_localizacao['fim']
 
@@ -701,7 +713,7 @@ def substituir_capitulo(
     preservar_heading: bool = True,
     relatorio_id: Optional[int] = None,
     capitulo_id: Optional[int] = None,
-) -> bool:
+) -> dict | bool:
     """Substitui o conteúdo do `capitulo` no DOCX em
     `caminho_master` pelo conteúdo do DOCX do autor em
     `caminho_autor`. Salva o resultado em `caminho_master`.
@@ -722,8 +734,10 @@ def substituir_capitulo(
     4. Movemos os elementos apendados para a posição correta.
     5. Salvamos.
 
-    Retorna `True` em sucesso, `False` se o capítulo não for
-    localizado no master.
+    Retorna:
+        - True em sucesso
+        - dict com 'sucesso': False, 'sugestoes': [...] se capítulo não localizado
+        - dict com 'sucesso': False se outro erro
     """
     resultado = ServicoNiveladorErros.executar_com_tratamento(
         _substituir_capitulo_interno,
@@ -734,11 +748,16 @@ def substituir_capitulo(
         etapa='substituicao_capitulo'
     )
     
-    # Se o resultado é um dict de erro, retorna False
+    # Se o resultado é um dict de erro, retorna o dict com sugestões
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
-        return False
+        return resultado
     
-    return resultado
+    # Se é True (sucesso)
+    if resultado is True:
+        return True
+    
+    # Se é False ou outro tipo, retorna False
+    return False
 
 import difflib
 

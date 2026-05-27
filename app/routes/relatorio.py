@@ -37,7 +37,7 @@ from app.services.servico_relatorio import ServicoRelatorio
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_envio_autor import ServicoEnvioAutor
 from app.services.servico_acoes_relatorio import listar_por_grupo
-from app.services.servico_sincronizar_capitulos import ressincronizar_capitulos
+from app.services.servico_sincronizar_capitulos import ressincronizar_capitulos_com_classificacao
 from app.services.servico_capa import aplicar_dados_completos
 from app.services.servico_finalizar_relatorio import (
     finalizar,
@@ -784,10 +784,11 @@ def editor_coordenador(id_versao):
     # Sincronizar capitulos do banco com o estado atual do DOCX em
     # producao ANTES de listar — garante que a sidebar mostre exata-
     # mente os indices/titulos que estao no documento renderizado.
+    # Agora integra classificacao e mapeamento de secoes OOXML.
     # Defensivo: erros aqui nao bloqueiam o editor (apenas logamos).
     if versao.caminho_template and os.path.exists(versao.caminho_template):
         try:
-            ressincronizar_capitulos(versao)
+            ressincronizar_capitulos_com_classificacao(versao)
         except Exception as exc:  # pragma: no cover - defesa  # pylint: disable=broad-exception-caught  # noqa: W0718  # pylint: disable=broad-exception-caught
             current_app.logger.warning(
                 "Sincronizacao de capitulos falhou (id_rel=%s): %s",

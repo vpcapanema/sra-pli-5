@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "name": "Auto-Atualizar Painel de Progresso",
+  "description": "Regenera o painel HTML automaticamente quando tasks.md é modificado, mantendo visualizações sempre em sincro com o estado real das tasks",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*tasks.md"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "python .kiro/atualizar_painel.py",
+    "timeout": 30
+  }
+}
