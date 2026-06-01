@@ -2,6 +2,12 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../sistema_relatorio_mensal_atividades/app/services/central_notificacoes"
+		},
+		{
+			"path": "../sra-pli-6"
 		}
 	],
 	"settings": {

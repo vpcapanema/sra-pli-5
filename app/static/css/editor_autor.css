@@ -1,21 +1,10 @@
 /* ============================================================
-   Editor do Autor — estilos (.ea__)
-   
-   DESIGN: Componente 100% independente
-   - Sem dependência de editor_coordenador.css
-   - Prefixo .ea__ (sem .ec__)
-   - Layout próprio, CSS próprio, JS próprio
-   
-   Layout:
-     header: barra superior com voltar + titulo + seletores
-     body: grid 3 colunas com sidebars esticadas (280px | 1fr | 300px)
-     viewer: A4 height (844px * 1.30 = 1097px) com scroll
+   Editor do Autor — layout único e sequencial
    ============================================================ */
 
 :root {
     --ea-color-primary: #1c3d59;
     --ea-color-primary-dark: #152a3f;
-    --ea-color-primary-light: #2a5a85;
     --ea-color-secondary: #2a9450;
     --ea-color-icon-green: #3ec26e;
     --ea-color-bg: #ffffff;
@@ -23,17 +12,30 @@
     --ea-color-border: #d5dce6;
     --ea-color-text: #1a1a2e;
     --ea-color-text-muted: #4f5d6e;
+    --ea-shadow: 0 20px 40px rgba(0, 75, 54, 0.08);
+    --ea-action-button-width: 220px;
 }
 
 .ea {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
+    min-height: 100vh;
     background:
-        radial-gradient(circle at top left, rgba(0, 86, 63, .10), transparent 34%),
+        radial-gradient(circle at top left, rgba(0, 86, 63, 0.10), transparent 34%),
         linear-gradient(135deg, #f7faf8 0%, #eef4f0 100%);
     color: #1f2d2a;
-    overflow: hidden;
+    overflow: visible;
+}
+
+.ea__content {
+    width: min(100%, 1720px);
+    margin: 0 auto;
+    padding: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(0, 75, 54, 0.08);
+    border-radius: 20px;
+    box-shadow: var(--ea-shadow);
 }
 
 /* ============================================================
@@ -43,12 +45,11 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 0.75rem 1.25rem;
+    padding: 0.9rem 1rem;
     background: linear-gradient(135deg, #004b36 0%, #006b4b 64%, #d6a419 100%);
-    border-bottom: 1px solid rgba(214, 164, 25, .35);
-    box-shadow: 0 10px 30px rgba(0, 75, 54, .18);
+    border-bottom: 1px solid rgba(214, 164, 25, 0.35);
+    box-shadow: 0 10px 30px rgba(0, 75, 54, 0.18);
     flex-wrap: wrap;
-    flex-shrink: 0;
 }
 
 .ea__back {
@@ -60,11 +61,12 @@
     border-radius: 6px;
     color: #fff;
     text-decoration: none;
-    transition: background .15s;
+    transition: background 0.15s;
+    flex-shrink: 0;
 }
 
 .ea__back:hover {
-    background: rgba(255, 255, 255, .16);
+    background: rgba(255, 255, 255, 0.16);
     color: #fff;
 }
 
@@ -74,7 +76,7 @@
 
 .ea__header-info {
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
 }
 
 .ea__title {
@@ -84,8 +86,10 @@
 }
 
 .ea__subtitle {
+    display: block;
+    margin-top: 0.15rem;
     font-size: 0.78rem;
-    color: rgba(255, 255, 255, .86);
+    color: rgba(255, 255, 255, 0.86);
 }
 
 .ea__selector {
@@ -105,13 +109,13 @@
 }
 
 .ea__select {
-    padding: 0.4rem 0.6rem;
-    border: 1px solid rgba(255, 255, 255, .45);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, .94);
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.96);
     color: #14352c;
     font-size: 0.82rem;
-    min-width: 200px;
+    min-width: 220px;
     cursor: pointer;
 }
 
@@ -121,31 +125,29 @@
 }
 
 /* ============================================================
-   Top panels — REDUZIDO E COM flex-shrink = 0
+   Painéis superiores
    ============================================================ */
 .ea__top-panels {
-    flex-shrink: 0;
     display: grid;
     grid-template-columns: 1fr;
-    gap: .75rem;
-    padding: .75rem 1rem;
-    max-height: 200px;
-    overflow-y: auto;
+    gap: 0.9rem;
+    padding: 0 0 0.9rem;
+    border-bottom: 1px solid rgba(0, 75, 54, 0.08);
 }
 
 .ea__panel {
-    background: rgba(255, 255, 255, .96);
-    border: 1px solid rgba(0, 75, 54, .12);
-    border-radius: 16px;
-    box-shadow: 0 12px 32px rgba(0, 75, 54, .10);
-    padding: .85rem 1rem;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(0, 75, 54, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(0, 75, 54, 0.10);
+    padding: 0.95rem 1rem;
 }
 
 .ea__panel-head {
     display: flex;
     align-items: center;
-    gap: .75rem;
-    margin-bottom: .5rem;
+    gap: 0.8rem;
+    margin-bottom: 0.6rem;
 }
 
 .ea__panel-icon {
@@ -157,7 +159,7 @@
     border-radius: 14px;
     background: linear-gradient(135deg, #004b36, #007a55);
     color: #fff;
-    box-shadow: 0 8px 18px rgba(0, 75, 54, .18);
+    box-shadow: 0 8px 18px rgba(0, 75, 54, 0.18);
     flex-shrink: 0;
 }
 
@@ -168,49 +170,45 @@
 .ea__panel-title {
     margin: 0;
     color: #004b36;
-    font-size: .98rem;
+    font-size: 0.98rem;
     font-weight: 800;
 }
 
 .ea__panel-subtitle,
 .ea__panel-text {
-    margin: .15rem 0 0;
+    margin: 0.15rem 0 0;
     color: #52635e;
-    font-size: .82rem;
+    font-size: 0.82rem;
 }
 
 /* ============================================================
-   Body: Grid 3 colunas — USA flex: 1 (cresce para preencher)
+   Fluxo único
    ============================================================ */
 .ea__body {
     display: grid;
-    grid-template-columns: 280px 1fr 300px;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+    gap: 0.9rem;
+    padding: 0.9rem 0 0;
+    align-items: start;
 }
 
 /* ============================================================
-   Sidebar esquerda (Painel de Comandos)
-   USA height: 100% (preenche o espaço do pai)
+   Sidebar esquerda — comandos
    ============================================================ */
 .ea__commands {
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-height: 0;
-    overflow-y: auto;
+    overflow: visible;
     background: var(--ea-color-bg);
     border: 1px solid var(--ea-color-border);
-    border-radius: 8px;
+    border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .ea__commands-title {
     margin: 0;
-    padding: 0.5rem 0.875rem;
+    padding: 0.6rem 0.875rem;
     background: var(--ea-color-primary);
     color: #fff;
     font-size: 0.85rem;
@@ -218,7 +216,6 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    flex-shrink: 0;
 }
 
 .ea__commands-title i {
@@ -264,11 +261,11 @@
 
 .acao-btn {
     width: 100%;
-    padding: 0.5rem 0.625rem;
+    padding: 0.55rem 0.7rem;
     background: var(--ea-color-bg);
     color: var(--ea-color-text);
     border: 1px solid var(--ea-color-border);
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
@@ -325,24 +322,22 @@
 }
 
 /* ============================================================
-   Sidebar direita (Capítulos)
-   USA height: 100% (preenche o espaço do pai)
+   Sidebar direita — capítulos
    ============================================================ */
 .ea__capitulos {
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-height: 0;
-    overflow-y: auto;
+    overflow: visible;
     background: var(--ea-color-bg);
     border: 1px solid var(--ea-color-border);
-    border-radius: 8px;
+    border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .ea__capitulos-title {
     margin: 0;
-    padding: 0.5rem 0.875rem;
+    padding: 0.6rem 0.875rem;
     background: var(--ea-color-primary);
     color: #fff;
     font-size: 0.85rem;
@@ -350,7 +345,6 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    flex-shrink: 0;
 }
 
 .ea__capitulos-title i {
@@ -367,26 +361,48 @@
     font-weight: 700;
 }
 
+.ea__sidebar-hint {
+    margin: 0.25rem 0.75rem 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #e7f5ff;
+    color: #1864ab;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.ea__sidebar-hint--warning {
+    background: #fff4e6;
+    color: #b35900;
+}
+
+.ea__sidebar-hint i {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
 .ea__capitulos-list {
-    flex: 1;
-    overflow-y: auto;
+    flex: 0 0 auto;
+    overflow: visible;
     padding: 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.35rem;
 }
 
 .ea__cap {
     display: grid;
     grid-template-columns: 28px 1fr auto;
     align-items: flex-start;
-    gap: 0.4rem;
-    padding: 0.5rem 0.6rem;
-    border-radius: 6px;
+    gap: 0.45rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
     border-left: 3px solid transparent;
-    margin-bottom: 2px;
     background: #f8f9fa;
-    transition: background .15s;
+    transition: background 0.15s;
 }
 
 .ea__cap:hover {
@@ -424,7 +440,6 @@
     color: #212529;
     overflow: hidden;
     text-overflow: ellipsis;
-    word-wrap: break-word;
     white-space: normal;
     line-height: 1.2;
 }
@@ -433,6 +448,8 @@
     display: flex;
     align-items: center;
     gap: 0.3rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .ea__cap-badge {
@@ -466,7 +483,7 @@
     background: #ae3ec9;
     color: #fff;
     text-decoration: none;
-    transition: filter .15s;
+    transition: filter 0.15s;
 }
 
 .ea__cap-action:hover {
@@ -491,18 +508,16 @@
 }
 
 /* ============================================================
-   Viewer (coluna central)
-   USA height: 100% (preenche o espaço do pai)
+   Coluna central — viewer
    ============================================================ */
 .ea__viewer {
     display: flex;
     flex-direction: column;
-    height: 100%;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     background: var(--ea-color-bg);
     border: 1px solid var(--ea-color-border);
-    border-radius: 8px;
+    border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -510,11 +525,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.875rem;
+    padding: 0.6rem 0.875rem;
     background: var(--ea-color-primary);
     color: #fff;
     flex-shrink: 0;
-    border-radius: 8px 8px 0 0;
+    border-radius: 14px 14px 0 0;
+    gap: 0.75rem;
 }
 
 .ea__viewer-title {
@@ -534,15 +550,17 @@
 .ea__viewer-actions {
     display: flex;
     gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     margin-left: auto;
 }
 
 .ea__viewer-action {
-    padding: 0.3rem 0.6rem;
+    padding: 0.35rem 0.65rem;
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 0.75rem;
     cursor: pointer;
     display: inline-flex;
@@ -559,46 +577,30 @@
     border-color: var(--ea-color-icon-green);
 }
 
-/* ============================================================
-   CRÍTICO: Mount do viewer — A4 aumentado (1426px = 1097px * 1.30)
-   
-   FORÇA MÁXIMA: !important + regras de especificidade alta
-   ============================================================ */
 .ea__viewer-mount {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    height: 1426px !important;
-    min-height: 1426px !important;
-    max-height: 1426px !important;
-    flex: 0 0 1426px !important;
-    overflow-x: auto !important;
-    overflow-y: auto !important;
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
     background: var(--ea-color-bg-alt);
     position: relative;
 }
 
 .ea__viewer-mount > * {
     width: 100%;
-    min-height: 1426px !important;
-    height: 1426px !important;
-    max-height: 1426px !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
 }
 
-.ea__viewer-mount .docx-editor {
-    height: 1426px !important;
-    min-height: 1426px !important;
-}
-
-.ea__viewer-mount .docx-editor-container {
-    height: 1426px !important;
-    min-height: 1426px !important;
-}
-
+.ea__viewer-mount .docx-editor,
+.ea__viewer-mount .docx-editor-container,
 div[id="ea-docxEditorMount"] {
-    height: 1426px !important;
-    min-height: 1426px !important;
-    max-height: 1426px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
 }
 
 .ea__viewer-loading,
@@ -617,90 +619,69 @@ div[id="ea-docxEditorMount"] {
 }
 
 .ea__viewer-hint {
-    flex-shrink: 0;
-    padding: 0.5rem 0.875rem;
     margin: 0;
+    padding: 0.55rem 0.875rem;
     font-size: 0.75rem;
     color: var(--ea-color-text-muted);
     border-top: 1px solid var(--ea-color-border);
     background: var(--ea-color-bg);
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 14px 14px;
 }
 
 /* ============================================================
-   Zoom value em branco
-   ============================================================ */
-.ea__zoom-value {
-    color: #fff !important;
-    font-weight: 600;
-    font-size: 0.8rem;
-    min-width: 48px;
-    text-align: center;
-}
-
-/* ============================================================
-   Sidebar hints
-   ============================================================ */
-.ea__sidebar-hint {
-    margin: 0.25rem 0 0.75rem;
-    padding: 0.5rem 0.75rem;
-    background: #e7f5ff;
-    color: #1864ab;
-    border-radius: 6px;
-    font-size: 0.78rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-}
-
-.ea__sidebar-hint--warning {
-    background: #fff4e6;
-    color: #b35900;
-}
-
-.ea__sidebar-hint i {
-    font-size: 1rem;
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-/* ============================================================
-   Formulários de atribuição
+   Formulários e botões
    ============================================================ */
 .ea__assign-form {
     display: flex;
     flex-direction: column;
-    gap: .75rem;
+    gap: 0.75rem;
+    align-items: stretch;
 }
 
-.ea__assign-form--buttons {
-    display: flex;
-    flex-direction: column;
-    gap: .75rem;
+.ea__assign-form form {
+    display: contents;
 }
 
 .ea__buttons-row {
     display: flex;
-    gap: .75rem;
+    gap: 0.75rem;
     align-items: center;
     justify-content: flex-start;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .ea__buttons-row button {
-    flex: 1;
-    min-width: 140px;
-    padding: .75rem 1.25rem;
-    font-size: .9rem;
+    flex: 0 0 var(--ea-action-button-width);
+    width: var(--ea-action-button-width);
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
     font-weight: 800;
     min-height: 42px;
 }
 
 .ea__buttons-row .ea__primary-btn,
 .ea__buttons-row .ea__secondary-btn {
-    padding: .75rem 1.25rem;
-    font-size: .9rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
     font-weight: 800;
+    min-height: 42px;
+}
+
+.ea__assign-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, var(--ea-action-button-width)));
+    gap: 0.75rem;
+    justify-content: flex-start;
+}
+
+.ea__assign-actions form {
+    display: block;
+    margin: 0;
+}
+
+.ea__assign-actions .ea__primary-btn,
+.ea__assign-actions .ea__secondary-btn {
+    width: 100%;
     min-height: 42px;
 }
 
@@ -709,64 +690,68 @@ div[id="ea-docxEditorMount"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .45rem;
+    gap: 0.45rem;
     border: 0;
     border-radius: 10px;
     background: linear-gradient(135deg, #004b36, #007a55);
     color: #fff;
-    padding: .75rem 1.25rem;
+    padding: 0.75rem 1.25rem;
     font-weight: 800;
-    font-size: .9rem;
+    font-size: 0.9rem;
     text-decoration: none;
     cursor: pointer;
-    box-shadow: 0 8px 16px rgba(0, 75, 54, .18);
+    box-shadow: 0 8px 16px rgba(0, 75, 54, 0.18);
     font-family: inherit;
     min-height: 42px;
     transition: all 0.15s;
 }
 
 .ea__secondary-btn {
-    background: #e8f3ed;
-    color: #004b36;
-    border: 1px solid rgba(0, 75, 54, .16);
-    box-shadow: none;
+    background: linear-gradient(135deg, #004b36, #007a55);
+    color: #fff;
+    border: 0;
+    box-shadow: 0 8px 16px rgba(0, 75, 54, 0.18);
 }
 
 .ea__primary-btn:hover:not(:disabled):not(.ea__primary-btn--disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 12px 20px rgba(0, 75, 54, .25);
+    box-shadow: 0 12px 20px rgba(0, 75, 54, 0.25);
 }
 
 .ea__secondary-btn:hover:not(:disabled):not(.ea__secondary-btn--disabled) {
-    background: #d6eae1;
-    border-color: rgba(0, 75, 54, .32);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(0, 75, 54, 0.25);
 }
 
-.ea__primary-btn--disabled {
-    background: #c5e0d3;
-    color: #2d5a4a;
+.ea__primary-btn:disabled,
+.ea__secondary-btn:disabled,
+.ea__primary-btn--disabled,
+.ea__secondary-btn--disabled {
+    background: #e8f3ed;
+    color: #004b36;
+    border: 1px solid rgba(0, 75, 54, 0.16);
     box-shadow: none;
     cursor: not-allowed;
-    opacity: 0.7;
+    opacity: 1;
 }
 
 /* ============================================================
-   Collapse (Expandir/Recolher)
+   Collapse / chips / seleção
    ============================================================ */
 .ea__collapse {
     display: flex;
     flex-direction: column;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .ea__collapse-trigger {
     width: 100%;
-    padding: .65rem 1rem;
-    background: rgba(0, 75, 54, .05);
+    padding: 0.65rem 1rem;
+    background: rgba(0, 75, 54, 0.05);
     color: #004b36;
-    border: 1px solid rgba(0, 75, 54, .12);
+    border: 1px solid rgba(0, 75, 54, 0.12);
     border-radius: 8px;
-    font-size: .85rem;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     display: flex;
@@ -778,8 +763,8 @@ div[id="ea-docxEditorMount"] {
 }
 
 .ea__collapse-trigger:hover {
-    background: rgba(0, 75, 54, .10);
-    border-color: rgba(0, 75, 54, .24);
+    background: rgba(0, 75, 54, 0.10);
+    border-color: rgba(0, 75, 54, 0.24);
 }
 
 .ea__collapse-trigger i {
@@ -794,24 +779,24 @@ div[id="ea-docxEditorMount"] {
 .ea__collapse-panel {
     display: flex;
     flex-direction: column;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .ea__chips {
     display: flex;
     flex-direction: column;
-    gap: .4rem;
+    gap: 0.4rem;
 }
 
 .ea__chip {
     display: inline-flex;
     align-items: center;
-    gap: .5rem;
-    padding: .5rem .75rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
     background: #f1f3f5;
     color: #495057;
     border-radius: 8px;
-    font-size: .8rem;
+    font-size: 0.8rem;
     text-decoration: none;
     transition: all 0.15s;
 }
@@ -822,19 +807,19 @@ div[id="ea-docxEditorMount"] {
 }
 
 .ea__selected-box {
-    padding: .75rem;
+    padding: 0.75rem;
     background: #f8f9fa;
     border-radius: 8px;
     border: 1px solid #dee2e6;
 }
 
 .ea__selected-box strong {
-    font-size: .75rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #495057;
     display: block;
-    margin-bottom: .5rem;
+    margin-bottom: 0.5rem;
 }
 
 .ea__selected-list {
@@ -843,15 +828,15 @@ div[id="ea-docxEditorMount"] {
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: .3rem;
+    gap: 0.3rem;
 }
 
 .ea__selected-list li {
-    padding: .4rem .6rem;
+    padding: 0.4rem 0.6rem;
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 6px;
-    font-size: .8rem;
+    font-size: 0.8rem;
     color: #495057;
 }
 
@@ -861,37 +846,280 @@ div[id="ea-docxEditorMount"] {
 }
 
 .ea__single-picker {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: .5rem;
+    display: block;
+    width: 100%;
+}
+
+.ea__single-picker--assigned {
+    padding: 0.65rem;
+    background: linear-gradient(135deg, rgba(42, 148, 80, 0.13), rgba(214, 164, 25, 0.12));
+    border: 1px solid rgba(42, 148, 80, 0.34);
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(42, 148, 80, 0.10);
+}
+
+.ea__single-picker--assigned .ea__field-label {
+    color: #004b36;
+}
+
+.ea__single-picker--assigned .ea__single-select:disabled {
+    border-color: rgba(42, 148, 80, 0.42);
+    background: #f6fbf7;
+    color: #14352c;
+    font-weight: 800;
+    opacity: 1;
+    -webkit-text-fill-color: #14352c;
+}
+
+.ea__field-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: #12362d;
+    font-size: 0.82rem;
+    font-weight: 800;
 }
 
 .ea__single-select {
     width: 100%;
     min-height: 38px;
-    border: 1px solid rgba(0, 75, 54, .18);
+    border: 1px solid rgba(0, 75, 54, 0.18);
     border-radius: 10px;
     background: #fff;
     color: #14352c;
-    padding: .45rem .6rem;
-    font-size: .82rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.82rem;
 }
 
 /* ============================================================
-   Responsivo (DESABILITADO para controle total)
-   
-   NOTA: Comentado propositalmente para manter controle
-   completo sobre alturas. Descomente se necessário para
-   dispositivos menores (< 980px).
-   
-   @media (max-width: 980px) {
-       .ea__body {
-           grid-template-columns: 1fr;
-       }
-       
-       .ea__commands,
-       .ea__capitulos {
-           max-height: 280px;
-       }
-   }
+   Upload inline — seção "Envio de conteúdo"
    ============================================================ */
+.ea__panel--upload {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.ea__upload-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ea__upload-card {
+    padding: 0.95rem 1rem;
+    background: #fff;
+    border: 1px solid rgba(0, 75, 54, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(0, 75, 54, 0.08);
+}
+
+.ea__upload-card--status {
+    background: linear-gradient(180deg, #f8fcf8 0%, #f3faf5 100%);
+}
+
+.ea__upload-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.ea__upload-kicker {
+    margin: 0 0 0.15rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7d76;
+    font-weight: 800;
+}
+
+.ea__upload-title {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.25;
+    color: #12362d;
+    font-weight: 800;
+}
+
+.ea__upload-badges {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ea__cap-badge--coord {
+    background: #1c3d59;
+    color: #fff;
+}
+
+.ea__upload-meta,
+.ea__upload-status {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: #4f5d6e;
+}
+
+.ea__upload-meta strong,
+.ea__upload-status strong {
+    color: #12362d;
+}
+
+.ea__upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.ea__upload-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ea__upload-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #12362d;
+}
+
+.ea__upload-input {
+    width: 100%;
+    padding: 0.62rem 0.7rem;
+    border: 1px solid rgba(0, 75, 54, 0.18);
+    border-radius: 10px;
+    background: #fff;
+    color: #14352c;
+    font-size: 0.84rem;
+}
+
+.ea__upload-input::file-selector-button {
+    margin-right: 0.7rem;
+    padding: 0.55rem 0.8rem;
+    border: 0;
+    border-radius: 8px;
+    background: #e8f3ed;
+    color: #004b36;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.ea__upload-help {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    color: #5c6d67;
+}
+
+.ea__upload-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.ea__upload-actions form,
+.ea__upload-actions a,
+.ea__upload-actions button {
+    margin: 0;
+}
+
+.ea__upload-actions form,
+.ea__upload-actions .ea__primary-btn,
+.ea__upload-actions .ea__secondary-btn {
+    flex: 0 0 var(--ea-action-button-width);
+    width: var(--ea-action-button-width);
+}
+
+.ea__upload-actions form .ea__primary-btn,
+.ea__upload-actions form .ea__secondary-btn {
+    width: 100%;
+}
+
+.ea__upload-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 1rem;
+    min-height: 180px;
+    text-align: center;
+    color: #4f5d6e;
+    background: linear-gradient(180deg, #fbfdfc 0%, #f5faf7 100%);
+    border: 1px dashed rgba(0, 75, 54, 0.18);
+    border-radius: 14px;
+}
+
+.ea__upload-empty i {
+    font-size: 1.7rem;
+    color: #d6a419;
+}
+
+/* ============================================================
+   Misc
+   ============================================================ */
+.ea__zoom-value {
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 0.8rem;
+    min-width: 48px;
+    text-align: center;
+}
+
+/* ============================================================
+   Responsividade
+   ============================================================ */
+@media (max-width: 1320px) {
+    .ea__body {
+        grid-template-columns: 1fr;
+    }
+
+    .ea__commands,
+    .ea__viewer,
+    .ea__capitulos {
+        width: 100%;
+    }
+}
+
+@media (max-width: 980px) {
+    .ea__content {
+        padding: 0.75rem;
+        border-radius: 16px;
+    }
+
+    .ea__header {
+        padding: 0.8rem;
+    }
+
+    .ea__selector {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .ea__select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .ea__body {
+        gap: 0.75rem;
+    }
+
+    .ea__assign-form,
+    .ea__assign-form--buttons {
+        flex-wrap: wrap;
+    }
+
+    .ea__upload-form {
+        grid-template-columns: 1fr;
+    }
+
+    .ea__upload-actions {
+        flex-wrap: wrap;
+    }
+}

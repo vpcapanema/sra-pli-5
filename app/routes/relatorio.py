@@ -1,12 +1,12 @@
 """Rotas de relatórios do SRA."""
 
 # noqa: C0302 (too-many-lines)
+# pylint: disable=too-many-lines
 
 from io import BytesIO
 import json
 import os
-import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 
 from flask import (
     Blueprint,
@@ -22,22 +22,34 @@ from flask import (
 )
 from docx import Document
 from flask_login import login_required, current_user
-from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
 from app import db
-from app.models.usuario import Usuario
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.envio_conteudo import EnvioConteudo
 from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.models.dominio import Dominio
-from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.services.servico_relatorio import ServicoRelatorio
+from app.services.servico_relatorio_operacoes import (
+    criar_relatorio_producao as criar_relatorio_producao_service,
+    editar_envio_inline as editar_envio_inline_service,
+    editar_relatorio_producao_inline as editar_relatorio_producao_inline_service,
+    excluir_relatorio_producao as excluir_relatorio_producao_service,
+)
+from app.services.servico_editor_autor import (
+    assumir_capitulos,
+    atribuir_responsavel_capitulo,
+    enviar_final_autor,
+    obter_contexto_editor_autor,
+)
+from app.services.servico_relatorio_views import (
+    listar_panorama_relatorios,
+    obter_contexto_editor_coordenador,
+    obter_contexto_detalhe_versao,
+)
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_envio_autor import ServicoEnvioAutor
-from app.services.servico_acoes_relatorio import listar_por_grupo
-from app.services.servico_sincronizar_capitulos import ressincronizar_capitulos_com_classificacao
 from app.services.servico_capa import aplicar_dados_completos
 from app.services.servico_finalizar_relatorio import (
     finalizar,
@@ -56,6 +68,19 @@ from app.services.servico_sanitizar_docx import sanitizar_docx
 from app.utils.htmx import render_conteudo
 
 relatorio_bp = Blueprint("relatorio", __name__, url_prefix="/relatorio")
+
+
+def _criar_modelo(modelo, **valores):
+    """Cria modelos SQLAlchemy com kwargs dinâmicos sem ruído do Pyright."""
+    return modelo(**valores)
+
+
+def _nome_arquivo_upload(arquivo):
+    """Retorna nome de upload válido quando for um DOCX."""
+    nome = arquivo.filename if arquivo else None
+    if not nome or not nome.endswith(".docx"):
+        return None
+    return nome
 
 
 def _criar_capitulo_recursivo(
@@ -93,7 +118,8 @@ def _criar_capitulo_recursivo(
         else None
     )
 
-    capitulo = CapituloDocumento(
+    capitulo = _criar_modelo(
+        CapituloDocumento,
         id_relatorio=id_relatorio,
         id_capitulo_pai=id_pai,
         titulo_capitulo=cap_dict["titulo"],
@@ -135,36 +161,9 @@ def verificar_acesso():
 @relatorio_bp.route("/panorama")
 def panorama():
     """Exibe panorama de relatorios."""
-    conn = db.session.connection()
-    result = conn.execute(text("""
-        SELECT * FROM vw_todos_relatorios
-        ORDER BY data_criacao DESC
-    """))
-
-    relatorios = []
-    for row in result:
-        relatorios.append(
-            {
-                "id": row.id,
-                "tipo_relatorio": row.tipo_relatorio,
-                "codigo": row.codigo,
-                "titulo": row.titulo,
-                "numero_medicao": row.numero_medicao,
-                "mes_referencia": row.mes_referencia,
-                "ano_referencia": row.ano_referencia,
-                "periodo_inicio": row.periodo_inicio,
-                "periodo_fim": row.periodo_fim,
-                "status_codigo": row.status_codigo,
-                "status_descricao": row.status_descricao,
-                "data_criacao": row.data_criacao,
-                "versao": row.versao,
-                "criador_nome": row.criador_nome,
-            }
-        )
-
     return render_conteudo(
         ["components/relatorio/panorama_relatorios.html"],
-        relatorios=relatorios,
+        relatorios=listar_panorama_relatorios(),
         id_relatorio_selecionado=None,
     )
 
@@ -204,7 +203,8 @@ def relatorios_base():
 def criar_relatorio_base():
     """Cria um novo relatório base."""
     arquivo = request.files.get("arquivo_docx")
-    if not arquivo or not arquivo.filename.endswith(".docx"):
+    nome_arquivo = _nome_arquivo_upload(arquivo)
+    if not arquivo or not nome_arquivo:
         flash("Envie um arquivo .docx válido.", "erro")
         return redirect(url_for("relatorio.relatorios_base"))
 
@@ -212,7 +212,7 @@ def criar_relatorio_base():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     dir_relatorios = os.path.join(base_dir, "storage", "relatorios_base")
     os.makedirs(dir_relatorios, exist_ok=True)
-    nome_seguro = secure_filename(arquivo.filename)
+    nome_seguro = secure_filename(nome_arquivo)
     caminho = os.path.join(dir_relatorios, nome_seguro)
     arquivo.save(caminho)
 
@@ -276,65 +276,17 @@ def criar_versao():
 @relatorio_bp.route("/versao-trabalho/<int:id_versao>")
 def detalhe_versao(id_versao):
     """Detalhes de uma versão de trabalho."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
-    if not versao:
+    contexto = obter_contexto_detalhe_versao(id_versao)
+    if not contexto:
         flash("Versão de trabalho não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
-    lista_capitulos = ServicoRelatorio.listar_capitulos(id_versao)
-    capitulos_flat = CapituloDocumento.query.filter_by(id_relatorio=id_versao).all()
-
-    def _sort_indice(cap):
-        """Ordena por índice numérico hierárquico.
-
-        Ex.: 1 < 2 < 5.1 < 5.2 < 5.10.
-        """
-        idx = cap.indice_capitulo or ""
-        try:
-            return [int(p) for p in idx.split(".") if p]
-        except (ValueError, AttributeError):
-            return [9999]
-
-    capitulos_flat.sort(key=_sort_indice)
-    bibliotecas = BibliotecaFormatacaoCanonica.query.filter_by(ativa=True).all()
-
-    # Lista de autores ativos (perfil 'autor' em `dominios`).
-    # Usado no select "Responsável" da tabela "Painel de Edição —
-    # Coordenador" e no painel de atribuicao do editor.
-    perfil_autor = Dominio.query.filter_by(
-        tipo="perfil_usuario", valor="autor"
-    ).first()
-    if perfil_autor:
-        autores = (
-            Usuario.query
-            .filter_by(perfil_id=perfil_autor.id_dominio, ativo=True)
-            .order_by(Usuario.nome)
-            .all()
-        )
-    else:
-        autores = []
-    # Relatórios em produção para o seletor
-    relatorios_prod = (
-        db.session.query(RelatorioProducao)
-        .join(Dominio, RelatorioProducao.status_id == Dominio.id_dominio)
-        .filter(
-            Dominio.tipo == "status_relatorio",
-            Dominio.valor == "em_producao",
-        )
-        .order_by(RelatorioProducao.criado_em.desc())
-        .all()
-    )
     componentes = [
         "components/relatorio/arvore_capitulos.html",
     ]
     return render_conteudo(
         componentes,
         perfil_ativo=session.get("perfil_ativo", ""),
-        versao_trabalho=versao,
-        capitulos=lista_capitulos,
-        capitulos_flat=capitulos_flat,
-        bibliotecas_disponiveis=bibliotecas,
-        autores_disponiveis=autores,
-        relatorios_producao=relatorios_prod,
+        **contexto,
     )
 
 
@@ -388,24 +340,27 @@ def vincular_biblioteca(id_versao):
     "/versao-trabalho/<int:id_versao>/capitulo/<int:id_capitulo>/atribuir",
     methods=["POST"],
 )
+@login_required
 def atribuir_responsavel(id_versao, id_capitulo):
     """Coordenador atribui um responsável a um capítulo.
 
     Rejeita quando o relatório está bloqueado/finalizado para evitar
     mudanças após o snapshot ter sido gerado.
     """
-    cap = CapituloDocumento.query.get_or_404(id_capitulo)
-    rel = RelatorioProducao.query.get(cap.id_relatorio)
-    if ServicoRelatorio.esta_bloqueado(rel):
-        flash(
-            "Relatório finalizado ou bloqueado — não é possível alterar "
-            "responsáveis. Crie uma nova versão para continuar.",
-            "erro",
-        )
-        return redirect(url_for("relatorio.detalhe_versao", id_versao=id_versao))
+    if session.get("perfil_ativo") not in ("coordenador", "admin"):
+        flash("Apenas coordenadores podem atribuir responsáveis.", "erro")
+        return redirect(url_for("principal.index"))
+
     id_resp = request.form.get("id_usuario_responsavel", type=int)
-    cap.id_usuario_responsavel = id_resp if id_resp else None
-    db.session.commit()
+    ok, msg, cap = atribuir_responsavel_capitulo(
+        id_versao,
+        id_capitulo,
+        id_resp,
+        current_user.id,
+    )
+    if not ok:
+        flash(msg, "erro")
+        return redirect(url_for("relatorio.detalhe_versao", id_versao=id_versao))
     flash("Responsável atualizado.", "sucesso")
 
     # Memoriza a ultima atribuicao por relatorio na sessao do
@@ -420,13 +375,21 @@ def atribuir_responsavel(id_versao, id_capitulo):
         "id_usuario_responsavel": id_resp,
     }
     session["ultima_atribuicao"] = ultima
+    editando = session.get("editar_atribuicao", {})
+    if isinstance(editando, dict):
+        editando.pop(str(id_versao), None)
+        session["editar_atribuicao"] = editando
 
     # Se o coordenador atribuiu pelo editor do autor, voltamos pra ele
     # preservando o id_versao no contexto. Senao, vai para o detalhe.
     referer = request.referrer or ""
     if "/editor-autor" in referer:
         return redirect(
-            url_for("relatorio.editor_autor", id_versao=id_versao)
+            url_for(
+                "relatorio.editor_autor",
+                id_versao=id_versao,
+                capitulo=cap.indice_capitulo,
+            )
         )
     return redirect(url_for("relatorio.detalhe_versao", id_versao=id_versao))
 
@@ -443,6 +406,23 @@ def limpar_ultima_atribuicao(id_versao):
     if isinstance(ultima, dict) and str(id_versao) in ultima:
         ultima.pop(str(id_versao), None)
         session["ultima_atribuicao"] = ultima
+    editando = session.get("editar_atribuicao", {})
+    if not isinstance(editando, dict):
+        editando = {}
+    capitulo = request.args.get("capitulo", type=str)
+    if capitulo:
+        editando[str(id_versao)] = capitulo
+    else:
+        editando[str(id_versao)] = True
+    session["editar_atribuicao"] = editando
+    if capitulo:
+        return redirect(
+            url_for(
+                "relatorio.editor_autor",
+                id_versao=id_versao,
+                capitulo=capitulo,
+            )
+        )
     return redirect(
         url_for("relatorio.editor_autor", id_versao=id_versao)
     )
@@ -472,130 +452,68 @@ def editor_autor():
     (fluxo de upload + previa + confirmar) restrito aos capitulos
     onde `id_usuario_responsavel == current_user.id`.
     """
-    # Lista de relatorios em producao para o seletor de topo
-    todos_relatorios = RelatorioProducao.query.order_by(
-        RelatorioProducao.criado_em.desc()
-    ).all()
-
     # Pega id_versao da query string ou usa o mais recente
     id_versao = request.args.get("id_versao", type=int)
     if id_versao is None:
-        if not todos_relatorios:
+        primeiro_relatorio = RelatorioProducao.query.order_by(
+            RelatorioProducao.criado_em.desc()
+        ).first()
+        if not primeiro_relatorio:
             flash(
                 "Nao ha relatorios em producao. Aguarde um coordenador "
                 "criar um relatorio antes de acessar o editor.",
                 "aviso",
             )
             return redirect(url_for("principal.index"))
-        id_versao = todos_relatorios[0].id
+        id_versao = primeiro_relatorio.id
 
     versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
     if not versao:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
 
-    # Todos os capitulos do relatorio, em ordem hierarquica global
-    # (1 -> 1.1 -> 1.2 -> 2 -> 2.1 ...), via indice_capitulo.
-    caps_autor = ServicoRelatorio.listar_capitulos_ordenados(versao.id)
-
-    # Capitulos cuja responsabilidade e do usuario logado
-    capitulos_do_autor_ids = {
-        c.id_capitulo_documento
-        for c in caps_autor
-        if c.id_usuario_responsavel == current_user.id
-    }
-    capitulos_livres = [c for c in caps_autor if c.id_usuario_responsavel is None]
-    rel_bloqueado = ServicoRelatorio.esta_bloqueado(versao)
-
-    # Capitulo selecionado para upload (via query string).
-    # - Autor: so carrega o painel de upload se ele for responsavel.
-    # - Coordenador/admin: pode carregar qualquer capitulo do relatorio
-    #   (ele upa em nome do autor).
-    # O identificador do capitulo e o indice (ex: "4.4.7"), nao o ID do banco.
     id_capitulo_selecionado = request.args.get("capitulo", type=str)
-    capitulo_selecionado = None
-    envio_pendente = None
-    perfil_ativo_inicial = session.get("perfil_ativo")
-    
-    # Busca o capitulo pelo indice_capitulo
-    if id_capitulo_selecionado:
-        capitulo_selecionado = next(
-            (
-                c
-                for c in caps_autor
-                if c.indice_capitulo == id_capitulo_selecionado
-            ),
-            None,
-        )
-    
-    pode_abrir_capitulo = (
-        capitulo_selecionado is not None
-        and (
-            capitulo_selecionado.id_usuario_responsavel == current_user.id
-            or perfil_ativo_inicial in ("coordenador", "admin")
-        )
-    )
-    
-    if pode_abrir_capitulo and capitulo_selecionado:
-        envio_pendente = (
-            EnvioConteudo.query.filter_by(
-                id_capitulo_destino=capitulo_selecionado.id_capitulo_documento,
-                status_envio="em_previa",
-            )
-            .order_by(EnvioConteudo.criado_em.desc())
-            .first()
-        )
-
-    grupos_acoes = listar_por_grupo(
-        perfil_ativo="coordenador",
-        rel_bloqueado=rel_bloqueado,
-    )
-
-    # Coordenador pode atribuir qualquer capítulo a qualquer autor
-    # ativo. Listamos apenas usuários com perfil 'autor' para popular
-    # o seletor "Autor responsável" no painel.
     perfil_ativo = session.get("perfil_ativo")
-    autores_disponiveis = []
-    if perfil_ativo in ("coordenador", "admin"):
-        from app.models.dominio import Dominio  # noqa: C0415
-
-        perfil_autor = Dominio.query.filter_by(
-            tipo="perfil_usuario", valor="autor"
-        ).first()
-        if perfil_autor:
-            autores_disponiveis = (
-                Usuario.query
-                .filter_by(perfil_id=perfil_autor.id, ativo=True)
-                .order_by(Usuario.nome)
-                .all()
+    contexto = obter_contexto_editor_autor(
+        versao,
+        id_versao,
+        current_user.id,
+        perfil_ativo,
+        id_capitulo_selecionado,
+    )
+    if "redirect_indice" in contexto:
+        return redirect(
+            url_for(
+                "relatorio.editor_autor",
+                id_versao=id_versao,
+                capitulo=contexto["redirect_indice"],
             )
+        )
 
     # Estado de "ultima atribuicao" do coordenador para este relatorio.
     # Usado para congelar os selects da seção 1 ate que ele clique em
     # "Editar selecao" (que dispara /limpar-ultima-atribuicao).
     ultima_atribuicao = None
+    editando_atribuicao = False
     if perfil_ativo in ("coordenador", "admin"):
         registro = (session.get("ultima_atribuicao") or {}).get(
             str(versao.id)
         )
         if isinstance(registro, dict):
             ultima_atribuicao = registro
+        editando_registro = (session.get("editar_atribuicao") or {}).get(
+            str(versao.id)
+        )
+        editando_atribuicao = (
+            editando_registro is True
+            or editando_registro == id_capitulo_selecionado
+        )
 
     return render_template(
         "editor_autor.html",
-        versao=versao,
-        todos_relatorios=todos_relatorios,
-        capitulos=caps_autor,
-        capitulos_livres=capitulos_livres,
-        capitulos_do_autor_ids=capitulos_do_autor_ids,
-        rel_bloqueado=rel_bloqueado,
-        grupos_acoes=grupos_acoes,
-        capitulo_selecionado=capitulo_selecionado,
-        envio_pendente=envio_pendente,
-        perfil_ativo=perfil_ativo,
-        autores_disponiveis=autores_disponiveis,
-        id_capitulo_selecionado=id_capitulo_selecionado,
+        **contexto,
         ultima_atribuicao=ultima_atribuicao,
+        editando_atribuicao=editando_atribuicao,
     )
 
 
@@ -618,16 +536,8 @@ def editor_autor_assumir_capitulos(id_versao):
         flash("Selecione ao menos um capítulo.", "aviso")
         return redirect(url_for("relatorio.editor_autor", id_versao=id_versao))
 
-    caps_assumir = CapituloDocumento.query.filter(
-        CapituloDocumento.id_relatorio == id_versao,
-        CapituloDocumento.id_capitulo_documento.in_(ids),
-        CapituloDocumento.id_usuario_responsavel.is_(None),
-    ).all()
-    for capitulo in caps_assumir:
-        capitulo.id_usuario_responsavel = current_user.id
-    db.session.commit()
-
-    flash(f"{len(caps_assumir)} capítulo(s) associado(s) ao seu usuário.", "sucesso")
+    total = assumir_capitulos(id_versao, ids, current_user.id)
+    flash(f"{total} capítulo(s) associado(s) ao seu usuário.", "sucesso")
     return redirect(url_for("relatorio.editor_autor") + "?id_versao=" + str(id_versao))
 
 
@@ -648,19 +558,12 @@ def editor_autor_enviar_final(id_versao):
             url_for("relatorio.editor_autor") + "?id_versao=" + str(id_versao)
         )
 
-    caps_final = CapituloDocumento.query.filter_by(
-        id_relatorio=id_versao,
-        id_usuario_responsavel=current_user.id,
-    ).all()
-    if not caps_final:
+    total = enviar_final_autor(id_versao, current_user.id)
+    if not total:
         flash("Você não possui capítulos para enviar.", "aviso")
         return redirect(
             url_for("relatorio.editor_autor") + "?id_versao=" + str(id_versao)
         )
-
-    for capitulo in caps_final:
-        capitulo.status_capitulo = "enviado_revisao"
-    db.session.commit()
 
     flash(
         "Conteúdo final enviado ao coordenador para revisão. "
@@ -696,7 +599,7 @@ def abrir_editor(id_relatorio):
 
     id_capitulo = request.args.get("capitulo")
     perfil_ativo = session.get("perfil_ativo")
-    
+
     # Se o capitulo for um ID numerico (int), converte para indice
     indice_capitulo = None
     if id_capitulo:
@@ -709,7 +612,7 @@ def abrir_editor(id_relatorio):
         except (ValueError, TypeError):
             # Ja e um indice, mantem como esta
             indice_capitulo = id_capitulo
-    
+
     if perfil_ativo in ("coordenador", "admin"):
         url = url_for(
             "relatorio.editor_coordenador", id_versao=id_relatorio
@@ -752,70 +655,24 @@ def editor_coordenador(id_versao):
     - Lista de capitulos com status
     - Botao para finalizar relatorio
     """
-    # Lista de relatorios em producao para o seletor de topo
-    todos_relatorios = RelatorioProducao.query.order_by(
-        RelatorioProducao.criado_em.desc()
-    ).all()
-
-    if id_versao is None:
-        if not todos_relatorios:
-            flash(
-                "Nao ha relatorios em producao. Crie um para iniciar a " "editoracao.",
-                "aviso",
-            )
-            return redirect(url_for("relatorio.relatorios_producao"))
-        id_versao = todos_relatorios[0].id
-
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
-    if not versao:
+    contexto, todos_relatorios = obter_contexto_editor_coordenador(
+        id_versao,
+        session.get("perfil_ativo") or "",
+        current_app.logger,
+    )
+    if contexto is None and not todos_relatorios:
+        flash(
+            "Nao ha relatorios em producao. Crie um para iniciar a editoracao.",
+            "aviso",
+        )
+        return redirect(url_for("relatorio.relatorios_producao"))
+    if contexto is None:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
 
-    # Bibliotecas canônicas disponíveis para o seletor
-    bibliotecas = (
-        BibliotecaFormatacaoCanonica.query.filter_by(ativa=True)
-        .order_by(BibliotecaFormatacaoCanonica.nome_biblioteca)
-        .all()
-    )
-    biblioteca_atual = None
-    if versao.biblioteca_id:
-        biblioteca_atual = BibliotecaFormatacaoCanonica.query.get(versao.biblioteca_id)
-
-    # Sincronizar capitulos do banco com o estado atual do DOCX em
-    # producao ANTES de listar — garante que a sidebar mostre exata-
-    # mente os indices/titulos que estao no documento renderizado.
-    # Agora integra classificacao e mapeamento de secoes OOXML.
-    # Defensivo: erros aqui nao bloqueiam o editor (apenas logamos).
-    if versao.caminho_template and os.path.exists(versao.caminho_template):
-        try:
-            ressincronizar_capitulos_com_classificacao(versao)
-        except Exception as exc:  # pragma: no cover - defesa  # pylint: disable=broad-exception-caught  # noqa: W0718  # pylint: disable=broad-exception-caught
-            current_app.logger.warning(
-                "Sincronizacao de capitulos falhou (id_rel=%s): %s",
-                versao.id,
-                exc,
-            )
-
-    # Capítulos em ordem hierarquica global (1 -> 1.1 -> 1.2 -> 2 ...).
-    caps_coord = ServicoRelatorio.listar_capitulos_ordenados(versao.id)
-
-    rel_bloqueado = ServicoRelatorio.esta_bloqueado(versao)
-
-    # Catalogo de acoes disponiveis para este usuario+relatorio
-    grupos_acoes = listar_por_grupo(
-        perfil_ativo=session.get("perfil_ativo") or "",
-        rel_bloqueado=rel_bloqueado,
-    )
-
     return render_template(
         "editor_coordenador.html",
-        versao=versao,
-        todos_relatorios=todos_relatorios,
-        bibliotecas=bibliotecas,
-        biblioteca_atual=biblioteca_atual,
-        capitulos=caps_coord,
-        rel_bloqueado=rel_bloqueado,
-        grupos_acoes=grupos_acoes,
+        **contexto,
     )
 
 
@@ -832,60 +689,15 @@ def criar_relatorio_producao():
         flash("Acesso restrito a coordenadores.", "erro")
         return redirect(url_for("principal.index"))
 
-    # Obter status inicial (em_producao)
-    status_inicial = Dominio.query.filter_by(
-        tipo="status_relatorio", valor="em_producao"
-    ).first()
-
-    if not status_inicial:
-        flash("Status inicial não configurado.", "erro")
-        return redirect(url_for("principal.index"))
-
-    # Processar arquivo DOCX se fornecido
-    caminho_template = None
-    arquivo = request.files.get("arquivo_docx")
-    if arquivo and arquivo.filename.endswith(".docx"):
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        dir_relatorios_producao = os.path.join(
-            base_dir, "storage", "relatorios_producao"
-        )
-        os.makedirs(dir_relatorios_producao, exist_ok=True)
-        nome_seguro = secure_filename(arquivo.filename)
-        caminho_template = os.path.join(dir_relatorios_producao, nome_seguro)
-        arquivo.save(caminho_template)
-
-    # Criar relatório de produção
-    relatorio = RelatorioProducao(
-        codigo_d20=request.form.get("codigo_pli"),
-        numero_medicao=request.form.get("numero_medicao", type=int),
-        mes_referencia=(
-            datetime.strptime(request.form.get("mes_referencia"), "%B de %Y")
-            if request.form.get("mes_referencia")
-            else None
-        ),
-        periodo_inicio=(
-            datetime.strptime(request.form.get("periodo_inicio"), "%Y-%m-%d")
-            if request.form.get("periodo_inicio")
-            else None
-        ),
-        periodo_fim=(
-            datetime.strptime(request.form.get("periodo_fim"), "%Y-%m-%d")
-            if request.form.get("periodo_fim")
-            else None
-        ),
-        titulo_curto=request.form.get("titulo_curto"),
-        status_id=status_inicial.id,
-        criado_por=current_user.id,
-        ano_referencia=request.form.get("ano_referencia", type=int),
-        versao_atual="R00",
-        bloqueio_edicao=False,
-        caminho_template=caminho_template,
+    relatorio, msg = criar_relatorio_producao_service(
+        request.form,
+        request.files.get("arquivo_docx"),
+        current_user.id,
     )
-
-    db.session.add(relatorio)
-    db.session.commit()
-
-    flash("Relatório de produção criado com sucesso.", "sucesso")
+    if relatorio is None:
+        flash(msg, "erro")
+        return redirect(url_for("principal.index"))
+    flash(msg, "sucesso")
     return redirect(url_for("relatorio.detalhe_versao", id_versao=relatorio.id))
 
 
@@ -916,7 +728,7 @@ def _parse_mes_referencia_br(valor):
         pass
     for nome, n in meses_pt.items():
         if v.startswith(nome):
-            resto = v[len(nome) :].strip().lstrip("de ").strip()
+            resto = v[len(nome):].strip().lstrip("de ").strip()
             try:
                 ano = int(resto[:4])
                 return datetime(ano, n, 1).date()
@@ -1007,7 +819,8 @@ def clonar_da_biblioteca():
     caminho_producao = os.path.join(dir_producao, nome_arquivo_seguro)
     shutil.copy2(caminho_base, caminho_producao)
 
-    relatorio_producao = RelatorioProducao(
+    relatorio_producao = _criar_modelo(
+        RelatorioProducao,
         codigo_d20=codigo_pli or "D-20",
         numero_medicao=(
             int(payload["numero_medicao"]) if payload.get("numero_medicao") else None
@@ -1154,28 +967,16 @@ def editar_envio_inline(id_envio):
     if perfil not in ("coordenador", "admin"):
         return jsonify({"erro": "Acesso restrito a coordenadores."}), 403
 
-    envio = EnvioConteudo.query.get_or_404(id_envio)
     dados = request.get_json(silent=True) or {}
-
-    campos_permitidos = ["nome_arquivo", "status_envio"]
-
     try:
-        for campo in campos_permitidos:
-            if campo in dados:
-                setattr(envio, campo, dados[campo])
-        db.session.commit()
+        envio_dados = editar_envio_inline_service(id_envio, dados)
         return jsonify(
             {
                 "mensagem": "Envio atualizado.",
-                "dados": {
-                    "id": envio.id_envio_conteudo,
-                    "nome_arquivo": envio.nome_arquivo,
-                    "status_envio": envio.status_envio,
-                },
+                "dados": envio_dados,
             }
         )
     except Exception as e:  # noqa: W0718  # pylint: disable=broad-exception-caught
-        db.session.rollback()
         return jsonify({"erro": f"Erro ao atualizar: {e}"}), 500
 
 
@@ -1187,43 +988,18 @@ def editar_relatorio_producao_inline(id_relatorio):
     if perfil not in ("coordenador", "admin"):
         return jsonify({"erro": "Acesso restrito a coordenadores."}), 403
 
-    relatorio = RelatorioProducao.query.get_or_404(id_relatorio)
     dados = request.get_json(silent=True) or {}
-
-    campos_texto = ["titulo_curto", "codigo_d20", "versao_atual"]
-
     try:
-        for campo in campos_texto:
-            if campo in dados:
-                setattr(relatorio, campo, dados[campo])
-
-        if "numero_medicao" in dados and dados["numero_medicao"]:
-            relatorio.numero_medicao = int(dados["numero_medicao"])
-        if "periodo_inicio" in dados and dados["periodo_inicio"]:
-            relatorio.periodo_inicio = datetime.strptime(
-                dados["periodo_inicio"], "%Y-%m-%d"
-            ).date()
-        if "periodo_fim" in dados and dados["periodo_fim"]:
-            relatorio.periodo_fim = datetime.strptime(
-                dados["periodo_fim"], "%Y-%m-%d"
-            ).date()
-
-        relatorio.atualizado_em = datetime.now(timezone.utc)
-        db.session.commit()
+        relatorio_dados = editar_relatorio_producao_inline_service(
+            id_relatorio, dados
+        )
         return jsonify(
             {
                 "mensagem": "Relatório atualizado.",
-                "dados": {
-                    "id": relatorio.id,
-                    "titulo_curto": relatorio.titulo_curto or "",
-                    "codigo_d20": relatorio.codigo_d20,
-                    "versao_atual": relatorio.versao_atual,
-                    "numero_medicao": relatorio.numero_medicao,
-                },
+                "dados": relatorio_dados,
             }
         )
     except Exception as e:  # noqa: W0718  # pylint: disable=broad-exception-caught
-        db.session.rollback()
         return jsonify({"erro": f"Erro ao atualizar: {e}"}), 500
 
 
@@ -1236,22 +1012,10 @@ def excluir_relatorio_producao(id_relatorio):
     if perfil != "coordenador" and perfil != "admin":
         return jsonify({"erro": "Acesso restrito a coordenadores."}), 403
 
-    relatorio = RelatorioProducao.query.get_or_404(id_relatorio)
-    titulo = relatorio.titulo_curto or relatorio.codigo_d20 or "Relatório"
-
     try:
-        # Deletar capítulos associados primeiro
-        CapituloDocumento.query.filter_by(id_relatorio=id_relatorio).delete()
-
-        # Remover arquivo do storage/relatorios_producao
-        if relatorio.caminho_template and os.path.exists(relatorio.caminho_template):
-            os.remove(relatorio.caminho_template)
-
-        db.session.delete(relatorio)
-        db.session.commit()
-        return jsonify({"mensagem": f'Relatório "{titulo}" excluído com sucesso.'})
+        msg = excluir_relatorio_producao_service(id_relatorio)
+        return jsonify({"mensagem": msg})
     except (OSError, IOError) as e:
-        db.session.rollback()
         return jsonify({"erro": f"Erro ao excluir relatório: {e}"}), 500
 
 
@@ -1350,7 +1114,7 @@ def _executar_insercao_pre_textual(
 
     if not rel.caminho_template or not os.path.exists(rel.caminho_template):
         flash(
-            "DOCX em produção indisponível. Faça upload do template " "primeiro.",
+            "DOCX em produção indisponível. Faça upload do template primeiro.",
             "erro",
         )
         return redirect(url_for("relatorio.detalhe_versao", id_versao=id_relatorio))
@@ -1439,14 +1203,14 @@ def reindexar_captions_route(id_relatorio):
     rel = RelatorioProducao.query.get_or_404(id_relatorio)
     if ServicoRelatorio.esta_bloqueado(rel):
         flash(
-            "Relatório finalizado — não é possível reindexar. " "Crie uma nova versão.",
+            "Relatório finalizado — não é possível reindexar. Crie uma nova versão.",
             "erro",
         )
         return redirect(url_for("relatorio.editor_coordenador", id_versao=id_relatorio))
 
     if not rel.caminho_template or not os.path.exists(rel.caminho_template):
         flash(
-            "DOCX em produção indisponível. Faça upload do template " "primeiro.",
+            "DOCX em produção indisponível. Faça upload do template primeiro.",
             "erro",
         )
         return redirect(url_for("relatorio.editor_coordenador", id_versao=id_relatorio))
@@ -1493,9 +1257,7 @@ def baixar_docx_producao(id_relatorio):
     if not os.path.exists(relatorio.caminho_template):
         return ("Arquivo não encontrado", 404)
 
-    mimetype = (
-        "application/vnd.openxmlformats-officedocument" ".wordprocessingml.document"
-    )
+    mimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     bytes_sanitizados = sanitizar_docx(relatorio.caminho_template)
     if bytes_sanitizados is None:
@@ -1522,14 +1284,15 @@ def upload_docx_clonagem():
         return jsonify({"erro": "Acesso restrito"}), 403
 
     arquivo = request.files.get("arquivo_docx")
-    if not arquivo or not arquivo.filename.endswith(".docx"):
+    nome_arquivo = _nome_arquivo_upload(arquivo)
+    if not arquivo or not nome_arquivo:
         return jsonify({"erro": "Arquivo inválido"}), 400
 
     # Salvar arquivo temporariamente
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     dir_temp = os.path.join(base_dir, "storage", "temp")
     os.makedirs(dir_temp, exist_ok=True)
-    nome_seguro = secure_filename(arquivo.filename)
+    nome_seguro = secure_filename(nome_arquivo)
     caminho = os.path.join(dir_temp, nome_seguro)
     arquivo.save(caminho)
 
@@ -1552,6 +1315,7 @@ def upload_docx_clonagem():
     "/versao-trabalho/<int:id_versao>/capitulo/<int:id_capitulo>/upload",
     methods=["GET", "POST"],
 )
+@login_required
 def upload_conteudo(id_versao, id_capitulo):
     """Tela de upload de conteúdo do autor para um capítulo.
 
@@ -1647,7 +1411,7 @@ def upload_conteudo(id_versao, id_capitulo):
             url_for(
                 "relatorio.editor_autor",
                 id_versao=id_versao,
-                capitulo=id_capitulo,
+                capitulo=capitulo.indice_capitulo,
             )
         )
 
@@ -1706,6 +1470,7 @@ def previa_envio(id_envio):
 @relatorio_bp.route(
     "/envios-conteudo/<int:id_envio>/confirmar/<acao>", methods=["POST"]
 )
+@login_required
 def confirmar_envio(id_envio, acao):
     """Aplica decisão do autor: importar ou rejeitar."""
     envio = EnvioConteudo.query.get_or_404(id_envio)
@@ -1734,7 +1499,18 @@ def confirmar_envio(id_envio, acao):
     else:
         flash("Envio rejeitado.", "info")
 
-    return redirect(url_for("relatorio.detalhe_versao", id_versao=envio.id_relatorio))
+    capitulo = CapituloDocumento.query.get(envio.id_capitulo_destino)
+    if capitulo and capitulo.indice_capitulo:
+        return redirect(
+            url_for(
+                "relatorio.editor_autor",
+                id_versao=envio.id_relatorio,
+                capitulo=capitulo.indice_capitulo,
+            )
+        )
+    return redirect(
+        url_for("relatorio.editor_autor", id_versao=envio.id_relatorio)
+    )
 
 
 @relatorio_bp.route(
@@ -1861,7 +1637,8 @@ def salvar_conteudo_autor(id_envio):
     # Persistência do HTML editado: associa como prévia 'editada'.
     dados = request.get_data(as_text=True) or ""
     if dados:
-        prev = PrevisualizacaoConteudo(
+        prev = _criar_modelo(
+            PrevisualizacaoConteudo,
             id_envio_conteudo=envio.id_envio_conteudo,
             tipo_previsualizacao="editada",
             resultado_html=dados,

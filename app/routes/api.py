@@ -9,25 +9,41 @@ import secrets
 import time
 from io import BytesIO
 
-from bs4 import BeautifulSoup
-from docx import Document
 from flask import Blueprint, abort, jsonify, request, send_file, session
 from flask_login import login_required, current_user
 
-from app import db
-from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
-from app.models.capitulo_documento import CapituloDocumento
 from app.models.biblioteca_formatacao import (
     BibliotecaFormatacaoCanonica
 )
-from app.models.notificacao import Notificacao
+from app.models.envio_conteudo import EnvioConteudo
+from app.services.servico_api_editor import (
+    MAX_UPLOAD_BYTES,
+    aprovar_capitulo_api,
+    atualizar_capitulo_api,
+    atualizar_renomeacao_envio as atualizar_renomeacao_envio_service,
+    converter_html_para_docx,
+    criar_capitulo_api,
+    excluir_capitulo_api,
+    extrair_conteudo_capitulo,
+    finalizar_capitulo_api,
+    finalizar_relatorio_api,
+    gerar_segmento_docx,
+    listar_autores_api,
+    listar_capitulos_api,
+    listar_segmentos_envio,
+    obter_estrutura_envio,
+    obter_versao_api,
+    reprovar_capitulo_api,
+    servir_docx_producao,
+    usuario_pode_acessar_envio,
+    vincular_biblioteca_api,
+)
+from app.services.servico_finalizar_relatorio import FinalizacaoError
 # servico_motor_renderizacao removido pos Fase 1: o DOCX em producao
 # (caminho_template) e a fonte unica; nao ha mais reconstrucao a
 # partir de capitulos + conteudo_docx.
 from app.utils.logger import sra_log_handler
-
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
 # Rate limiting simples em memória
 _rate_limit_store = {}
@@ -80,20 +96,7 @@ def obter_csrf_token():
 @login_required
 def obter_versao(id_vt):
     """Retorna dados da versão de trabalho com capítulos."""
-    vt = RelatorioProducao.query.get_or_404(id_vt)
-    caps = CapituloDocumento.query.filter_by(
-        id_relatorio=id_vt,
-        id_capitulo_pai=None,
-        ativo=True
-    ).order_by(CapituloDocumento.ordem_capitulo).all()
-
-    return jsonify({
-        'id': vt.id,
-        'titulo': vt.titulo_curto,
-        'status': vt.status.codigo if vt.status else None,
-        'id_biblioteca': None,
-        'capitulos': [_serializar_capitulo(c) for c in caps],
-    })
+    return jsonify(obter_versao_api(id_vt))
 
 
 # ==============================================================
@@ -104,12 +107,7 @@ def obter_versao(id_vt):
 @login_required
 def listar_capitulos(id_vt):
     """Lista capítulos (raízes) da versão de trabalho."""
-    caps = CapituloDocumento.query.filter_by(
-        id_relatorio=id_vt,
-        id_capitulo_pai=None,
-        ativo=True
-    ).order_by(CapituloDocumento.ordem_capitulo).all()
-    return jsonify([_serializar_capitulo(c) for c in caps])
+    return jsonify(listar_capitulos_api(id_vt))
 
 
 @api_bp.route(
@@ -119,24 +117,8 @@ def listar_capitulos(id_vt):
 @login_required
 def criar_capitulo(id_vt):
     """Cria um novo capítulo/subcapítulo."""
-    RelatorioProducao.query.get_or_404(id_vt)
-    data = request.get_json()
-    titulo = data['titulo']
-    cap = CapituloDocumento(
-        id_relatorio=id_vt,
-        titulo_capitulo=titulo,
-        # `nome_capitulo` espelha o titulo quando nao informado.
-        nome_capitulo=data.get('nome') or titulo,
-        ordem_capitulo=data.get('ordem', 0),
-        nivel_capitulo=data.get('nivel', 1),
-        id_capitulo_pai=data.get('id_pai'),
-        id_usuario_responsavel=data.get('id_responsavel'),
-        status_capitulo='em_edicao',
-        criado_por=current_user.id,
-    )
-    db.session.add(cap)
-    db.session.commit()
-    return jsonify(_serializar_capitulo(cap)), 201
+    capitulo = criar_capitulo_api(id_vt, request.get_json(), current_user.id)
+    return jsonify(capitulo), 201
 
 
 @api_bp.route('/capitulos/<int:id_cap>', methods=['PATCH'])
@@ -144,33 +126,19 @@ def criar_capitulo(id_vt):
 def atualizar_capitulo(id_cap):
     """Atualiza metadados de um capítulo (coordenador only)."""
     _exigir_perfil('coordenador')
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    data = request.get_json()
-
-    if 'titulo' in data:
-        cap.titulo_capitulo = data['titulo']
-        # Mantem nome_capitulo em sincronia se ainda estiver vazio.
-        if not cap.nome_capitulo:
-            cap.nome_capitulo = data['titulo']
-    if 'ordem' in data:
-        cap.ordem_capitulo = data['ordem']
-    if 'nivel' in data:
-        cap.nivel_capitulo = data['nivel']
-    if 'id_responsavel' in data:
-        cap.id_usuario_responsavel = data['id_responsavel']
-    cap.atualizado_por = current_user.id
-
-    db.session.commit()
-    return jsonify(_serializar_capitulo(cap))
+    capitulo = atualizar_capitulo_api(
+        id_cap,
+        request.get_json(),
+        current_user.id,
+    )
+    return jsonify(capitulo)
 
 
 @api_bp.route('/capitulos/<int:id_cap>', methods=['DELETE'])
 @login_required
 def excluir_capitulo(id_cap):
     """Soft-delete de um capítulo."""
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    cap.ativo = False
-    db.session.commit()
+    excluir_capitulo_api(id_cap)
     return '', 204
 
 
@@ -185,10 +153,10 @@ def baixar_envio_docx(id_envio):
 
     Acessível para o próprio autor que enviou e para coordenadores.
     """
-    from app.models.envio_conteudo import EnvioConteudo
     envio = EnvioConteudo.query.get_or_404(id_envio)
-    if (envio.id_usuario != current_user.id
-            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+    if not usuario_pode_acessar_envio(
+        envio, current_user.id, session.get('perfil_ativo')
+    ):
         return jsonify({'erro': 'Sem permissão'}), 403
     if not envio.caminho_arquivo or not os.path.exists(envio.caminho_arquivo):
         return ('', 204)
@@ -207,25 +175,15 @@ def baixar_envio_docx(id_envio):
 @login_required
 def buscar_estrutura_envio(id_envio):
     """Retorna a estrutura completa do DOCX enviado (capítulos, figuras, tabelas)."""  # noqa: E501
-    from app.models.envio_conteudo import EnvioConteudo
-
     envio = EnvioConteudo.query.get_or_404(id_envio)
-    if (envio.id_usuario != current_user.id
-            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+    if not usuario_pode_acessar_envio(
+        envio, current_user.id, session.get('perfil_ativo')
+    ):
         return jsonify({'erro': 'Sem permissão'}), 403
 
     try:
-        # Retornar estrutura já processada durante o upload
-        import json  # noqa: C0415
-        if envio.sugestoes_json:
-            estrutura = json.loads(envio.sugestoes_json)
-            return jsonify(estrutura)
-        else:
-            return jsonify({
-                'capitulos': [],
-                'legendas': [],
-            })
-    except Exception as e:  # noqa: W0718
+        return jsonify(obter_estrutura_envio(id_envio))
+    except ValueError as e:
         return jsonify({'erro': f'Erro ao carregar estrutura: {e}'}), 500
 
 
@@ -240,79 +198,29 @@ def atualizar_renomeacao_envio(id_envio, id_capitulo):
     Restrito a coordenador/admin. Recebe JSON `{"aprovado": true|false}`.
     Persiste em `envio.sugestoes_json -> renomeacoes_pendentes`.
     """
-    from app.models.envio_conteudo import EnvioConteudo
-
     if session.get('perfil_ativo') not in ('coordenador', 'admin'):
         return jsonify({'erro': 'Sem permissão'}), 403
 
-    envio = EnvioConteudo.query.get_or_404(id_envio)
     payload = request.get_json(silent=True) or {}
     aprovado = bool(payload.get('aprovado'))
-
-    import json  # noqa: C0415
-    try:
-        estrutura = json.loads(envio.sugestoes_json or '{}')
-    except (ValueError, TypeError):
-        estrutura = {}
-
-    pendentes = estrutura.get('renomeacoes_pendentes') or []
-    encontrada = False
-    for r in pendentes:
-        if r.get('id_capitulo_documento') == id_capitulo:
-            r['aprovado'] = aprovado
-            encontrada = True
-            break
-    if not encontrada:
+    resultado = atualizar_renomeacao_envio_service(
+        id_envio, id_capitulo, aprovado
+    )
+    if resultado is None:
         return jsonify({'erro': 'Renomeação não encontrada'}), 404
-
-    estrutura['renomeacoes_pendentes'] = pendentes
-    envio.sugestoes_json = json.dumps(estrutura)
-    db.session.commit()
-    return jsonify({
-        'ok': True,
-        'id_capitulo_documento': id_capitulo,
-        'aprovado': aprovado,
-    })
+    return jsonify(resultado)
 
 
 @api_bp.route('/envios/<int:id_envio>/segmentos')
 @login_required
 def buscar_segmentos_envio(id_envio):
     """Retorna os segmentos (prévias) de um envio por capítulo."""
-    from app.models.envio_conteudo import EnvioConteudo
-    from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
-
     envio = EnvioConteudo.query.get_or_404(id_envio)
-    if (envio.id_usuario != current_user.id
-            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+    if not usuario_pode_acessar_envio(
+        envio, current_user.id, session.get('perfil_ativo')
+    ):
         return jsonify({'erro': 'Sem permissão'}), 403
-
-    previas = PrevisualizacaoConteudo.query.filter_by(
-        id_envio_conteudo=id_envio
-    ).all()
-
-    segmentos = []
-    for prev in previas:
-        # O id do capítulo de destino é gravado como string em
-        # `caminho_saida` por servico_envio_autor (não há coluna
-        # dedicada no modelo PrevisualizacaoConteudo).
-        cap = None
-        if prev.caminho_saida:
-            try:
-                cap = CapituloDocumento.query.get(int(prev.caminho_saida))
-            except (ValueError, TypeError):
-                cap = None
-        if cap:
-            segmentos.append({
-                'id_previsualizacao': prev.id_previsualizacao,
-                'id_capitulo': cap.id_capitulo_documento,
-                'titulo_capitulo': cap.titulo_capitulo,
-                'indice_capitulo': cap.indice_capitulo,
-                'resultado_html': prev.resultado_html,
-                'tipo_previsualizacao': prev.tipo_previsualizacao,
-            })
-
-    return jsonify({'segmentos': segmentos})
+    return jsonify({'segmentos': listar_segmentos_envio(id_envio)})
 
 
 @api_bp.route('/envios/<int:id_envio>/capitulos/<int:id_capitulo>/docx')
@@ -323,17 +231,15 @@ def baixar_envio_segmento_docx(id_envio, id_capitulo):
     Gerado em memória a partir do DOCX original do envio + classificação:
     parte do DOCX que foi atribuída ao capítulo informado.
     """
-    from app.models.envio_conteudo import EnvioConteudo
-    from app.services.servico_envio_autor import gerar_docx_segmento
     envio = EnvioConteudo.query.get_or_404(id_envio)
-    if (envio.id_usuario != current_user.id
-            and session.get('perfil_ativo') not in ('coordenador', 'admin')):
+    if not usuario_pode_acessar_envio(
+        envio, current_user.id, session.get('perfil_ativo')
+    ):
         return jsonify({'erro': 'Sem permissão'}), 403
-    cap = CapituloDocumento.query.get_or_404(id_capitulo)
-    if cap.id_relatorio != envio.id_relatorio:
-        return jsonify({'erro': 'Capítulo não pertence ao envio'}), 400
     try:
-        blob = gerar_docx_segmento(envio, cap)
+        blob = gerar_segmento_docx(id_envio, id_capitulo)
+    except ValueError as e:
+        return jsonify({'erro': str(e)}), 400
     except (OSError, ValueError, RuntimeError) as e:
         return jsonify({'erro': f'Falha ao gerar segmento: {e}'}), 500
     if not blob:
@@ -362,13 +268,15 @@ def salvar_envio_segmento_docx(id_envio, id_capitulo):
     - application/octet-stream: bytes DOCX
     - text/html: HTML do contenteditable; convertido para DOCX
     """
-    from app.models.envio_conteudo import EnvioConteudo
     envio = EnvioConteudo.query.get_or_404(id_envio)
     if envio.id_usuario != current_user.id:
         return jsonify({'erro': 'Sem permissão'}), 403
-    cap = CapituloDocumento.query.get_or_404(id_capitulo)
-    if cap.id_relatorio != envio.id_relatorio:
-        return jsonify({'erro': 'Capítulo não pertence ao envio'}), 400
+    try:
+        gerar_segmento_docx(id_envio, id_capitulo)
+    except ValueError as e:
+        return jsonify({'erro': str(e)}), 400
+    except (OSError, RuntimeError) as e:
+        return jsonify({'erro': f'Falha ao validar segmento: {e}'}), 500
 
     content_type = request.content_type or ''
     dados = request.get_data()
@@ -377,22 +285,7 @@ def salvar_envio_segmento_docx(id_envio, id_capitulo):
 
     if 'text/html' in content_type:
         try:
-            soup = BeautifulSoup(dados.decode('utf-8'), 'html.parser')
-            doc = Document()
-            for el in soup.find_all(
-                ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
-            ):
-                txt = el.get_text(strip=True)
-                if not txt:
-                    continue
-                if el.name.startswith('h'):
-                    nivel = int(el.name[1])
-                    doc.add_heading(txt, level=min(nivel, 9))
-                else:
-                    doc.add_paragraph(txt)
-            buf = BytesIO()
-            doc.save(buf)
-            dados = buf.getvalue()
+            dados = converter_html_para_docx(dados)
         except (ValueError, TypeError, AttributeError) as e:
             return jsonify(
                 {'erro': f'Erro ao converter HTML para DOCX: {e}'}
@@ -449,31 +342,17 @@ def obter_conteudo(id_cap):
     `servico_merge_docx.extrair_capitulo_como_docx`. Nao usa mais
     `cap.conteudo_docx` (coluna em vias de ser removida).
     """
-    from app.services.servico_sanitizar_docx import sanitizar_docx_bytes
-    from app.services.servico_merge_docx import (
-        extrair_capitulo_como_docx,
-    )
-
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    rel = RelatorioProducao.query.get(cap.id_relatorio)
-    if not rel or not rel.caminho_template:
-        return ('Relatorio sem DOCX em producao', 404)
-    if not os.path.exists(rel.caminho_template):
-        return ('Arquivo DOCX em producao nao encontrado', 404)
-
     try:
-        conteudo = extrair_capitulo_como_docx(
-            rel.caminho_template, cap
-        )
+        conteudo, erro, status = extrair_conteudo_capitulo(id_cap)
     except (ValueError, OSError, RuntimeError) as e:
         return (f'Erro ao extrair capitulo: {e}', 500)
+    if erro:
+        return (erro, status)
     if not conteudo:
         return ('Capitulo nao localizado no DOCX em producao', 404)
 
-    bytes_sanitizados = sanitizar_docx_bytes(conteudo)
-    saida = bytes_sanitizados or conteudo
     return send_file(
-        BytesIO(saida),
+        BytesIO(conteudo),
         mimetype=(
             'application/vnd.openxmlformats-officedocument'
             '.wordprocessingml.document'
@@ -502,24 +381,14 @@ def finalizar_relatorio(id_rp):
 
     Nao monta mais o DOCX a partir de `conteudo_docx` por capitulo.
     """
-    from app.services.servico_finalizar_relatorio import (
-        finalizar,
-        FinalizacaoError,
-    )
     _exigir_perfil('coordenador')
     try:
-        rf = finalizar(id_relatorio=id_rp, id_usuario=current_user.id)
+        resultado = finalizar_relatorio_api(id_rp, current_user.id)
     except FinalizacaoError as e:
         return jsonify({'erro': str(e)}), 400
     except (OSError, RuntimeError) as e:
         return jsonify({'erro': f'Erro inesperado: {e}'}), 500
-    return jsonify({
-        'mensagem': 'Relatorio finalizado com sucesso',
-        'id_finalizado': rf.id,
-        'versao': rf.versao,
-        'checksum': rf.checksum_docx,
-        'nome_arquivo': rf.nome_arquivo,
-    }), 201
+    return jsonify(resultado), 201
 
 
 @api_bp.route(
@@ -529,29 +398,10 @@ def finalizar_relatorio(id_rp):
 def finalizar_capitulo(id_cap):
     """Autor marca capítulo como finalizado (pronto para revisão)."""
     _exigir_perfil('autor')
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    if cap.status_capitulo not in ('em_edicao', 'reprovado'):
-        return jsonify({'erro': 'Status inválido para finalizar'}), 400
-    # Só o responsável pode finalizar
-    if (cap.id_usuario_responsavel
-            and cap.id_usuario_responsavel
-            != current_user.id):
-        return jsonify({'erro': 'Sem permissão'}), 403
-    cap.status_capitulo = 'finalizado'
-    # Notificar coordenador(es)
-    # NOTE: Implementar query de coordenadores via Dominio (tipo='perfil_usuario')
-    # coordenadores = Usuario.query.filter(
-    #     Usuario.perfil_id == 2,  # coordenador
-    #     Usuario.ativo
-    # ).all()
-    # for coord in coordenadores:
-    #     _notificar(
-    #         coord.id,
-    #         f'Capítulo "{cap.titulo_capitulo}" finalizado '
-    #         f'pelo autor e aguarda revisão.'
-    #     )
-    db.session.commit()
-    return jsonify(_serializar_capitulo(cap))
+    capitulo, erro, status = finalizar_capitulo_api(id_cap, current_user.id)
+    if erro:
+        return jsonify({'erro': erro}), status
+    return jsonify(capitulo)
 
 
 @api_bp.route(
@@ -561,20 +411,10 @@ def finalizar_capitulo(id_cap):
 def aprovar_capitulo(id_cap):
     """Coordenador aprova o capítulo."""
     _exigir_perfil('coordenador')
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    if cap.status_capitulo != 'finalizado':
-        return jsonify({'erro': 'Capítulo não está finalizado'}), 400
-    cap.status_capitulo = 'aprovado'
-    cap.observacao_coordenador = None
-    # Notificar autor
-    if cap.id_usuario_responsavel:
-        _notificar(
-            cap.id_usuario_responsavel,
-            f'Capítulo "{cap.titulo_capitulo}" aprovado '
-            f'pelo coordenador.'
-        )
-    db.session.commit()
-    return jsonify(_serializar_capitulo(cap))
+    capitulo, erro, status = aprovar_capitulo_api(id_cap)
+    if erro:
+        return jsonify({'erro': erro}), status
+    return jsonify(capitulo)
 
 
 @api_bp.route(
@@ -584,21 +424,13 @@ def aprovar_capitulo(id_cap):
 def reprovar_capitulo(id_cap):
     """Coordenador reprova o capítulo com justificativa."""
     _exigir_perfil('coordenador')
-    cap = CapituloDocumento.query.get_or_404(id_cap)
-    if cap.status_capitulo != 'finalizado':
-        return jsonify({'erro': 'Capítulo não está finalizado'}), 400
     data = request.get_json() or {}
-    cap.status_capitulo = 'reprovado'
-    cap.observacao_coordenador = data.get('observacao', '')
-    # Notificar autor
-    if cap.id_usuario_responsavel:
-        _notificar(
-            cap.id_usuario_responsavel,
-            f'Capítulo "{cap.titulo_capitulo}" reprovado. '
-            f'Observação: {cap.observacao_coordenador}'
-        )
-    db.session.commit()
-    return jsonify(_serializar_capitulo(cap))
+    capitulo, erro, status = reprovar_capitulo_api(
+        id_cap, data.get('observacao', '')
+    )
+    if erro:
+        return jsonify({'erro': erro}), status
+    return jsonify(capitulo)
 
 
 # ==============================================================
@@ -614,24 +446,22 @@ def reprovar_capitulo(id_cap):
 
 def _servir_docx_producao(vt, *, as_attachment: bool, nome: str):
     """Helper comum para servir o DOCX em producao com sanitizacao."""
-    from app.services.servico_sanitizar_docx import sanitizar_docx
-
-    if not vt.caminho_template or not os.path.exists(vt.caminho_template):
-        return jsonify({'erro': 'DOCX em producao indisponivel'}), 404
+    conteudo, erro = servir_docx_producao(vt)
+    if erro:
+        return jsonify({'erro': erro}), 404
     mimetype = (
         'application/vnd.openxmlformats-officedocument'
         '.wordprocessingml.document'
     )
-    bytes_sanitizados = sanitizar_docx(vt.caminho_template)
-    if bytes_sanitizados is None:
+    if isinstance(conteudo, str):
         return send_file(
-            vt.caminho_template,
+            conteudo,
             as_attachment=as_attachment,
             download_name=nome,
             mimetype=mimetype,
         )
     return send_file(
-        BytesIO(bytes_sanitizados),
+        BytesIO(conteudo),
         as_attachment=as_attachment,
         download_name=nome,
         mimetype=mimetype,
@@ -685,14 +515,11 @@ def preview_versao(id_vt):
 def vincular_biblioteca(id_vt):
     """Coordenador vincula uma biblioteca canônica à versão."""
     _exigir_perfil('coordenador')
-    RelatorioProducao.query.get_or_404(id_vt)
     data = request.get_json()
     id_bib = data.get('id_biblioteca')
-    if not id_bib:
-        return jsonify({'erro': 'id_biblioteca obrigatório'}), 400
-    BibliotecaFormatacaoCanonica.query.get_or_404(id_bib)
-    # NOTE: Implementar vinculo de biblioteca no novo schema
-    db.session.commit()
+    ok, erro = vincular_biblioteca_api(id_vt, id_bib)
+    if not ok:
+        return jsonify({'erro': erro}), 400
     return jsonify({'ok': True, 'id_biblioteca': id_bib})
 
 
@@ -700,33 +527,11 @@ def vincular_biblioteca(id_vt):
 @login_required
 def listar_autores():
     """Lista usuários com perfil 'autor' ativos.
-    
+
     Retorna lista de autores cadastrados, utilizando a tabela de domínios
     para buscar o perfil 'autor' dinamicamente.
     """
-    from app.models import Dominio
-    
-    # Busca dinamicamente o ID do perfil 'autor' via domínios
-    perfil_autor = Dominio.query.filter_by(
-        tipo="perfil_usuario", valor="autor"
-    ).first()
-    
-    if not perfil_autor:
-        return jsonify([]), 200
-    
-    autores = (
-        Usuario.query.filter(
-            Usuario.perfil_id == perfil_autor.id_dominio,
-            Usuario.ativo == True
-        )
-        .order_by(Usuario.nome)
-        .all()
-    )
-    
-    return jsonify([
-        {'id': u.id, 'nome': u.nome}
-        for u in autores
-    ])
+    return jsonify(listar_autores_api())
 
 
 @api_bp.route('/bibliotecas-formatacao')
@@ -756,48 +561,6 @@ def _exigir_perfil(*perfis):
     perfil_ativo = session.get('perfil_ativo', '')
     if perfil_ativo not in perfis:
         abort(403)
-
-
-def _notificar(id_usuario, mensagem, tipo='workflow'):
-    """Cria notificação para o usuário."""
-    n = Notificacao(
-        id_usuario_destino=id_usuario,
-        tipo_notificacao=tipo,
-        mensagem=mensagem
-    )
-    db.session.add(n)
-
-
-def _serializar_capitulo(cap):
-    """Serializa CapituloDocumento para JSON."""
-    filhos = CapituloDocumento.query.filter_by(
-        id_capitulo_pai=cap.id_capitulo_documento,
-        ativo=True
-    ).order_by(CapituloDocumento.ordem_capitulo).all()
-
-    return {
-        'id': cap.id_capitulo_documento,
-        'titulo': cap.titulo_capitulo,
-        'ordem': cap.ordem_capitulo,
-        'nivel': cap.nivel_capitulo,
-        'status': cap.status_capitulo,
-        'id_responsavel': cap.id_usuario_responsavel,
-        'responsavel_nome': (
-            cap.responsavel.nome
-            if cap.responsavel else None
-        ),
-        # Pos-Fase 1: 'tem_conteudo' deixa de espelhar a coluna
-        # `conteudo_docx` (em vias de remocao). O conteudo agora vive
-        # no DOCX em producao; o capitulo "tem conteudo" se for
-        # localizavel naquele DOCX, mas verificar isso no serializer
-        # seria caro. Devolvemos True para preservar o comportamento
-        # do frontend antigo (que so usa este flag para escolher entre
-        # "exibir preview" vs "exibir placeholder"). Pos-migracao
-        # completa, este campo pode ser removido.
-        'tem_conteudo': True,
-        'observacao_coordenador': cap.observacao_coordenador,
-        'filhos': [_serializar_capitulo(f) for f in filhos],
-    }
 
 
 @api_bp.route('/logs')

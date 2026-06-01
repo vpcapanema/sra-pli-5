@@ -24,6 +24,9 @@ from typing import Callable, Tuple
 
 from flask_login import current_user
 
+from app.models.relatorio_producao import RelatorioProducao
+from app.services.servico_perfil_formatacao import PerfilFormatacao
+
 
 # ===========================================================
 # Modelo da acao
@@ -119,7 +122,7 @@ def _h_sincronizar_capitulos(rel, perfil):
     """Reextrai a arvore de capitulos do DOCX em producao e atualiza
     o banco — garante que a sidebar mostre exatamente o que esta
     no documento renderizado.
-    
+
     Integra classificacao de capitulos e mapeamento de secoes OOXML.
     """
     from app.services.servico_sincronizar_capitulos import (
@@ -385,6 +388,34 @@ ACOES_POR_ID: dict = {a.id: a for a in CATALOGO}
 def obter_acao(acao_id: str):
     """Devolve a `Acao` ou `None`."""
     return ACOES_POR_ID.get(acao_id)
+
+
+def executar_acao_relatorio(id_rel: int, acao_id: str, perfil_ativo: str):
+    """Executa uma acao do catalogo para um relatorio."""
+    acao = obter_acao(acao_id)
+    if acao is None:
+        return ResultadoAcao(False, f'Ação desconhecida: "{acao_id}".')
+
+    rel = RelatorioProducao.query.get(id_rel)
+    if rel is None:
+        return ResultadoAcao(
+            False,
+            'Relatório não encontrado.',
+            redirect_url='relatorio.relatorios_producao',
+        )
+
+    ok, msg = validar_pre_execucao(acao, rel, perfil_ativo)
+    if not ok:
+        return ResultadoAcao(False, msg)
+
+    try:
+        perfil = PerfilFormatacao.de_relatorio(rel)
+        resultado = acao.handler(rel, perfil)
+    except (OSError, ValueError, RuntimeError, ImportError) as e:
+        return ResultadoAcao(False, f'Erro em "{acao.label}": {e}')
+
+    mensagem = f'{acao.label}: {resultado}' if resultado else acao.label
+    return ResultadoAcao(True, mensagem)
 
 
 def listar_por_grupo(perfil_ativo: str, rel_bloqueado: bool):

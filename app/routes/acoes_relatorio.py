@@ -19,11 +19,7 @@ from flask import (
 )
 from flask_login import login_required
 
-from app.models.relatorio_producao import RelatorioProducao
-from app.services.servico_acoes_relatorio import (
-    obter_acao, validar_pre_execucao,
-)
-from app.services.servico_perfil_formatacao import PerfilFormatacao
+from app.services.servico_acoes_relatorio import executar_acao_relatorio
 
 
 acoes_bp = Blueprint('acoes', __name__, url_prefix='/relatorio')
@@ -39,30 +35,10 @@ def executar(id_rel, acao_id):
         'relatorio.editor_coordenador', id_versao=id_rel
     )
 
-    acao = obter_acao(acao_id)
-    if acao is None:
-        flash(f'Ação desconhecida: "{acao_id}".', 'erro')
-        return redirect(redirect_to)
-
-    rel = RelatorioProducao.query.get(id_rel)
-    if rel is None:
-        flash('Relatório não encontrado.', 'erro')
-        return redirect(url_for('relatorio.relatorios_producao'))
-
     perfil_ativo = session.get('perfil_ativo') or ''
-    ok, msg = validar_pre_execucao(acao, rel, perfil_ativo)
-    if not ok:
-        flash(msg, 'erro')
-        return redirect(redirect_to)
-
-    try:
-        perfil = PerfilFormatacao.de_relatorio(rel)
-        resultado = acao.handler(rel, perfil)
-        mensagem = (
-            f'{acao.label}: {resultado}' if resultado else acao.label
-        )
-        flash(mensagem, 'sucesso')
-    except (OSError, ValueError, RuntimeError, ImportError) as e:
-        flash(f'Erro em "{acao.label}": {e}', 'erro')
+    resultado = executar_acao_relatorio(id_rel, acao_id, perfil_ativo)
+    flash(resultado.mensagem, 'sucesso' if resultado.ok else 'erro')
+    if resultado.redirect_url:
+        return redirect(url_for(resultado.redirect_url))
 
     return redirect(redirect_to)
