@@ -1334,8 +1334,8 @@ class ServicoEnvioAutor:
         """
         elementos = []
         ns = {
-            "w": ("http://schemas.openxmlformats.org" "/wordprocessingml/2006/main"),
-            "m": ("http://schemas.openxmlformats.org/officeDocument" "/2006/math"),
+            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+            "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
         }
 
         # Padrões para detectar legendas/equações
@@ -1640,7 +1640,7 @@ class ServicoEnvioAutor:
                             "legenda": None,
                             "tipo": "inline",
                             "tem_legenda": False,
-                            "sugestao": ("Adicione uma legenda descritiva " "para esta figura."),
+                            "sugestao": "Adicione uma legenda descritiva para esta figura.",
                         }
                     )
             else:

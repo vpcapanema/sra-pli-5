@@ -582,26 +582,113 @@
         fetch(url)
             .then(function (resp) { return resp.json(); })
             .then(function (dados) {
-                var estrutura = dados.estrutura || {};
-                var caps = estrutura.capitulos || [];
-                var arvore = estrutura.arvore_estrutural || [];
-                var pendentes = estrutura.renomeacoes_pendentes || [];
-                var automaticas = estrutura.renomeacoes_automaticas_pendentes || [];
-                box.innerHTML = ''
-                    + '<strong>Diagnóstico e elementos extraídos</strong>'
-                    + '<div class="ea__diag-grid">'
-                    + '<span>Capítulos: <b>' + caps.length + '</b></span>'
-                    + '<span>Estrutura: <b>' + arvore.length + '</b></span>'
-                    + '<span>Renomeações pendentes: <b>' + pendentes.length + '</b></span>'
-                    + '<span>Renomeações automáticas: <b>' + automaticas.length + '</b></span>'
-                    + '</div>'
-                    + '<pre class="ea__diag-json"></pre>';
-                var pre = box.querySelector('pre');
-                pre.textContent = JSON.stringify(estrutura, null, 2);
+                renderDiagnostico(dados.estrutura || {});
             })
             .catch(function () {
                 box.innerHTML = '<strong>Diagnóstico</strong><p>Não foi possível carregar.</p>';
             });
+    }
+
+    function renderDiagnostico(estrutura) {
+        var box = document.getElementById('ea-preview-diagnostico');
+        if (!box) return;
+        var sug = estrutura.docx_sugerido || {};
+        var bib = sug.biblioteca || {};
+        var diag = sug.diagnostico_visual || {};
+        var margens = diag.margens || {};
+        var headings = diag.headings || {};
+        var corpo = diag.corpo || {};
+        var legendas = diag.legendas || {};
+        var nao = diag.nao_alterados || {};
+        var estilosBase = diag.estilos_base || [];
+
+        if (bib.id) { box.setAttribute('data-biblioteca-id', bib.id); }
+        else { box.removeAttribute('data-biblioteca-id'); }
+
+        function esc(t) {
+            return String(t == null ? '' : t)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function chip(label, valor, estado) {
+            return '<span class="ea__diag-chip ea__diag-chip--' + (estado || 'info')
+                + '">' + esc(label) + ': <b>' + esc(valor) + '</b></span>';
+        }
+
+        var usou = bib.usou_biblioteca_canonica;
+        var nomeBib = bib.nome || 'Padrao do sistema';
+        var html = '';
+
+        html += '<div class="ea__diag-head">';
+        html += '<span class="ea__diag-title"><i class="ph ph-magic-wand"></i>'
+            + ' Diagnostico da formatacao</span>';
+        html += '<span class="ea__diag-badge '
+            + (usou ? 'ea__diag-badge--canon' : 'ea__diag-badge--default')
+            + '"><i class="ph ph-books"></i> ' + esc(nomeBib) + '</span>';
+        html += '</div>';
+
+        if (!usou) {
+            html += '<p class="ea__diag-note"><i class="ph ph-info"></i> '
+                + 'Sem biblioteca canonica vinculada: aplicados os estilos '
+                + 'padrao do sistema. Escolha uma biblioteca acima para usar '
+                + 'estilos especificos.</p>';
+        }
+
+        html += '<div class="ea__diag-chips">';
+        html += chip('Titulos', headings.alterados || 0, 'ok');
+        html += chip('Corpo', corpo.alterados || 0, 'ok');
+        html += chip('Legendas', legendas.alterados || 0, 'ok');
+        html += chip('Margens', margens.aplicado ? 'sim' : 'nao',
+            margens.aplicado ? 'ok' : 'warn');
+        html += chip('Nao alterados', nao.total || 0, nao.total ? 'warn' : 'muted');
+        html += '</div>';
+
+        html += '<div class="ea__diag-cols">';
+        html += '<div class="ea__diag-card ea__diag-card--ok">';
+        html += '<h4><i class="ph ph-check-circle"></i> Alterado</h4><ul>';
+        if (margens.aplicado) {
+            html += '<li>Margens ' + esc(margens.top_mm) + '/'
+                + esc(margens.right_mm) + '/' + esc(margens.bottom_mm) + '/'
+                + esc(margens.left_mm) + ' mm</li>';
+        }
+        if (estilosBase.length) {
+            html += '<li>Estilos-base: ' + esc(estilosBase.join(', ')) + '</li>';
+        }
+        html += '<li>' + esc(headings.alterados || 0)
+            + ' titulo(s): fonte, tamanho, cor e numeracao</li>';
+        html += '<li>' + esc(corpo.alterados || 0)
+            + ' paragrafo(s) de corpo justificados/normalizados</li>';
+        if (legendas.alterados) {
+            html += '<li>' + esc(legendas.alterados)
+                + ' legenda(s) padronizada(s)</li>';
+        }
+        html += '</ul></div>';
+
+        html += '<div class="ea__diag-card ea__diag-card--warn">';
+        html += '<h4><i class="ph ph-minus-circle"></i> Nao alterado ('
+            + esc(nao.total || 0) + ')</h4><ul>';
+        html += '<li>' + esc(nao.paragrafos_vazios || 0)
+            + ' paragrafo(s) vazio(s) ignorado(s)</li>';
+        html += '<li>' + esc(nao.paragrafos_em_tabelas || 0)
+            + ' paragrafo(s) em tabelas (preservados)</li>';
+        html += '</ul></div>';
+        html += '</div>';
+
+        var itens = headings.itens || [];
+        if (itens.length) {
+            html += '<details class="ea__diag-details"><summary>'
+                + 'Ver titulos formatados (' + itens.length + ')</summary>'
+                + '<ul class="ea__diag-list">';
+            itens.forEach(function (h) {
+                html += '<li><span class="ea__diag-nivel">N' + esc(h.nivel)
+                    + '</span> ' + esc(h.texto) + ' <span class="ea__diag-meta">'
+                    + esc(h.fonte) + ' ' + esc(h.tamanho_pt) + 'pt'
+                    + (h.negrito ? ' negrito' : '')
+                    + (h.cor_rgb ? ' #' + esc(h.cor_rgb) : '') + '</span></li>';
+            });
+            html += '</ul></details>';
+        }
+
+        box.innerHTML = html;
     }
 
     function configurarModalImportar(sugeridoUrl) {
