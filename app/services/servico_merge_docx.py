@@ -24,7 +24,7 @@ import unicodedata
 from io import BytesIO
 from typing import Optional, cast
 
-import lxml.etree as etree
+import lxml.etree as etree  # pylint: disable=consider-using-from-import
 
 from docx import Document
 from docxcompose.composer import Composer
@@ -386,22 +386,24 @@ def _sincronizar_subcapitulos_interno(
                 indice_filho = f'{indice_pai}.{ordem}'
             elif not indice_filho:
                 indice_filho = str(ordem)
-            novo = CapituloDocumento(
-                id_relatorio=capitulo_pai.id_relatorio,
-                id_capitulo_pai=capitulo_pai.id_capitulo_documento,
-                titulo_capitulo=item['titulo'],
-                # `nome_capitulo` espelha o titulo na criacao automatica.
-                nome_capitulo=item['titulo'],
-                ordem_capitulo=ordem,
-                nivel_capitulo=nivel_pai + 1,
-                tipo_elemento=capitulo_pai.tipo_elemento or 'textual',
-                indice_capitulo=indice_filho,
-                status_capitulo='em_edicao',
-                ativo=True,
-                # Subcapitulo detectado a partir do upload do autor —
-                # preenche com o usuario logado (autor) se houver
-                # request context; senao fica como sistema.
-                criado_por=usuario_atual_id(),
+            novo = CapituloDocumento(  # type: ignore[call-arg]
+                **{
+                    'id_relatorio': capitulo_pai.id_relatorio,
+                    'id_capitulo_pai': capitulo_pai.id_capitulo_documento,
+                    'titulo_capitulo': item['titulo'],
+                    # `nome_capitulo` espelha o titulo na criacao automatica.
+                    'nome_capitulo': item['titulo'],
+                    'ordem_capitulo': ordem,
+                    'nivel_capitulo': nivel_pai + 1,
+                    'tipo_elemento': capitulo_pai.tipo_elemento or 'textual',
+                    'indice_capitulo': indice_filho,
+                    'status_capitulo': 'em_edicao',
+                    'ativo': True,
+                    # Subcapitulo detectado a partir do upload do autor —
+                    # preenche com o usuario logado (autor) se houver
+                    # request context; senao fica como sistema.
+                    'criado_por': usuario_atual_id(),
+                }
             )
             db_session.add(novo)
             inseridos += 1
@@ -915,50 +917,50 @@ def _match_fuzzy(
             ),
             'alternativas': alternativas
         }
-    else:
-        # Nenhum match dentro da distância máxima
-        # Retornar os 3 melhores matches mesmo fora do limite para sugestões
-        todas_matches = []
-        for heading in headings:
-            texto_norm = heading['texto_normalizado']
-            ratio = difflib.SequenceMatcher(None, titulo_alvo, texto_norm).ratio()
-            max_len = max(len(titulo_alvo), len(texto_norm))
-            distancia_estimada = int((1 - ratio) * max_len)
 
-            todas_matches.append({
-                'indice': heading['indice'],
-                'texto_original': heading['texto_original'],
-                'texto_normalizado': texto_norm,
-                'nivel': heading['nivel'],
-                'ratio': ratio,
-                'distancia_estimada': distancia_estimada,
-                'confianca': ratio  # Usar ratio como confiança para ordenação
-            })
+    # Nenhum match dentro da distância máxima
+    # Retornar os 3 melhores matches mesmo fora do limite para sugestões
+    todas_matches = []
+    for heading in headings:
+        texto_norm = heading['texto_normalizado']
+        ratio = difflib.SequenceMatcher(None, titulo_alvo, texto_norm).ratio()
+        max_len = max(len(titulo_alvo), len(texto_norm))
+        distancia_estimada = int((1 - ratio) * max_len)
 
-        todas_matches.sort(key=lambda x: x['confianca'], reverse=True)
-        alternativas = []
-        for i, match in enumerate(todas_matches[:3]):
-            alternativas.append({
-                'posicao': i + 1,
-                'titulo': match['texto_original'],
-                'titulo_normalizado': match['texto_normalizado'],
-                'confianca': match['ratio'],  # Ratio como confiança
-                'ratio': match['ratio'],
-                'distancia_estimada': match['distancia_estimada'],
-                'nivel': match['nivel']
-            })
+        todas_matches.append({
+            'indice': heading['indice'],
+            'texto_original': heading['texto_original'],
+            'texto_normalizado': texto_norm,
+            'nivel': heading['nivel'],
+            'ratio': ratio,
+            'distancia_estimada': distancia_estimada,
+            'confianca': ratio  # Usar ratio como confiança para ordenação
+        })
 
-        return {
-            'encontrado': False,
-            'indice': None,
-            'confianca': 0.0,
-            'titulo_encontrado': None,
-            'diagnostico': (
-                'Nenhum match fuzzy dentro da distância máxima '
-                f'({max_distancia_edicao})'
-            ),
-            'alternativas': alternativas
-        }
+    todas_matches.sort(key=lambda x: x['confianca'], reverse=True)
+    alternativas = []
+    for i, match in enumerate(todas_matches[:3]):
+        alternativas.append({
+            'posicao': i + 1,
+            'titulo': match['texto_original'],
+            'titulo_normalizado': match['texto_normalizado'],
+            'confianca': match['ratio'],  # Ratio como confiança
+            'ratio': match['ratio'],
+            'distancia_estimada': match['distancia_estimada'],
+            'nivel': match['nivel']
+        })
+
+    return {
+        'encontrado': False,
+        'indice': None,
+        'confianca': 0.0,
+        'titulo_encontrado': None,
+        'diagnostico': (
+            'Nenhum match fuzzy dentro da distância máxima '
+            f'({max_distancia_edicao})'
+        ),
+        'alternativas': alternativas
+    }
 
 
 def _match_exato(
@@ -1306,7 +1308,7 @@ def localizar_range_capitulo_robusto(
 
         if match_result['encontrado']:
             # Encontrou! Calcular range completo
-            indice_inicio = match_result['indice']
+            indice_inicio = cast(int, match_result['indice'])
 
             # Determinar nível do heading encontrado
             nivel_inicio = None

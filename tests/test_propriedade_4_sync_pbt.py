@@ -53,11 +53,11 @@ def criar_usuario_unico(app_context_ref):
     return usuario.id, unique_id
 
 
-def criar_relatorio_com_docx(usuario_id, capítulos_info, unique_id):
+def criar_relatorio_com_docx(usuario_id, capitulos_info, unique_id):
     """Cria RelatorioProducao com DOCX contendo capítulos."""
     # Criar DOCX
     doc = Document()
-    for titulo, estilo, _ in capítulos_info:
+    for titulo, estilo, _ in capitulos_info:
         if estilo.startswith('Heading'):
             nivel = int(estilo[-1]) if estilo[-1].isdigit() else 1
             doc.add_heading(titulo, level=nivel)
@@ -65,7 +65,7 @@ def criar_relatorio_com_docx(usuario_id, capítulos_info, unique_id):
             # Anexo/Apêndice/etc
             doc.add_heading(titulo, level=1)
 
-        doc.add_paragraph(f"Conteúdo: {titulo}")
+        doc.add_paragraph("Conteúdo: {titulo}")
 
     # Salvar DOCX
     tmpdir = tempfile.mkdtemp()
@@ -126,7 +126,7 @@ def capitulos_mistos_strategy(draw) -> list:
             capitulos.append((f'Apêndice {chr(73+i)}', 'Apêndice', 'apendice'))
 
     assume(len(capitulos) >= 1)  # Garantir pelo menos 1 capítulo
-    return capitulos[:num_capitulos]  # Limitar ao número desejado
+    return capitulos[:num_capitulos]  # Limitar ao número desejado  # pylint: disable=unreachable
 
 
 # =====================================================================
@@ -168,9 +168,13 @@ def test_property_4_classificacao_para_todo_capitulo(app, capitulos: list):
             assert cap.titulo_capitulo, f"Capítulo sem título: {cap.id_capitulo_documento}"
 
             # Invariante 2: Classificação deve ser válida (None ou um dos valores esperados)
-            valid_classifications = [None, 'textual', 'pre_textual', 'pos_textual', 'anexo', 'apendice']
-            assert cap.classificacao in valid_classifications, \
+            valid_classifications = [
+                None, 'textual', 'pre_textual', 'pos_textual',
+                'anexo', 'apendice',
+            ]
+            assert cap.classificacao in valid_classifications, (
                 f"Classificação inválida '{cap.classificacao}' para '{cap.titulo_capitulo}'"
+            )
 
             # Invariante 3: Se é anexo ou apêndice, deve ter prefixo
             if cap.classificacao in ('anexo', 'apendice'):
@@ -215,31 +219,38 @@ def test_property_4_anexo_apendice_distintos(app, num_anexos: int, num_apendices
             capitulos.append((f'Apêndice {chr(73+i)}', 'Apêndice', 'apendice'))
 
         rel = criar_relatorio_com_docx(usuario_id, capitulos, unique_id)
-        resultado = ressincronizar_capitulos_com_classificacao(rel)
+        _ = ressincronizar_capitulos_com_classificacao(rel)
 
         caps = CapituloDocumento.query.filter_by(id_relatorio=rel.id).all()
 
         # Separar por tipo
-        anexos = [c for c in caps if c.classificacao == 'anexo']
-        apendices = [c for c in caps if c.classificacao == 'apendice']
+        _ = [c for c in caps if c.classificacao == 'anexo']
+        _ = [c for c in caps if c.classificacao == 'apendice']
 
         # Invariante: Nunca deve haver confusão
         for cap in caps:
             # Cada capítulo é exatamente um tipo (ou None)
-            assert cap.classificacao in [None, 'textual', 'pre_textual', 'pos_textual', 'anexo', 'apendice'], \
+            assert cap.classificacao in [
+                None, 'textual', 'pre_textual', 'pos_textual',
+                'anexo', 'apendice',
+            ], (
                 f"Classificação ambígua ou inválida: {cap.classificacao}"
+            )
 
             # Nunca anexo E apêndice simultaneamente
             é_anexo = 'anexo' in cap.titulo_capitulo.lower() or cap.classificacao == 'anexo'
-            é_apendice = 'apêndice' in cap.titulo_capitulo.lower() or cap.classificacao == 'apendice'
+            é_apendice = (
+                'apêndice' in cap.titulo_capitulo.lower()
+                or cap.classificacao == 'apendice'
+            )
 
             if é_anexo and cap.classificacao is not None:
                 assert cap.classificacao == 'anexo', \
-                    f"Elemento 'Anexo' com classificação errada: {cap.classificacao}"
+                    "Elemento 'Anexo' com classificação errada: {cap.classificacao}"
 
             if é_apendice and cap.classificacao is not None:
                 assert cap.classificacao == 'apendice', \
-                    f"Elemento 'Apêndice' com classificação errada: {cap.classificacao}"
+                    "Elemento 'Apêndice' com classificação errada: {cap.classificacao}"
 
 
 # **Validates: Requirements 4.1, 4.3, 4.5**
@@ -265,11 +276,11 @@ def test_property_4_determinismo_idempotencia(app, num_repeticoes: int, capitulo
 
         # Executar sync múltiplas vezes
         estados = []
-        for rep in range(num_repeticoes):
+        for _ in range(num_repeticoes):
             rel_refresh = RelatorioProducao.query.get(rel_id)
             resultado = ressincronizar_capitulos_com_classificacao(rel_refresh)
 
-            assert resultado['sucesso'], f"Repetição {rep} falhou"
+            assert resultado['sucesso'], "Repetição falhou"
 
             # Capturar estado
             estado = {}
@@ -283,9 +294,9 @@ def test_property_4_determinismo_idempotencia(app, num_repeticoes: int, capitulo
 
         # Invariante: Todos os estados devem ser idênticos
         estado_base = estados[0]
-        for rep_idx, estado in enumerate(estados[1:], start=1):
+        for _, estado in enumerate(estados[1:], start=1):
             assert estado == estado_base, \
-                f"Estado divergiu na repetição {rep_idx}: {estado} != {estado_base}"
+                f"Estado divergiu: {estado} != {estado_base}"
 
 
 # **Validates: Requirements 4.1, 4.4**
@@ -317,17 +328,21 @@ def test_property_4_elementos_pre_textuais(app, num_pre_textuais: int):
         capitulos.append(('Introdução', 'Heading 1', None))  # Textual
 
         rel = criar_relatorio_com_docx(usuario_id, capitulos, unique_id)
-        resultado = ressincronizar_capitulos_com_classificacao(rel)
+        _ = ressincronizar_capitulos_com_classificacao(rel)
 
         caps = CapituloDocumento.query.filter_by(id_relatorio=rel.id).all()
 
         # Invariante: Todos os capítulos devem ter estrutura válida
         for cap in caps:
-            assert cap.titulo_capitulo, f"Capítulo sem título"
+            assert cap.titulo_capitulo, "Capítulo sem título"
 
             # Classificação deve ser válida (ou None para pré-textuais)
-            assert cap.classificacao in [None, 'textual', 'pre_textual', 'pos_textual', 'anexo', 'apendice'], \
+            assert cap.classificacao in [
+                None, 'textual', 'pre_textual', 'pos_textual',
+                'anexo', 'apendice',
+            ], (
                 f"Classificação inválida: {cap.classificacao}"
+            )
 
 
 # **Validates: Requirements 4.1**
@@ -338,7 +353,7 @@ def test_property_4_elementos_pre_textuais(app, num_pre_textuais: int):
                 min_size=5,
                 max_size=30,
                 alphabet=st.characters(
-                    blacklist_categories=("Cc", "Cs", "Cn"),  # Remover control chars, surrogates, outros
+                    blacklist_categories=("Cc", "Cs", "Cn"),  # noqa: E501
                     blacklist_characters='\x00\x08'  # Remover null e backspace
                 )
             ),
@@ -371,19 +386,22 @@ def test_property_4_robustez_variacoes_titulo(app, estilos_com_variacao: list):
             if not titulo_limpo:
                 titulo_limpo = "Capítulo Vazio"
 
-            expected_classif = 'anexo' if 'Anexo' in estilo else ('apendice' if 'Apêndice' in estilo else None)
+            expected_classif = 'anexo' if 'Anexo' in estilo else (
+                'apendice' if 'Apêndice' in estilo else None
+            )
             capitulos.append((titulo_limpo, estilo, expected_classif))
 
         assume(len(capitulos) > 0)  # Garantir pelo menos um capítulo
+        # Garantir pelo menos um capítulo
 
-        rel = criar_relatorio_com_docx(usuario_id, capitulos, unique_id)
+        rel = criar_relatorio_com_docx(usuario_id, capitulos, unique_id)  # pylint: disable=unreachable
 
         # Deve não lançar exceção, mesmo com títulos aleatórios
         try:
             resultado = ressincronizar_capitulos_com_classificacao(rel)
             assert isinstance(resultado, dict)
-        except Exception as e:
-            pytest.fail(f"Sync falhou com entrada variada: {e}")
+        except Exception as _e:
+            pytest.fail(f"Sync falhou com entrada variada: {_e}")
 
 
 if __name__ == '__main__':

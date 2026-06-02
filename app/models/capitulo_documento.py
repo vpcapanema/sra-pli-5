@@ -159,52 +159,52 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     @property
     def numero_capitulo_esperado(self):
         """Retorna o número do capítulo para match por contexto.
-        
+
         Prioridade:
         1. indice_esperado (campo explícito)
         2. Extrair de indice_capitulo (ex: "5" de "5.1")
         3. None se não conseguir determinar
         """
         import re
-        
+
         # 1. Usar indice_esperado se disponível
         if self.indice_esperado is not None:
             return self.indice_esperado
-        
+
         # 2. Tentar extrair de indice_capitulo
         if self.indice_capitulo:
             match = re.match(r'^(\d+)', self.indice_capitulo)
             if match:
                 return int(match.group(1))
-        
+
         # 3. Não conseguiu determinar
         return None
 
     @property
     def e_capitulo(self):
         """Retorna True se for um capítulo de primeiro nível (textual)."""
-        return (self.nivel_capitulo == 1 and 
-                self.tipo_elemento == 'textual' and 
+        return (self.nivel_capitulo == 1 and
+                self.tipo_elemento == 'textual' and
                 self.classificacao in (None, 'textual'))
 
     @property
     def e_subcapitulo(self):
         """Retorna True se for um subcapítulo (textual, com pai)."""
-        return (self.nivel_capitulo >= 2 and 
-                self.tipo_elemento == 'textual' and 
+        return (self.nivel_capitulo >= 2 and
+                self.tipo_elemento == 'textual' and
                 self.id_capitulo_pai is not None and
                 self.classificacao in (None, 'textual'))
 
     @property
     def e_anexo(self):
         """Retorna True se for anexo."""
-        return (self.tipo_elemento == 'pos_textual' and 
+        return (self.tipo_elemento == 'pos_textual' and
                 self.classificacao == 'anexo')
 
     @property
     def e_apendice(self):
         """Retorna True se for apêndice."""
-        return (self.tipo_elemento == 'pos_textual' and 
+        return (self.tipo_elemento == 'pos_textual' and
                 self.classificacao == 'apendice')
 
     @property
@@ -227,32 +227,32 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
             return 'pre_textual'
         else:
             return 'outro'
-    
+
     # ------------------------------------------------------------------
     # Propriedades relacionadas a seções DOCX
     # ------------------------------------------------------------------
-    
+
     @property
     def abrange_multiplas_secoes(self):
         """Retorna True se o capítulo abrange mais de uma seção DOCX."""
         return self.id_secao_fim is not None and self.id_secao_fim != self.id_secao_inicio
-    
+
     @property
     def numero_secoes(self):
         """Retorna o número de seções que o capítulo abrange."""
         if not self.abrange_multiplas_secoes:
             return 1
-        
+
         # Em implementação real, calcularia baseado em ordem_secao
         return 1  # Placeholder
-    
+
     @property
     def tem_quebra_secao_importante(self):
         """Retorna True se o capítulo começa com quebra de seção importante."""
         if self.secao_inicio and self.secao_inicio.e_quebra_importante:
             return True
         return False
-    
+
     @property
     def propriedades_secao_inicio(self):
         """Retorna propriedades da seção de início."""
@@ -272,32 +272,32 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     def validar_estrutura(self):
         """Valida a estrutura conceitual do capítulo."""
         erros = []
-        
+
         # Anexo/Apêndice (pós-textual) - regras especiais
         if self.tipo_elemento == 'pos_textual':
             if self.classificacao not in ('anexo', 'apendice', None):
                 erros.append("Classificação inválida para conteúdo pós-textual")
             # Anexos/apêndices podem ter nível 1 e não precisam ser 'textual'
             return erros
-        
+
         # Conteúdo textual (capítulos e subcapítulos)
         if self.tipo_elemento != 'textual':
             erros.append("Conteúdo textual deve ter tipo_elemento = 'textual'")
-        
+
         # Capítulo (nível 1)
         if self.nivel_capitulo == 1:
             if self.id_capitulo_pai is not None:
                 erros.append("Capítulo de nível 1 não pode ter pai")
             if self.classificacao not in (None, 'textual'):
                 erros.append("Capítulo de nível 1 deve ter classificação 'textual' ou None")
-        
+
         # Subcapítulo (nível ≥ 2)
         elif self.nivel_capitulo >= 2:
             if self.id_capitulo_pai is None:
                 erros.append("Subcapítulo deve ter um capítulo pai")
             if self.classificacao not in (None, 'textual'):
                 erros.append("Subcapítulo deve ter classificação 'textual' ou None")
-        
+
         return erros
 
 

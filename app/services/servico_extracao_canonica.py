@@ -474,8 +474,8 @@ class ServicoExtracaoCanonica:
                 p = item.get('posicao', '')
                 if p:
                     posicoes[p] = posicoes.get(p, 0) + 1
-            est_top = max(estilos, key=estilos.get)
-            pos_top = (max(posicoes, key=posicoes.get)
+            est_top = max(estilos, key=lambda k: estilos[k])
+            pos_top = (max(posicoes, key=lambda k: posicoes[k])
                        if posicoes else None)
             return {
                 'estilo_predominante': est_top,
@@ -877,3 +877,32 @@ class ServicoExtracaoCanonica:
     def _emu_para_mm(emu_val):
         """Converte EMU (no contexto pgSz em twips) para mm."""
         return round(emu_val * 25.4 / 1440, 2)
+
+    @staticmethod
+    def validar_estrutura_canonica(caminho_docx, perfil=None):
+        """Valida se o DOCX tem elementos canônicos esperados.
+
+        Args:
+            caminho_docx: Caminho para o arquivo DOCX.
+            perfil: Perfil de formatação (opcional).
+
+        Returns:
+            Dict com chave 'problemas' (lista de strings) ou mensagem de erro.
+        """
+        del perfil
+        if not os.path.exists(caminho_docx):
+            return {'problemas': [f'Arquivo não encontrado: {caminho_docx}']}
+
+        try:
+            doc = Document(caminho_docx)
+            problemas = []
+
+            if len(doc.paragraphs) == 0:
+                problemas.append('Documento sem parágrafos')
+
+            if len(doc.sections) == 0:
+                problemas.append('Documento sem seções')
+
+            return {'problemas': problemas}
+        except Exception as exc:
+            return {'problemas': [f'Erro ao ler DOCX: {exc}']}

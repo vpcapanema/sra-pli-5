@@ -28,7 +28,9 @@ Tambem integra classificacao e secoes OOXML:
    - Atualiza campos classificacao + prefixo_indice + secoes
 
 API publica:
-    ressincronizar_capitulos(rel) -> dict (DEPRECATED - usar ressincronizar_capitulos_com_classificacao)
+    ressincronizar_capitulos(rel) -> dict (
+        DEPRECATED - usar ressincronizar_capitulos_com_classificacao
+    )
     ressincronizar_capitulos_com_classificacao(rel) -> dict {capitulos,
                                                               erros_classificacao}
     diff_capitulos(rel) -> dict (modo dry-run, sem persistir)
@@ -142,7 +144,7 @@ def diff_capitulos(rel) -> dict:
         return {'erro': 'Relatorio sem DOCX em producao.'}
 
     doc = Document(rel.caminho_template)
-    arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)
+    arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)  # pylint: disable=protected-access
     items_docx = _achatar_arvore(arvore_docx)
     indice_docx = _construir_indice_capitulos(items_docx)
 
@@ -269,7 +271,7 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
         DeprecationWarning,
         stacklevel=2
     )
-    
+
     logger.warning(
         "DEPRECATION: ressincronizar_capitulos() chamado. "
         "Use ressincronizar_capitulos_com_classificacao() em seu lugar.",
@@ -283,7 +285,7 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
 
     # Delega para novo método com classificação
     resultado = ressincronizar_capitulos_com_classificacao(rel)
-    
+
     # Converte resultado novo para formato compatível com API antiga
     # para não quebrar callers existentes
     return {
@@ -300,7 +302,6 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
     }
 
 
-
 # =====================================================================
 # Ressincronizacao com integracao de Classificacao + Secoes (Task 3.2)
 # =====================================================================
@@ -310,16 +311,16 @@ def ressincronizar_capitulos_com_classificacao(
     relatorio
 ) -> dict:
     """Ressincroniza capitulos integrando classificacao e secoes OOXML.
-    
+
     Fluxo:
     1. Extrai capitulos de template com `servico_extracao_canonica`
     2. Para cada capitulo, chama `ServicoClassificacaoCapitulos.classificar_por_estilo_docx()`
     3. Integra secoes: consulta `servico_extracao_secoes` e mapeia id_secao_inicio/fim
     4. Atualiza CapituloDocumento com classificacao + prefixo_indice + id_secao_inicio/fim
-    
+
     Args:
         relatorio: instancia de RelatorioProducao
-    
+
     Retorna:
         dict com:
             - 'sucesso': bool indicando se operacao completou
@@ -329,7 +330,7 @@ def ressincronizar_capitulos_com_classificacao(
             - 'total_atualizados': int
             - 'total_criados': int
             - 'total_erros': int
-    
+
     Validacoes (Property 4: Respeito a Classificacao e Secoes):
         - Cada capitulo tem classificacao preenchida
         - Cada capitulo tem prefixo_indice quando aplicavel (ANEXO_, APENDICE_)
@@ -344,7 +345,7 @@ def ressincronizar_capitulos_com_classificacao(
         'total_criados': 0,
         'total_erros': 0,
     }
-    
+
     # Validacao: relatorio deve ter DOCX de producao
     if not relatorio or not relatorio.caminho_template:
         resultado['erros_classificacao'].append({
@@ -353,13 +354,13 @@ def ressincronizar_capitulos_com_classificacao(
         })
         resultado['total_erros'] += 1
         return resultado
-    
+
     try:
         # Etapa 1: Extrair capitulos do template
         doc = Document(relatorio.caminho_template)
-        arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)
+        arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)  # pylint: disable=protected-access
         items_achatados = _achatar_arvore(arvore_docx)
-        
+
         if not items_achatados:
             resultado['erros_classificacao'].append({
                 'tipo': 'extracao',
@@ -367,7 +368,7 @@ def ressincronizar_capitulos_com_classificacao(
             })
             resultado['total_erros'] += 1
             return resultado
-        
+
         # Etapa 2: Extrair secoes OOXML
         try:
             secoes = ServicoExtracaoSecoes.extrair_secoes_do_docx(
@@ -381,7 +382,7 @@ def ressincronizar_capitulos_com_classificacao(
             })
             resultado['total_erros'] += 1
             secoes = []
-        
+
         # Etapa 3: Buscar capitulos existentes no banco
         capitulos_banco = CapituloDocumento.query.filter_by(
             id_relatorio=relatorio.id,
@@ -390,21 +391,21 @@ def ressincronizar_capitulos_com_classificacao(
             _normalizar_titulo(cap.titulo_capitulo): cap
             for cap in capitulos_banco
         }
-        
+
         # Etapa 4: Processar cada capitulo do DOCX
         capitulos_processados = []
         docx_matched_keys = set()
-        
+
         for item in items_achatados:
             titulo_docx = item.get('titulo', '')
             estilo_docx = item.get('estilo', '')
             indice_docx = item.get('indice') or ''
             nivel_docx = item.get('nivel') or 1
-            
+
             # Normalizacao para match
             chave_normalizacao = _normalizar_titulo(titulo_docx)
             docx_matched_keys.add(chave_normalizacao)
-            
+
             # Etapa 4a: Classificar baseado em estilo DOCX
             classificacao = None
             prefixo_indice = None
@@ -422,7 +423,7 @@ def ressincronizar_capitulos_com_classificacao(
                 })
                 resultado['total_erros'] += 1
                 # Continua processamento mesmo com erro na classificacao
-            
+
             # Etapa 4b: Mapear secoes OOXML
             id_secao_inicio = None
             id_secao_fim = None
@@ -433,7 +434,7 @@ def ressincronizar_capitulos_com_classificacao(
                     id_secao_inicio = secoes[1].id_secao
                 elif secoes:
                     id_secao_inicio = secoes[0].id_secao
-                
+
                 # Fim: determinar pela posicao (proxima secao ou ultima)
                 idx_item = items_achatados.index(item)
                 if idx_item < len(items_achatados) - 1:
@@ -443,7 +444,7 @@ def ressincronizar_capitulos_com_classificacao(
                 else:
                     # Ultimo item: fim eh ultima secao
                     id_secao_fim = secoes[-1].id_secao if secoes else id_secao_inicio
-            
+
             # Etapa 4c: Atualizar capitulo existente ou criar novo
             cap = indice_banco.get(chave_normalizacao)
             if cap:
@@ -456,7 +457,7 @@ def ressincronizar_capitulos_com_classificacao(
                 cap.prefixo_indice = prefixo_indice
                 cap.id_secao_inicio = id_secao_inicio
                 cap.id_secao_fim = id_secao_fim
-                
+
                 capitulos_processados.append({
                     'id': cap.id_capitulo_documento,
                     'titulo': titulo_docx,
@@ -470,62 +471,65 @@ def ressincronizar_capitulos_com_classificacao(
             else:
                 # CRIAR capitulo novo
                 from app.utils.auditoria import usuario_atual_id  # noqa: C0415
-                
+
                 max_ordem = db.session.query(
                     db.func.max(CapituloDocumento.ordem_capitulo)
                 ).filter_by(id_relatorio=relatorio.id).scalar() or 0
-                
-                novo = CapituloDocumento(
-                    id_relatorio=relatorio.id,
-                    titulo_capitulo=titulo_docx,
-                    nome_capitulo=titulo_docx,
-                    indice_capitulo=indice_docx,
-                    nivel_capitulo=nivel_docx,
-                    tipo_elemento=item.get('tipo_elemento', 'textual'),
-                    estilo_docx=estilo_docx,
-                    classificacao=classificacao,
-                    prefixo_indice=prefixo_indice,
-                    id_secao_inicio=id_secao_inicio,
-                    id_secao_fim=id_secao_fim,
-                    ordem_capitulo=max_ordem + 1,
-                    status_capitulo='em_edicao',
-                    ativo=True,
-                    criado_por=usuario_atual_id(),
+
+                novo = CapituloDocumento(  # type: ignore[call-arg]
+                    **{
+                        'id_relatorio': relatorio.id,
+                        'titulo_capitulo': titulo_docx,
+                        'nome_capitulo': titulo_docx,
+                        'indice_capitulo': indice_docx,
+                        'nivel_capitulo': nivel_docx,
+                        'tipo_elemento': item.get('tipo_elemento', 'textual'),
+                        'estilo_docx': estilo_docx,
+                        'classificacao': classificacao,
+                        'prefixo_indice': prefixo_indice,
+                        'id_secao_inicio': id_secao_inicio,
+                        'id_secao_fim': id_secao_fim,
+                        'ordem_capitulo': max_ordem + 1,
+                        'status_capitulo': 'em_edicao',
+                        'ativo': True,
+                        'criado_por': usuario_atual_id(),
+                    }
                 )
                 db.session.add(novo)
-                
+
                 capitulos_processados.append({
                     'titulo': titulo_docx,
                     'classificacao': classificacao,
                     'prefixo_indice': prefixo_indice,
                     'secao_inicio': id_secao_inicio,
                     'secao_fim': id_secao_fim,
-                    'acao': 'criado'
+                    'acao': 'criado',
+                    'id_capitulo': novo.id_capitulo_documento,
                 })
                 resultado['total_criados'] += 1
-        
+
         # Etapa 5: Inativar capitulos do banco que sumiram do DOCX
         for cap in capitulos_banco:
             if _normalizar_titulo(cap.titulo_capitulo) not in docx_matched_keys:
                 # Verificar se eh auto-gerado (deve ser deletado)
-                auto_gerados = ServicoExtracaoCanonica._PRE_TEXTUAIS_AUTO_GERADOS
+                auto_gerados = ServicoExtracaoCanonica._PRE_TEXTUAIS_AUTO_GERADOS  # pylint: disable=protected-access
                 titulo_norm = _normalizar_titulo(cap.titulo_capitulo)
                 if titulo_norm in auto_gerados:
                     db.session.delete(cap)
                 else:
                     # Inativar (nao deletar)
                     cap.ativo = False
-        
+
         # Commit
         db.session.commit()
-        
+
         # Montar resultado final
         resultado['sucesso'] = True
         resultado['capitulos_sincronizados'] = capitulos_processados
         resultado['capitulos_criados'] = [
             c for c in capitulos_processados if c.get('acao') == 'criado'
         ]
-        
+
     except Exception as e:
         resultado['erros_classificacao'].append({
             'tipo': 'erro_interno',
@@ -534,5 +538,5 @@ def ressincronizar_capitulos_com_classificacao(
         })
         resultado['total_erros'] += 1
         db.session.rollback()
-    
+
     return resultado

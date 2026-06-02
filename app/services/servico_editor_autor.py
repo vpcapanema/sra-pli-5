@@ -163,7 +163,7 @@ def _listar_autores(perfil_ativo):
         return []
     return (
         Usuario.query
-        .filter_by(perfil_id=perfil_autor.id, ativo=True)
+        .filter_by(perfil_id=perfil_autor.id_dominio, ativo=True)
         .order_by(Usuario.nome)
         .all()
     )

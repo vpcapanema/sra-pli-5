@@ -23,19 +23,27 @@ def criar_relatorio_producao(dados, arquivo, id_usuario):
         return None, "Status inicial não configurado."
 
     caminho_template = _salvar_docx_producao(arquivo)
-    relatorio = RelatorioProducao(
-        codigo_d20=dados.get("codigo_pli"),
-        numero_medicao=dados.get("numero_medicao", type=int),
-        mes_referencia=_parse_data_hora(dados.get("mes_referencia"), "%B de %Y"),
-        periodo_inicio=_parse_data_hora(dados.get("periodo_inicio"), "%Y-%m-%d"),
-        periodo_fim=_parse_data_hora(dados.get("periodo_fim"), "%Y-%m-%d"),
-        titulo_curto=dados.get("titulo_curto"),
-        status_id=status_inicial.id,
-        criado_por=id_usuario,
-        ano_referencia=dados.get("ano_referencia", type=int),
-        versao_atual="R00",
-        bloqueio_edicao=False,
-        caminho_template=caminho_template,
+    relatorio = RelatorioProducao(  # type: ignore[call-arg]
+        **{
+            'codigo_d20': dados.get("codigo_pli"),
+            'numero_medicao': dados.get("numero_medicao", type=int),
+            'mes_referencia': _parse_data_hora(
+                dados.get("mes_referencia"), "%B de %Y"
+            ),
+            'periodo_inicio': _parse_data_hora(
+                dados.get("periodo_inicio"), "%Y-%m-%d"
+            ),
+            'periodo_fim': _parse_data_hora(
+                dados.get("periodo_fim"), "%Y-%m-%d"
+            ),
+            'titulo_curto': dados.get("titulo_curto"),
+            'status_id': status_inicial.id,
+            'criado_por': id_usuario,
+            'ano_referencia': dados.get("ano_referencia", type=int),
+            'versao_atual': "R00",
+            'bloqueio_edicao': False,
+            'caminho_template': caminho_template,
+        }
     )
     db.session.add(relatorio)
     db.session.commit()

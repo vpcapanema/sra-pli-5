@@ -24,7 +24,12 @@ def listar_modelos(apenas_ativos=True):
 
 
 def criar_modelo(nome_modelo, descricao=None):
-    modelo = ModeloRelatorio(nome_modelo=nome_modelo, descricao=descricao)
+    modelo = ModeloRelatorio(  # type: ignore[call-arg]
+        **{
+            'nome_modelo': nome_modelo,
+            'descricao': descricao,
+        }
+    )
     db.session.add(modelo)
     db.session.commit()
     return modelo
@@ -76,16 +81,18 @@ def criar_relatorio_producao(relatorio_id, titulo):
     if not status:
         status = Dominio.query.filter_by(tipo="status_relatorio", ativo=True).first()
 
-    relatorio = RelatorioProducao(
-        modelo_id=relatorio_id,
-        titulo_curto=titulo,
-        codigo_d20="D-20",
-        numero_medicao=1,
-        mes_referencia=date.today(),
-        periodo_inicio=date.today(),
-        periodo_fim=date.today(),
-        status_id=status.id if status else 1,
-        criado_por=current_user.id if current_user.is_authenticated else None,
+    relatorio = RelatorioProducao(  # type: ignore[call-arg]
+        **{
+            'modelo_id': relatorio_id,
+            'titulo_curto': titulo,
+            'codigo_d20': "D-20",
+            'numero_medicao': 1,
+            'mes_referencia': date.today(),
+            'periodo_inicio': date.today(),
+            'periodo_fim': date.today(),
+            'status_id': status.id if status else 1,
+            'criado_por': current_user.id if current_user.is_authenticated else None,
+        }
     )
     db.session.add(relatorio)
     db.session.commit()
@@ -149,16 +156,18 @@ def criar_capitulo(
 ):
     from app.utils.auditoria import usuario_atual_id
 
-    capitulo = CapituloDocumento(
-        id_relatorio=id_relatorio,
-        titulo_capitulo=titulo_capitulo,
-        ordem_capitulo=ordem_capitulo,
-        nivel_capitulo=nivel_capitulo,
-        id_capitulo_pai=id_capitulo_pai,
-        nome_capitulo=nome_capitulo or titulo_capitulo,
-        indice_capitulo=indice_capitulo,
-        tipo_elemento=tipo_elemento,
-        criado_por=usuario_atual_id(),
+    capitulo = CapituloDocumento(  # type: ignore[call-arg]
+        **{
+            'id_relatorio': id_relatorio,
+            'titulo_capitulo': titulo_capitulo,
+            'ordem_capitulo': ordem_capitulo,
+            'nivel_capitulo': nivel_capitulo,
+            'id_capitulo_pai': id_capitulo_pai,
+            'nome_capitulo': nome_capitulo or titulo_capitulo,
+            'indice_capitulo': indice_capitulo,
+            'tipo_elemento': tipo_elemento,
+            'criado_por': usuario_atual_id(),
+        }
     )
     db.session.add(capitulo)
     db.session.commit()

@@ -189,14 +189,26 @@ class ServicoEnvioAutor:
     """Orquestra upload, extração, classificação e confirmação de envios."""
 
     @staticmethod
-    def diretorio_uploads(base_dir, id_relatorio):
-        """Diretório onde os uploads são salvos: storage/uploads/{id}/."""
-        return os.path.join(base_dir, "storage", "uploads", str(id_relatorio))
+    def diretorio_uploads(base_dir, id_relatorio, nome_autor=None):
+        """Diretório onde os uploads são salvos: storage/uploads/{codigo_relatorio}/{autor}/.
+
+        Se nome_autor for None, retorna storage/uploads/{codigo_relatorio}/.
+        """
+        base = os.path.join(base_dir, "storage", "uploads", str(id_relatorio))
+        if nome_autor:
+            return os.path.join(base, nome_autor)
+        return base
 
     @staticmethod
-    def diretorio_versoes_sugeridas(base_dir, id_relatorio):
-        """Diretório das versões sugeridas: storage/VERSAO_SUGERIDA/{id}/."""
-        return os.path.join(base_dir, "storage", "VERSAO_SUGERIDA", str(id_relatorio))
+    def diretorio_versoes_sugeridas(base_dir, id_relatorio, nome_autor=None):
+        """Diretório das versões sugeridas: storage/VERSAO_SUGERIDA/{codigo_relatorio}/{autor}/.
+
+        Se nome_autor for None, retorna storage/VERSAO_SUGERIDA/{codigo_relatorio}/.
+        """
+        base = os.path.join(base_dir, "storage", "VERSAO_SUGERIDA", str(id_relatorio))
+        if nome_autor:
+            return os.path.join(base, nome_autor)
+        return base
 
     @classmethod
     def _descartar_envios_anteriores(
@@ -223,7 +235,10 @@ class ServicoEnvioAutor:
     @classmethod
     def _descartar_envio(cls, envio):
         """Remove envio do banco e seu arquivo de storage. Cascata
-        para PrevisualizacaoConteudo (não há cascade no model)."""
+        para PrevisualizacaoConteudo (não há cascade no model).
+
+        A pasta do autor é mantida, apenas o arquivo DOCX é removido.
+        """
         try:
             if envio.caminho_arquivo and os.path.exists(envio.caminho_arquivo):
                 os.remove(envio.caminho_arquivo)
@@ -281,10 +296,14 @@ class ServicoEnvioAutor:
                 os.path.dirname(os.path.dirname(os.path.abspath(envio.caminho_arquivo)))
             )
         )
-        dir_sugerido = cls.diretorio_versoes_sugeridas(base_dir, envio.id_relatorio)
+        # Obter nome do autor para criar subdiretório
+        from app.models.usuario import Usuario
+        autor = Usuario.query.get(envio.id_usuario)
+        nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
+
+        dir_sugerido = cls.diretorio_versoes_sugeridas(base_dir, envio.id_relatorio, nome_autor)
         os.makedirs(dir_sugerido, exist_ok=True)
-        nome_upload = os.path.splitext(os.path.basename(envio.caminho_arquivo))[0]
-        nome_sugerido = f"envio_{envio.id_envio_conteudo}_" f"upload_{nome_upload}_sugerido.docx"
+        nome_sugerido = "conteudo_sugerido.docx"
         return os.path.join(dir_sugerido, nome_sugerido)
 
     @staticmethod
@@ -507,15 +526,19 @@ class ServicoEnvioAutor:
             id_capitulo_destino=id_capitulo_destino,
         )
 
-        dir_destino = cls.diretorio_uploads(base_dir, id_relatorio)
+        # Obter nome do autor para criar subdiretório
+        from app.models.usuario import Usuario
+        autor = Usuario.query.get(id_usuario)
+        nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
+
+        dir_destino = cls.diretorio_uploads(base_dir, id_relatorio, nome_autor)
         os.makedirs(dir_destino, exist_ok=True)
 
         from werkzeug.utils import secure_filename
 
         nome = secure_filename(arquivo_storage.filename or "envio.docx")
-        # Evitar colisão preservando histórico
-        timestamp = __import__("datetime").datetime.now().strftime("%Y%m%d%H%M%S")
-        nome_final = f"{timestamp}_{nome}"
+        # Garantir versão única por pasta de autor (sem timestamp)
+        nome_final = "conteudo_upload.docx"
         caminho_final = os.path.join(dir_destino, nome_final)
         arquivo_storage.save(caminho_final)
 
@@ -1059,14 +1082,14 @@ class ServicoEnvioAutor:
         )
 
         # Extrair árvore de capítulos
-        capitulos_arvore = ServicoExtracaoCanonica.extrair_capitulos(doc)
+        capitulos_arvore = ServicoExtracaoCanonica._extrair_capitulos(doc)  # pylint: disable=protected-access
 
         # Se não encontrou capítulos via Heading, tentar detecção por padrão
         if not capitulos_arvore:
             capitulos_arvore = cls._extrair_capitulos_por_padrao(doc)
 
         # Extrair legendas (figuras e tabelas) — agregados
-        legendas = ServicoExtracaoCanonica.extrair_legendas(doc)
+        legendas = ServicoExtracaoCanonica._extrair_legendas(doc)  # pylint: disable=protected-access
 
         # Construir árvore estrutural (capítulos + figuras + tabelas
         # + equações como nós individuais sob seu capítulo pai).

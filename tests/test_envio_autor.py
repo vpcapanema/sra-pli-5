@@ -259,7 +259,7 @@ def test_extracao_deduplica_titulos_repetidos(app):
         caminho = tmp.name
     try:
         doc = Document(caminho)
-        arvore = ServicoExtracaoCanonica.extrair_capitulos(doc)
+        arvore = ServicoExtracaoCanonica._extrair_capitulos(doc)
         titulos = [n['titulo'].strip().lower() for n in arvore]
         assert titulos.count('introdução') == 1
         assert titulos.count('metodologia') == 1

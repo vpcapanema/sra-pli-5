@@ -40,17 +40,19 @@ def criar_capitulo_relatorio(id_relatorio, dados, id_usuario):
         ).filter_by(id_relatorio=id_relatorio).scalar()
         ordem = (max_ordem or 0) + 10
 
-    cap = CapituloDocumento(
-        id_relatorio=id_relatorio,
-        titulo_capitulo=titulo,
-        nivel_capitulo=dados.get('nivel_capitulo') or 1,
-        tipo_elemento=dados.get('tipo_elemento') or 'textual',
-        id_capitulo_pai=dados.get('id_capitulo_pai'),
-        ordem_capitulo=ordem,
-        indice_capitulo=dados.get('indice_capitulo'),
-        nome_capitulo=dados.get('nome_capitulo') or titulo,
-        status_capitulo='em_edicao',
-        criado_por=id_usuario,
+    cap = CapituloDocumento(  # type: ignore[call-arg]
+        **{
+            'id_relatorio': id_relatorio,
+            'titulo_capitulo': titulo,
+            'nivel_capitulo': dados.get('nivel_capitulo') or 1,
+            'tipo_elemento': dados.get('tipo_elemento') or 'textual',
+            'id_capitulo_pai': dados.get('id_capitulo_pai'),
+            'ordem_capitulo': ordem,
+            'indice_capitulo': dados.get('indice_capitulo'),
+            'nome_capitulo': dados.get('nome_capitulo') or titulo,
+            'status_capitulo': 'em_edicao',
+            'criado_por': id_usuario,
+        }
     )
     db.session.add(cap)
     db.session.commit()

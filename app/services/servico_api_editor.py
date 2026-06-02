@@ -48,16 +48,18 @@ def criar_capitulo_api(id_vt, dados, id_usuario):
     """Cria capitulo pela API."""
     RelatorioProducao.query.get_or_404(id_vt)
     titulo = dados['titulo']
-    cap = CapituloDocumento(
-        id_relatorio=id_vt,
-        titulo_capitulo=titulo,
-        nome_capitulo=dados.get('nome') or titulo,
-        ordem_capitulo=dados.get('ordem', 0),
-        nivel_capitulo=dados.get('nivel', 1),
-        id_capitulo_pai=dados.get('id_pai'),
-        id_usuario_responsavel=dados.get('id_responsavel'),
-        status_capitulo='em_edicao',
-        criado_por=id_usuario,
+    cap = CapituloDocumento(  # type: ignore[call-arg]
+        **{
+            'id_relatorio': id_vt,
+            'titulo_capitulo': titulo,
+            'nome_capitulo': dados.get('nome') or titulo,
+            'ordem_capitulo': dados.get('ordem', 0),
+            'nivel_capitulo': dados.get('nivel', 1),
+            'id_capitulo_pai': dados.get('id_pai'),
+            'id_usuario_responsavel': dados.get('id_responsavel'),
+            'status_capitulo': 'em_edicao',
+            'criado_por': id_usuario,
+        }
     )
     db.session.add(cap)
     db.session.commit()
@@ -137,7 +139,7 @@ def listar_segmentos_envio(id_envio):
         cap = _capitulo_de_previa(previa)
         if cap:
             segmentos.append({
-                'id_previsualizacao': previa.id_previsualizacao,
+                'id_previsualizacao': previa.id_previsualizacao_conteudo,
                 'id_capitulo': cap.id_capitulo_documento,
                 'titulo_capitulo': cap.titulo_capitulo,
                 'indice_capitulo': cap.indice_capitulo,
@@ -289,10 +291,12 @@ def listar_autores_api():
 
 def notificar(id_usuario, mensagem):
     """Cria notificacao simples para usuario."""
-    notif = Notificacao(
-        id_usuario_destino=id_usuario,
-        tipo_notificacao='workflow',
-        mensagem=mensagem,
+    notif = Notificacao(  # type: ignore[call-arg]
+        **{
+            'id_usuario_destino': id_usuario,
+            'tipo_notificacao': 'workflow',
+            'mensagem': mensagem,
+        }
     )
     db.session.add(notif)
 

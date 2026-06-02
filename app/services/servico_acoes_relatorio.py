@@ -30,7 +30,7 @@ from app.services import servico_relatorio_core as relatorio_core
 from app.services.servico_captioning import reindexar_captions
 from app.services.servico_capa import atualizar_capa, atualizar_folha_rosto
 from app.services.servico_cross_refs import substituir_referencias
-from app.services.servico_extracao_canonica import validar_estrutura_canonica
+from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 from app.services.servico_finalizar_relatorio import finalizar
 from app.services.servico_sincronizar_capitulos import (
     ressincronizar_capitulos_com_classificacao,
@@ -187,7 +187,9 @@ def _h_atualizar_folha_rosto(rel, perfil):
 
 def _h_validar_estrutura(rel, perfil):
     """Checa se o DOCX tem todos os elementos canonicos esperados."""
-    info = validar_estrutura_canonica(rel.caminho_template, perfil=perfil)
+    info = ServicoExtracaoCanonica.validar_estrutura_canonica(
+        rel.caminho_template, perfil=perfil
+    )
     if isinstance(info, dict):
         problemas = info.get('problemas') or []
         if not problemas:

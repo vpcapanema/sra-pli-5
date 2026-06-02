@@ -33,10 +33,12 @@ def criar_biblioteca_formatacao(dados, arquivo):
     if not arquivo or not arquivo.filename.endswith('.docx'):
         return False, 'Envie um arquivo .docx válido.'
 
-    bib = BibliotecaFormatacaoCanonica(
-        nome_biblioteca=nome,
-        descricao=descricao or None,
-        ativa=True,
+    bib = BibliotecaFormatacaoCanonica(  # type: ignore[call-arg]
+        **{
+            'nome_biblioteca': nome,
+            'descricao': descricao or None,
+            'ativa': True,
+        }
     )
     db.session.add(bib)
     db.session.flush()
@@ -128,24 +130,30 @@ def criar_relatorio_base_finalizado(dados, arquivo, id_usuario):
         tipo='status_relatorio',
         valor='finalizado',
     ).first()
-    relatorio = RelatorioFinalizado(
-        relatorio_id=None,
-        modelo_id=None,
-        biblioteca_id=None,
-        status_id=status.id if status else None,
-        snapshot_conteudo={},
-        artefato_docx=None,
-        nome_arquivo=nome_seguro,
-        caminho_arquivo=caminho,
-        finalizado_por=id_usuario,
-        codigo=dados.get('codigo_pli'),
-        titulo=dados.get('titulo_curto'),
-        numero_medicao=dados.get('numero_medicao', type=int),
-        mes_referencia=_parse_mes_referencia(dados.get('mes_referencia')),
-        ano_referencia=dados.get('ano_referencia', type=int),
-        periodo_inicio=_parse_data(dados.get('periodo_inicio')),
-        periodo_fim=_parse_data(dados.get('periodo_fim')),
-        versao='R00',
+    relatorio = RelatorioFinalizado(  # type: ignore[call-arg]
+        **{
+            'relatorio_id': None,
+            'modelo_id': None,
+            'biblioteca_id': None,
+            'status_id': status.id if status else None,
+            'snapshot_conteudo': {},
+            'artefato_docx': None,
+            'nome_arquivo': nome_seguro,
+            'caminho_arquivo': caminho,
+            'finalizado_por': id_usuario,
+            'codigo': dados.get('codigo_pli') or '',
+            'titulo': dados.get('titulo_curto') or '',
+            'numero_medicao': (
+                int(dados['numero_medicao']) if dados.get('numero_medicao') else None
+            ),
+            'mes_referencia': _parse_mes_referencia(dados.get('mes_referencia')),
+            'ano_referencia': (
+                int(dados['ano_referencia']) if dados.get('ano_referencia') else None
+            ),
+            'periodo_inicio': _parse_data(dados.get('periodo_inicio')),
+            'periodo_fim': _parse_data(dados.get('periodo_fim')),
+            'versao': 'R00',
+        }
     )
     try:
         db.session.add(relatorio)

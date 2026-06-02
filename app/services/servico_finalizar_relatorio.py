@@ -210,23 +210,25 @@ def finalizar(
     )
 
     # 4. Persistir RelatorioFinalizado (snapshot dos metadados)
-    rf = RelatorioFinalizado(
-        relatorio_id=rel.id,
-        modelo_id=rel.modelo_id,
-        biblioteca_id=rel.biblioteca_id,
-        status_id=status_finalizado.id if status_finalizado else None,
-        nome_arquivo=nome_dest,
-        caminho_arquivo=caminho_snapshot,
-        finalizado_por=id_usuario,
-        checksum_docx=checksum,
-        codigo=rel.codigo_d20,
-        titulo=rel.titulo_curto,
-        mes_referencia=rel.mes_referencia,
-        ano_referencia=rel.ano_referencia,
-        periodo_inicio=rel.periodo_inicio,
-        periodo_fim=rel.periodo_fim,
-        numero_medicao=rel.numero_medicao,
-        versao=rel.versao_atual or 'R00',
+    rf = RelatorioFinalizado(  # type: ignore[call-arg]
+        **{
+            'relatorio_id': rel.id,
+            'modelo_id': rel.modelo_id,
+            'biblioteca_id': rel.biblioteca_id,
+            'status_id': status_finalizado.id if status_finalizado else None,
+            'nome_arquivo': nome_dest,
+            'caminho_arquivo': caminho_snapshot,
+            'finalizado_por': id_usuario,
+            'checksum_docx': checksum,
+            'codigo': rel.codigo_d20,
+            'titulo': rel.titulo_curto,
+            'mes_referencia': rel.mes_referencia,
+            'ano_referencia': rel.ano_referencia,
+            'periodo_inicio': rel.periodo_inicio,
+            'periodo_fim': rel.periodo_fim,
+            'numero_medicao': rel.numero_medicao,
+            'versao': rel.versao_atual or 'R00',
+        }
     )
     db.session.add(rf)
 

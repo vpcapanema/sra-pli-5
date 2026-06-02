@@ -22,9 +22,11 @@ class ServicoRelatorio:
 
     @staticmethod
     def criar_modelo(nome_modelo, descricao=None):
-        modelo = ModeloRelatorio(
-            nome_modelo=nome_modelo,
-            descricao=descricao
+        modelo = ModeloRelatorio(  # type: ignore[call-arg]
+            **{
+                'nome_modelo': nome_modelo,
+                'descricao': descricao,
+            }
         )
         db.session.add(modelo)
         db.session.commit()
@@ -38,10 +40,12 @@ class ServicoRelatorio:
         Versão de trabalho é um fluxo separado.
         """
         # 1. Modelo
-        modelo = ModeloRelatorio(
-            nome_modelo=nome_modelo,
-            descricao=descricao,
-            ativo=ativo
+        modelo = ModeloRelatorio(  # type: ignore[call-arg]
+            **{
+                'nome_modelo': nome_modelo,
+                'descricao': descricao,
+                'ativo': ativo,
+            }
         )
         db.session.add(modelo)
         db.session.flush()
@@ -73,15 +77,17 @@ class ServicoRelatorio:
         criador_id = usuario_atual_id()
         ordem = ordem_inicial
         for item in itens:
-            capitulo = CapituloDocumento(
-                id_relatorio=id_relatorio,
-                id_capitulo_pai=id_pai,
-                ordem_capitulo=ordem,
-                titulo_capitulo=item['titulo'],
-                nivel_capitulo=item['nivel'],
-                nome_capitulo=item.get('nome') or item['titulo'],
-                indice_capitulo=str(item['nivel']),
-                criado_por=criador_id,
+            capitulo = CapituloDocumento(  # type: ignore[call-arg]
+                **{
+                    'id_relatorio': id_relatorio,
+                    'id_capitulo_pai': id_pai,
+                    'ordem_capitulo': ordem,
+                    'titulo_capitulo': item['titulo'],
+                    'nivel_capitulo': item['nivel'],
+                    'nome_capitulo': item.get('nome') or item['titulo'],
+                    'indice_capitulo': str(item['nivel']),
+                    'criado_por': criador_id,
+                }
             )
             db.session.add(capitulo)
             db.session.flush()
@@ -177,18 +183,20 @@ class ServicoRelatorio:
                 tipo='status_relatorio', ativo=True
             ).first()
 
-        relatorio = RelatorioProducao(
-            modelo_id=relatorio_id,
-            titulo_curto=titulo,
-            codigo_d20='D-20',
-            numero_medicao=1,
-            mes_referencia=date.today(),
-            periodo_inicio=date.today(),
-            periodo_fim=date.today(),
-            status_id=status.id if status else 1,
-            criado_por=(
-                current_user.id if current_user.is_authenticated else None
-            )
+        relatorio = RelatorioProducao(  # type: ignore[call-arg]
+            **{
+                'modelo_id': relatorio_id,
+                'titulo_curto': titulo,
+                'codigo_d20': 'D-20',
+                'numero_medicao': 1,
+                'mes_referencia': date.today(),
+                'periodo_inicio': date.today(),
+                'periodo_fim': date.today(),
+                'status_id': status.id if status else 1,
+                'criado_por': (
+                    current_user.id if current_user.is_authenticated else None
+                ),
+            }
         )
         db.session.add(relatorio)
         db.session.commit()
@@ -221,19 +229,21 @@ class ServicoRelatorio:
     def _clonar_capitulo(capitulo, id_relatorio,
                          id_capitulo_pai):
         from app.utils.auditoria import usuario_atual_id  # noqa: C0415
-        novo = CapituloDocumento(
-            id_relatorio=id_relatorio,
-            id_capitulo_pai=id_capitulo_pai,
-            ordem_capitulo=capitulo.ordem_capitulo,
-            nome_capitulo=(
-                capitulo.nome_capitulo or capitulo.titulo_capitulo
-            ),
-            titulo_capitulo=capitulo.titulo_capitulo,
-            indice_capitulo=capitulo.indice_capitulo,
-            nivel_capitulo=capitulo.nivel_capitulo,
-            # Clonagem disparada pelo coordenador (request) -> id dele.
-            # Clonagem em background -> None ("Sistema").
-            criado_por=usuario_atual_id(),
+        novo = CapituloDocumento(  # type: ignore[call-arg]
+            **{
+                'id_relatorio': id_relatorio,
+                'id_capitulo_pai': id_capitulo_pai,
+                'ordem_capitulo': capitulo.ordem_capitulo,
+                'nome_capitulo': (
+                    capitulo.nome_capitulo or capitulo.titulo_capitulo
+                ),
+                'titulo_capitulo': capitulo.titulo_capitulo,
+                'indice_capitulo': capitulo.indice_capitulo,
+                'nivel_capitulo': capitulo.nivel_capitulo,
+                # Clonagem disparada pelo coordenador (request) -> id dele.
+                # Clonagem em background -> None ("Sistema").
+                'criado_por': usuario_atual_id(),
+            }
         )
         db.session.add(novo)
         db.session.flush()
@@ -359,17 +369,19 @@ class ServicoRelatorio:
                        indice_capitulo=None,
                        tipo_elemento='textual'):
         from app.utils.auditoria import usuario_atual_id  # noqa: C0415
-        capitulo = CapituloDocumento(
-            id_relatorio=id_relatorio,
-            titulo_capitulo=titulo_capitulo,
-            ordem_capitulo=ordem_capitulo,
-            nivel_capitulo=nivel_capitulo,
-            id_capitulo_pai=id_capitulo_pai,
-            # Espelha o titulo no nome quando nao informado.
-            nome_capitulo=nome_capitulo or titulo_capitulo,
-            indice_capitulo=indice_capitulo,
-            tipo_elemento=tipo_elemento,
-            criado_por=usuario_atual_id(),
+        capitulo = CapituloDocumento(  # type: ignore[call-arg]
+            **{
+                'id_relatorio': id_relatorio,
+                'titulo_capitulo': titulo_capitulo,
+                'ordem_capitulo': ordem_capitulo,
+                'nivel_capitulo': nivel_capitulo,
+                'id_capitulo_pai': id_capitulo_pai,
+                # Espelha o titulo no nome quando nao informado.
+                'nome_capitulo': nome_capitulo or titulo_capitulo,
+                'indice_capitulo': indice_capitulo,
+                'tipo_elemento': tipo_elemento,
+                'criado_por': usuario_atual_id(),
+            }
         )
         db.session.add(capitulo)
         db.session.commit()

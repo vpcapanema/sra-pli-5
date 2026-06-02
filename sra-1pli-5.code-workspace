@@ -1,0 +1,48 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"sqltools.useNodeRuntime": true,
+		"sqltools.connections": [
+			{
+				"name": "SRA Postgres local (Docker, README)",
+				"driver": "PostgreSQL",
+				"connectString": "postgresql://postgres:sra@localhost:5432/sra",
+				"askForPassword": false,
+				"connectionTimeout": 20
+			},
+			{
+				"name": "SRA (DATABASE_URL do .env)",
+				"driver": "PostgreSQL",
+				"connectString": "postgresql://sra:eJmMmQTdsNENzrKoB00RLOM2f3uzkyK8@dpg-d7ludlgg4nts739fjijg-a.virginia-postgres.render.com:5432/sra_h66q?sslmode=require",
+				"askForPassword": false,
+				"connectionTimeout": 20,
+				"pgOptions": {
+					"ssl": {
+						"rejectUnauthorized": true
+					}
+				}
+			},
+			{
+				"previewLimit": 50,
+				"driver": "SQLite",
+				"database": "${workspaceFolder:sra-pli-5}/instance/sra.db",
+				"name": "sra-local"
+			},
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"driver": "PostgreSQL",
+				"name": "POSTGRESQL LOCAL (Docker)",
+				"database": "sra_pli",
+				"username": "sra_admin",
+				"password": "sra2026",
+				"connectString": "postgresql+psycopg://sra_admin:sra2026@localhost:5433/sra_pli"
+			}
+		]
+	}
+}
