@@ -1,10 +1,13 @@
 """Testes do fluxo de envio do autor: upload, prévia e confirmação."""
 # pylint: disable=redefined-outer-name
 import io
+import json
 import os
 import tempfile
 
 import pytest
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Mm, Pt, RGBColor
 from docx import Document
 
 from app import create_app, db
@@ -13,6 +16,8 @@ from app.models.dominio import Dominio
 from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.capitulo_documento import CapituloDocumento
+from app.models.envio_conteudo import EnvioConteudo
+from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.services.servico_envio_autor import ServicoEnvioAutor
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 
@@ -131,6 +136,18 @@ class _FakeUpload:
             f.write(self._buf.getvalue())
 
 
+def _assert_medida_aproximada(valor, esperado, tolerancia=1000):
+    """Compara medidas OOXML tolerando arredondamento twips/EMU."""
+    assert abs(int(valor) - int(esperado)) <= tolerancia
+
+
+def _listar_previas(id_envio):
+    """Busca prévias por consulta explícita para manter Pyright feliz."""
+    return PrevisualizacaoConteudo.query.filter_by(
+        id_envio_conteudo=id_envio
+    ).all()
+
+
 def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
     buf = _criar_docx_simples(['Introdução', 'Metodologia'])
     fake = _FakeUpload(buf, 'envio.docx')
@@ -141,7 +158,7 @@ def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
         base_dir=str(tmp_path),
         id_capitulo_destino=dados['cap_ids'][0],
     )
-    previas = list(envio.previsualizacoes)
+    previas = _listar_previas(envio.id_envio_conteudo)
     tipos = {p.tipo_previsualizacao for p in previas}
     assert 'parcial' in tipos
     cap_ids = {
@@ -150,6 +167,56 @@ def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
         if p.tipo_previsualizacao == 'parcial' and p.caminho_saida
     }
     assert len(cap_ids) == 2
+
+
+def test_docx_sugerido_aplica_formatacao_visual_esperada(app, dados, tmp_path):
+    """O arquivo sugerido precisa aplicar formatação visual, não só existir."""
+    buf = _criar_docx_simples(['Introdução'])
+    fake = _FakeUpload(buf, 'envio.docx')
+    envio = ServicoEnvioAutor.processar_upload(
+        id_relatorio=dados['relatorio_id'],
+        id_usuario=dados['usuario_id'],
+        arquivo_storage=fake,
+        base_dir=str(tmp_path),
+        id_capitulo_destino=dados['cap_ids'][0],
+    )
+    previas = _listar_previas(envio.id_envio_conteudo)
+    previa_sugerida = next(
+        previa
+        for previa in previas
+        if previa.tipo_previsualizacao == 'docx_sugerido'
+    )
+    assert previa_sugerida.caminho_saida
+    assert os.path.exists(previa_sugerida.caminho_saida)
+
+    sugestoes = json.loads(envio.sugestoes_json or '{}')
+    docx_sugerido = sugestoes['docx_sugerido']
+    assert docx_sugerido['metricas_obrigatorias_aplicadas'] is True
+    assert set(docx_sugerido['processamentos']) >= {
+        'aplicacao_estilos_heading_do_perfil',
+        'normalizacao_visual_de_paragrafos',
+        'aplicacao_metricas_canonicas_reais',
+    }
+
+    doc = Document(previa_sugerida.caminho_saida)
+    secao = doc.sections[0]
+    _assert_medida_aproximada(secao.top_margin, Mm(25))
+    _assert_medida_aproximada(secao.right_margin, Mm(20))
+    _assert_medida_aproximada(secao.bottom_margin, Mm(25))
+    _assert_medida_aproximada(secao.left_margin, Mm(20))
+
+    heading = doc.paragraphs[0]
+    assert heading.text.startswith('1 Introdução')
+    assert heading.runs[0].font.name == 'Verdana'
+    assert heading.runs[0].font.size == Pt(14)
+    assert heading.runs[0].font.bold is True
+    assert heading.runs[0].font.color.rgb == RGBColor.from_string('0F1E3D')
+
+    corpo = next(paragrafo for paragrafo in doc.paragraphs if 'Parágrafo' in paragrafo.text)
+    assert corpo.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY
+    assert corpo.paragraph_format.space_after == Pt(11.25)
+    assert corpo.runs[0].font.name == 'Verdana'
+    assert corpo.runs[0].font.size == Pt(10)
 
 
 @pytest.mark.skip(reason=(
@@ -222,6 +289,37 @@ def test_endpoint_baixar_envio_docx(app, dados, tmp_path):
     )
     assert resp.status_code == 200
     assert resp.data[:2] == b'PK'  # DOCX zip
+
+
+def test_endpoint_upload_conteudo_autor_processa_docx(app, dados):
+    """Endpoint de upload do autor cria envio e prévias para DOCX válido."""
+    buf = _criar_docx_simples(['Introdução', 'Metodologia'])
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess['_user_id'] = str(dados['usuario_id'])
+        sess['_fresh'] = True
+        sess['perfil_ativo'] = 'autor'
+        sess['csrf_token'] = 'tk'
+
+    resp = client.post(
+        (
+            f'/relatorio/versao-trabalho/{dados["relatorio_id"]}'
+            f'/capitulo/{dados["cap_ids"][0]}/upload'
+        ),
+        data={'arquivo_docx': (buf, 'envio.docx')},
+        content_type='multipart/form-data',
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 302
+    envio = EnvioConteudo.query.filter_by(
+        id_relatorio=dados['relatorio_id'],
+        id_capitulo_destino=dados['cap_ids'][0],
+    ).first()
+    assert envio is not None
+    assert envio.id_usuario == dados['usuario_id']
+    assert envio.status_envio == 'em_previa'
+    assert _listar_previas(envio.id_envio_conteudo)
 
 
 def test_endpoint_baixar_segmento_docx(app, dados, tmp_path):

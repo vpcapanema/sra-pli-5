@@ -138,9 +138,16 @@ class ServicoVersaoSugeridaCanonica:
     def _aplicar_secoes_canonicas(doc, metricas):
         formatacao = metricas.get('formatacao') or {}
         secoes = formatacao.get('secoes') or []
-        if not secoes:
-            return
-        secao_canonica = secoes[min(1, len(secoes) - 1)]
+        secao_canonica = (
+            secoes[min(1, len(secoes) - 1)]
+            if secoes
+            else {
+                'margem_top_mm': 25,
+                'margem_right_mm': 20,
+                'margem_bottom_mm': 25,
+                'margem_left_mm': 20,
+            }
+        )
         for secao in doc.sections:
             secao.top_margin = Mm(secao_canonica.get('margem_top_mm') or 25)
             secao.right_margin = Mm(secao_canonica.get('margem_right_mm') or 20)

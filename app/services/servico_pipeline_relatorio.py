@@ -238,6 +238,73 @@ class ServicoPipelineRelatorio:
         return resultado
 
     @staticmethod
+    def _validar_classificacoes_preenchidas(relatorio_id: int) -> Dict[str, Any]:
+        """Valida se todos os capítulos do relatório têm classificação."""
+        resultado = {
+            "valido": True,
+            "motivos_rejeicao": [],
+            "capitulos_sem_classificacao": [],
+            "total_capitulos": 0,
+            "capitulos_validos": 0,
+        }
+
+        relatorio = RelatorioProducao.query.get(relatorio_id)
+        if not relatorio:
+            resultado["valido"] = False
+            resultado["motivos_rejeicao"].append(
+                "Relatório não encontrado. Verifique o ID e tente novamente."
+            )
+            return resultado
+
+        capitulos = (
+            CapituloDocumento.query.filter_by(id_relatorio=relatorio_id)
+            .order_by(CapituloDocumento.ordem_capitulo)
+            .all()
+        )
+        resultado["total_capitulos"] = len(capitulos)
+
+        if not capitulos:
+            resultado["valido"] = False
+            resultado["motivos_rejeicao"].append(
+                "Nenhum capítulo sincronizado. Sincronizar capítulos antes de "
+                "executar o pipeline."
+            )
+            return resultado
+
+        for capitulo in capitulos:
+            classificacao = (capitulo.classificacao or "").strip()
+            if classificacao:
+                resultado["capitulos_validos"] += 1
+                continue
+
+            resultado["capitulos_sem_classificacao"].append(
+                {
+                    "id": capitulo.id_capitulo_documento,
+                    "titulo": capitulo.titulo_capitulo,
+                    "ordem": capitulo.ordem_capitulo,
+                }
+            )
+
+        if resultado["capitulos_sem_classificacao"]:
+            total_sem_classificacao = len(
+                resultado["capitulos_sem_classificacao"]
+            )
+            exemplos = ", ".join(
+                capitulo["titulo"]
+                for capitulo in resultado["capitulos_sem_classificacao"][:3]
+            )
+            if total_sem_classificacao > 3:
+                exemplos += f", ... e {total_sem_classificacao - 3} mais"
+
+            resultado["valido"] = False
+            resultado["motivos_rejeicao"].append(
+                f"{total_sem_classificacao} capítulos sem classificação: "
+                f"{exemplos}. Sincronize os capítulos antes de prosseguir."
+            )
+
+        return resultado
+
+    @staticmethod
     def _validar_precondiciones(
         relatorio_id: int, uploads_dict: Dict[int, bytes]
     ) -> Dict[str, Any]:
@@ -280,45 +347,51 @@ class ServicoPipelineRelatorio:
                 {
                     "validacao": "relatório_existe",
                     "resultado": "OK",
-                    "mensagem": f"Relatório {relatorio.titulo or relatorio_id} encontrado",
+                    "mensagem": (
+                        f"Relatório {relatorio.titulo_curto or relatorio_id} encontrado"
+                    ),
                 }
             )
 
             # Validação 2: Capítulos sincronizados
-            capitulos_nao_sync = CapituloDocumento.query.filter_by(
-                id_relatorio=relatorio_id, classificacao=None
-            ).all()
-
-            if capitulos_nao_sync:
+            validacao_classificacoes = (
+                ServicoPipelineRelatorio._validar_classificacoes_preenchidas(
+                    relatorio_id
+                )
+            )
+            if not validacao_classificacoes["valido"]:
                 resultado["valido"] = False
-                titulos_nao_sync = ", ".join(
-                    [f"'{cap.titulo}' (ID {cap.id})" for cap in capitulos_nao_sync[:3]]
-                )  # Mostrar até 3
-                if len(capitulos_nao_sync) > 3:
-                    titulos_nao_sync += f", ... e {len(capitulos_nao_sync) - 3} mais"
-
-                resultado["motivos_rejeicao"].append(
-                    f"Capítulos não sincronizados: {titulos_nao_sync}. "
-                    "Execute a sincronização antes de prosseguir."
+                resultado["motivos_rejeicao"].extend(
+                    validacao_classificacoes["motivos_rejeicao"]
                 )
                 resultado["proximos_passos"].append("sincronizar")
                 resultado["detalhes_validacoes"].append(
                     {
                         "validacao": "capítulos_sincronizados",
                         "resultado": "FALHA",
-                        "total_não_sincronizados": len(capitulos_nao_sync),
-                        "exemplos": [cap.titulo for cap in capitulos_nao_sync[:3]],
+                        "total_não_sincronizados": len(
+                            validacao_classificacoes[
+                                "capitulos_sem_classificacao"
+                            ]
+                        ),
+                        "exemplos": [
+                            capitulo["titulo"]
+                            for capitulo in validacao_classificacoes[
+                                "capitulos_sem_classificacao"
+                            ][:3]
+                        ],
                     }
                 )
             else:
-                total_capitulos = CapituloDocumento.query.filter_by(
-                    id_relatorio=relatorio_id
-                ).count()
                 resultado["detalhes_validacoes"].append(
                     {
                         "validacao": "capítulos_sincronizados",
                         "resultado": "OK",
-                        "mensagem": f"Todos os {total_capitulos} capítulos sincronizados",
+                        "mensagem": (
+                            "Todos os "
+                            f"{validacao_classificacoes['total_capitulos']} "
+                            "capítulos sincronizados"
+                        ),
                     }
                 )
 
@@ -327,7 +400,9 @@ class ServicoPipelineRelatorio:
             for cap_id, _ in uploads_dict.items():
                 cap = CapituloDocumento.query.get(cap_id)
                 if not cap:
-                    uploads_invalidos.append(f"Capítulo ID {cap_id} não existe")
+                    uploads_invalidos.append(
+                        f"Capítulo ID {cap_id} não existe ou não pertence a este relatório"
+                    )
                 elif cap.id_relatorio != relatorio_id:
                     uploads_invalidos.append(
                         f"Capítulo '{cap.titulo}' não pertence a este relatório"
@@ -406,27 +481,18 @@ class ServicoPipelineRelatorio:
 
             # Validação 5: DOCX template válido
             if not relatorio.caminho_template:
-                resultado["valido"] = False
-                resultado["motivos_rejeicao"].append("Relatório não tem template DOCX configurado.")
-                resultado["proximos_passos"].append("configurar_template")
                 resultado["detalhes_validacoes"].append(
                     {
                         "validacao": "template_docx_existe",
-                        "resultado": "FALHA",
+                        "resultado": "AVISO",
                         "mensagem": "Caminho do template não configurado",
                     }
                 )
             elif not os.path.exists(relatorio.caminho_template):
-                resultado["valido"] = False
-                resultado["motivos_rejeicao"].append(
-                    "Arquivo DOCX do template não encontrado. "
-                    "Verifique se o arquivo foi movido ou deletado."
-                )
-                resultado["proximos_passos"].append("restaurar_template")
                 resultado["detalhes_validacoes"].append(
                     {
                         "validacao": "template_docx_existe",
-                        "resultado": "FALHA",
+                        "resultado": "AVISO",
                         "mensagem": "Arquivo não existe no caminho especificado",
                     }
                 )

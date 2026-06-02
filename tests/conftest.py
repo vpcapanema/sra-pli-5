@@ -1,8 +1,9 @@
 """Configuração global de fixtures para testes."""
+from datetime import date
 import os
 import tempfile
+
 import pytest
-from datetime import date
 from docx import Document
 import hypothesis.strategies as st
 from hypothesis import assume
@@ -11,7 +12,6 @@ from app import create_app, db
 from app.models.dominio import Dominio
 from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
-from app.models.capitulo_documento import CapituloDocumento
 from app.config import Config
 
 
@@ -24,17 +24,17 @@ class TestConfig(Config):
     TESTING = True
 
 
-@pytest.fixture(scope='function')
-def app():
+@pytest.fixture(name='app', scope='function')
+def fixture_app():
     """Cria app Flask com BD em memória para cada teste."""
-    app = create_app(TestConfig)
-    app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['WTF_CSRF_ENABLED'] = False
-    
-    with app.app_context():
+    flask_app = create_app(TestConfig)
+    flask_app.config['TESTING'] = True
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    flask_app.config['WTF_CSRF_ENABLED'] = False
+
+    with flask_app.app_context():
         db.create_all()
-        
+
         # Seed mínimo de domínios necessários
         dominios_esperados = [
             ('perfil_usuario', 'autor', 'Autor'),
@@ -45,22 +45,22 @@ def app():
             ('status_capitulo', 'aprovado', 'Aprovado'),
             ('status_capitulo', 'rejeitado', 'Rejeitado'),
         ]
-        
+
         for tipo, valor, descricao in dominios_esperados:
             db.session.add(Dominio(
                 tipo=tipo, valor=valor, descricao=descricao
             ))
-        
+
         db.session.commit()
-        
-        yield app
-        
+
+        yield flask_app
+
         db.session.remove()
         db.drop_all()
 
 
-@pytest.fixture
-def app_context(app):
+@pytest.fixture(name='app_context')
+def fixture_app_context(app):
     """Fornece app context já criado."""
     with app.app_context():
         yield app
@@ -85,11 +85,11 @@ def estilo_heading_strategy(draw) -> str:
 @st.composite
 def estilo_anexo_apendice_strategy(draw) -> tuple:
     """Gera estilos específicos para anexos e apêndices.
-    
+
     Retorna (estilo_docx, classificacao_esperada, prefixo_esperado)
     """
     tipo = draw(st.sampled_from(['anexo', 'apendice']))
-    
+
     if tipo == 'anexo':
         estilos = [
             ('Anexo', 'anexo', 'ANEXO_'),
@@ -102,14 +102,14 @@ def estilo_anexo_apendice_strategy(draw) -> tuple:
             ('APÊNDICE', 'apendice', 'APENDICE_'),
             ('Apêndice I', 'apendice', 'APENDICE_'),
         ]
-    
+
     return draw(st.sampled_from(estilos))
 
 
 @st.composite
 def titulo_capitulo_com_variacao_strategy(draw) -> str:
     """Gera títulos de capítulos com variações reais.
-    
+
     Inclui espaços extras, acentos, maiúsculas/minúsculas
     """
     palavras = [
@@ -118,36 +118,35 @@ def titulo_capitulo_com_variacao_strategy(draw) -> str:
         'Apêndices', 'Prefácio', 'Dedicatória', 'Agradecimentos',
         'Resumo', 'Abstract', 'Lista de Figuras', 'Lista de Tabelas'
     ]
-    
+
     titulo = draw(st.sampled_from(palavras))
-    
+
     # Aplicar variações ocasionais
     variacao = draw(st.sampled_from(['original', 'maiuscula', 'minuscula', 'espacos']))
-    
+
     if variacao == 'maiuscula':
         titulo = titulo.upper()
     elif variacao == 'minuscula':
         titulo = titulo.lower()
     elif variacao == 'espacos':
         titulo = '  ' + titulo + '  '
-    
+
     return titulo
 
 
 @st.composite
 def estrutura_capitulos_strategy(draw) -> list:
     """Gera estrutura de capítulos com mistura de tipos e classificações.
-    
+
     Retorna lista de dicts: [{'titulo', 'estilo', 'nivel', 'classificacao_esperada'}, ...]
     """
-    num_capitulos = draw(st.integers(min_value=1, max_value=5))
     capitulos = []
-    
+
     # 40% de chances de ter capítulos de cada tipo
-    tem_textual = draw(st.booleans(p=0.7))
-    tem_anexos = draw(st.booleans(p=0.5))
-    tem_apendices = draw(st.booleans(p=0.4))
-    
+    tem_textual = draw(st.integers(min_value=1, max_value=10)) <= 7
+    tem_anexos = draw(st.integers(min_value=1, max_value=10)) <= 5
+    tem_apendices = draw(st.integers(min_value=1, max_value=10)) <= 4
+
     # Capítulos textuais
     if tem_textual:
         num_textual = draw(st.integers(min_value=1, max_value=3))
@@ -159,7 +158,7 @@ def estrutura_capitulos_strategy(draw) -> list:
                 'nivel': draw(st.integers(min_value=1, max_value=2)),
                 'classificacao_esperada': None,  # Textual não tem classificação específica
             })
-    
+
     # Anexos
     if tem_anexos:
         num_anexos = draw(st.integers(min_value=1, max_value=2))
@@ -175,7 +174,7 @@ def estrutura_capitulos_strategy(draw) -> list:
                 'classificacao_esperada': classif,
                 'prefixo_esperado': prefixo,
             })
-    
+
     # Apêndices
     if tem_apendices:
         num_apendices = draw(st.integers(min_value=1, max_value=2))
@@ -191,7 +190,7 @@ def estrutura_capitulos_strategy(draw) -> list:
                 'classificacao_esperada': classif,
                 'prefixo_esperado': prefixo,
             })
-    
+
     assume(len(capitulos) > 0)  # Garantir que há pelo menos um capítulo
     return capitulos
 
@@ -199,11 +198,11 @@ def estrutura_capitulos_strategy(draw) -> list:
 @st.composite
 def relatorio_com_template_strategy(draw, app_context) -> RelatorioProducao:
     """Gera RelatorioProducao com template DOCX válido contendo capítulos.
-    
+
     Retorna instância de RelatorioProducao pronta para usar.
     """
     capitulos_estrutura = draw(estrutura_capitulos_strategy())
-    
+
     # Criar DOCX
     doc = Document()
     for cap_info in capitulos_estrutura:
@@ -211,12 +210,12 @@ def relatorio_com_template_strategy(draw, app_context) -> RelatorioProducao:
         titulo = cap_info['titulo']
         doc.add_heading(titulo, level=heading_level)
         doc.add_paragraph(f"Conteúdo de {titulo}")
-    
+
     # Salvar DOCX temporário
     tmpdir = tempfile.mkdtemp()
     docx_path = os.path.join(tmpdir, 'template_teste.docx')
     doc.save(docx_path)
-    
+
     # Criar usuário
     perfil = Dominio.query.filter_by(tipo='perfil_usuario', valor='coordenador').first()
     usuario = Usuario(
@@ -229,7 +228,7 @@ def relatorio_com_template_strategy(draw, app_context) -> RelatorioProducao:
     )
     db.session.add(usuario)
     db.session.flush()
-    
+
     # Criar relatório
     status = Dominio.query.filter_by(tipo='status_relatorio').first()
     rel = RelatorioProducao(
@@ -246,21 +245,21 @@ def relatorio_com_template_strategy(draw, app_context) -> RelatorioProducao:
     )
     db.session.add(rel)
     db.session.flush()
-    
+
     # Retornar com estrutura esperada para validação
-    rel._expected_capitulos = capitulos_estrutura
-    
+    setattr(rel, '_expected_capitulos', capitulos_estrutura)
+
     return rel
 
 
 @st.composite
 def capitulo_com_classificacao_strategy(draw) -> dict:
     """Gera dicionário representando um capítulo com classificação esperada.
-    
+
     Retorna: {'titulo', 'estilo', 'classificacao_esperada', 'prefixo_esperado'}
     """
     tipo = draw(st.sampled_from(['textual', 'anexo', 'apendice']))
-    
+
     if tipo == 'textual':
         return {
             'titulo': draw(titulo_capitulo_com_variacao_strategy()),
@@ -268,14 +267,13 @@ def capitulo_com_classificacao_strategy(draw) -> dict:
             'classificacao_esperada': None,
             'prefixo_esperado': None,
         }
-    else:
-        estilo, classif, prefixo = draw(estilo_anexo_apendice_strategy())
-        return {
-            'titulo': f"{estilo} {chr(65)}: Dados",
-            'estilo': estilo,
-            'classificacao_esperada': classif,
-            'prefixo_esperado': prefixo,
-        }
+    estilo, classif, prefixo = draw(estilo_anexo_apendice_strategy())
+    return {
+        'titulo': f"{estilo} {chr(65)}: Dados",
+        'estilo': estilo,
+        'classificacao_esperada': classif,
+        'prefixo_esperado': prefixo,
+    }
 
 
 @st.composite
