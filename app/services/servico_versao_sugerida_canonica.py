@@ -205,6 +205,9 @@ class ServicoVersaoSugeridaCanonica:
         if 'Normal' in doc.styles:
             spec = cls._spec_texto(estilos)
             cls._aplicar_spec_fonte(doc.styles['Normal'].font, spec)
+            cls._aplicar_spec_pformat(
+                doc.styles['Normal'].paragraph_format, spec
+            )
             aplicados.append('Normal')
         for nivel in range(1, 10):
             nome = f'Heading {nivel}'
@@ -354,6 +357,25 @@ class ServicoVersaoSugeridaCanonica:
             fmt.right_indent = Cm(spec['recuo_direita_cm'])
         for run in paragrafo.runs:
             cls._aplicar_spec_fonte(run.font, spec)
+
+    @staticmethod
+    def _aplicar_spec_pformat(fmt, spec):
+        """Aplica alinhamento/espaçamento a um paragraph_format.
+
+        Usado tanto em parágrafos quanto no estilo "Normal" (para que o
+        editor, que renderiza pelo estilo, herde a justificação).
+        """
+        alinhamento = spec.get('alinhamento') or ''
+        if 'JUSTIFY' in alinhamento:
+            fmt.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        elif 'CENTER' in alinhamento:
+            fmt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if spec.get('espacamento_antes_pt') is not None:
+            fmt.space_before = Pt(spec['espacamento_antes_pt'])
+        if spec.get('espacamento_depois_pt') is not None:
+            fmt.space_after = Pt(spec['espacamento_depois_pt'])
+        if spec.get('entre_linhas') is not None:
+            fmt.line_spacing = spec['entre_linhas']
 
     @staticmethod
     def _aplicar_spec_fonte(fonte, spec):

@@ -45,7 +45,7 @@ from typing import Any, Optional
 _DEFAULT_ESTILO_LEGENDA = 'Caption'
 _DEFAULT_POSICAO_FIGURA = 'abaixo'  # convencao cientifica
 _DEFAULT_POSICAO_TABELA = 'acima'   # convencao Word/ABNT
-_DEFAULT_SEP_INDICE = '.'           # "5.1.2"
+_DEFAULT_SEP_INDICE = '-'           # "4-1" (indice H1 + ordinal no capitulo)
 _DEFAULT_SEP_LEGENDA = ' – '        # en-dash com espacos
 _DEFAULT_HEADING_NOMES = [
     None,              # placeholder para nivel 0

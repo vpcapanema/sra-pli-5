@@ -560,14 +560,15 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
                 # um novo H1 inaugura um espaco de numeracao novo, entao
                 # nao precisamos limpar — basta que as proximas insercoes
                 # usem a nova chave `(indice_h1_atual, tipo)`).
-                if nivel == 1:
-                    if idx_explicito is not None:
-                        # Pega so o primeiro componente do indice
-                        # explicito (ex: '5.1' -> '5').
-                        indice_h1_atual = idx_explicito.split('.')[0]
-                    else:
-                        # No modo automatico, pilha[0] e o contador de H1.
-                        indice_h1_atual = str(pilha_niveis[0])
+                if idx_explicito is not None:
+                    # Componente de PRIMEIRO NIVEL do indice do heading
+                    # define o prefixo das legendas (ex.: '4.4.7' -> '4',
+                    # '5.1' -> '5'), em qualquer nivel de heading. Garante
+                    # Figura 4-1 mesmo iniciando num subcapitulo.
+                    indice_h1_atual = idx_explicito.split('.')[0]
+                elif nivel == 1:
+                    # No modo automatico, pilha[0] e o contador de H1.
+                    indice_h1_atual = str(pilha_niveis[0])
                 i += 1
                 continue
 
