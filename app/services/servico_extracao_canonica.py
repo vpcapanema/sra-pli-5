@@ -11,6 +11,8 @@ import tempfile
 
 from docx import Document
 
+from app.services.servico_capa import extrair_estrutura_capa
+
 
 # Regex para detectar prefixo de numeração hierárquica no início do
 # título de um capítulo no DOCX. Aceita formas como:
@@ -82,9 +84,6 @@ class ServicoExtracaoCanonica:
         # parágrafos comuns e por isso NAO seriam capturados pelo
         # `_extrair_macro` original (que so olha estilos de paragrafo).
         try:
-            from app.services.servico_capa import (
-                extrair_estrutura_capa,
-            )
             capa_detalhada = extrair_estrutura_capa(doc)
             # Anexa ao primeiro bloco de tipo 'capa' (se existir) ou
             # cria um bloco dedicado.
@@ -724,6 +723,16 @@ class ServicoExtracaoCanonica:
         'apêndice', 'apendice', 'appendix',
         'anexo', 'annex', 'glossário', 'glossario', 'índice', 'indice',
     )
+
+    @classmethod
+    def pre_textuais_auto_gerados(cls):
+        """Retorna titulos pre-textuais gerados automaticamente."""
+        return cls._PRE_TEXTUAIS_AUTO_GERADOS
+
+    @classmethod
+    def extrair_capitulos(cls, doc):
+        """Extrai capitulos do DOCX por meio da API publica do servico."""
+        return cls._extrair_capitulos(doc)
 
     @classmethod
     def _extrair_capitulos(cls, doc):

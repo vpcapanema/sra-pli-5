@@ -49,6 +49,12 @@ def _normalizar(texto):
     return s
 
 
+def _nome_estilo_paragrafo(paragrafo):
+    """Retorna nome do estilo do parágrafo com fallback seguro."""
+    estilo = getattr(paragrafo, 'style', None)
+    return getattr(estilo, 'name', '') or ''
+
+
 def _heading_nivel(estilo):
     """Retorna nível do heading (1..9) ou None."""
     if not estilo:
@@ -96,7 +102,7 @@ def gerar_docx_segmento(envio, capitulo):
     coletando = False
     qtd = 0
     for para in doc_origem.paragraphs:
-        estilo = para.style.name or ''
+        estilo = _nome_estilo_paragrafo(para)
         texto = para.text.strip()
         nivel = _heading_nivel(estilo)
         if nivel is not None and texto:
@@ -450,7 +456,7 @@ class ServicoEnvioAutor:
 
         # Iterar parágrafos
         for para in doc.paragraphs:
-            estilo = para.style.name or ''
+            estilo = _nome_estilo_paragrafo(para)
             texto = para.text.strip()
             nivel = _heading_nivel(estilo)
 
@@ -1463,7 +1469,7 @@ class ServicoEnvioAutor:
 
         # Extrair títulos (headings + padrões inteligentes)
         for para in doc.paragraphs:
-            estilo = para.style.name or ''
+            estilo = _nome_estilo_paragrafo(para)
             texto = para.text.strip()
             if not texto:
                 continue

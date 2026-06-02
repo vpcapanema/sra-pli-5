@@ -25,6 +25,9 @@ _MAPA_STATUS_ENVIO_LEGADO = {
 class EnvioConteudo(db.Model, AuditoriaMixin):
     __tablename__ = 'envios_conteudo'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id_envio_conteudo = db.Column(db.Integer, primary_key=True)
     id_relatorio = db.Column(
         db.Integer,

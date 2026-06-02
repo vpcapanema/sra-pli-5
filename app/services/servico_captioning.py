@@ -43,7 +43,20 @@ from docx import Document
 from docx.oxml.ns import qn
 import lxml.etree as etree
 
-from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo
+from app.services._ooxml_helpers import (
+    GeradorIdsBookmark,
+    aplicar_estilo_paragrafo,
+    criar_bookmark_par,
+    criar_run_texto,
+    criar_runs_campo_seq,
+    nome_bookmark,
+    remover_bookmarks_sra,
+    texto_paragrafo as _texto_paragrafo,
+)
+from app.services.servico_perfil_formatacao import PerfilFormatacao
+
+_element = getattr(etree, 'Element')
+_sub_element = getattr(etree, 'SubElement')
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -88,13 +101,13 @@ RE_SUFIXO_EQ = re.compile(
 
 def _eh_heading_paragrafo(p_element) -> Optional[int]:
     """Retorna o nivel (1..9) se o paragrafo for heading, senao None."""
-    pPr = p_element.find(qn('w:pPr'))
-    if pPr is None:
+    p_pr = p_element.find(qn('w:pPr'))
+    if p_pr is None:
         return None
-    pStyle = pPr.find(qn('w:pStyle'))
-    if pStyle is None:
+    p_style = p_pr.find(qn('w:pStyle'))
+    if p_style is None:
         return None
-    val = pStyle.get(qn('w:val'), '')
+    val = p_style.get(qn('w:val'), '')
     m = re.search(r'(\d)', val)
     if m and ('eading' in val or 'tulo' in val.lower() or val.isdigit()):
         n = int(m.group(1))
@@ -117,12 +130,12 @@ def _eh_paragrafo_de_caption(
     Quando `tipo` e None, mantem comportamento legado (qualquer
     legenda casa) — usado em deteccoes auxiliares.
     """
-    pPr = p_element.find(qn('w:pPr'))
+    p_pr = p_element.find(qn('w:pPr'))
     estilo_caption = False
-    if pPr is not None:
-        pStyle = pPr.find(qn('w:pStyle'))
-        if pStyle is not None:
-            val = pStyle.get(qn('w:val'), '')
+    if p_pr is not None:
+        p_style = p_pr.find(qn('w:pStyle'))
+        if p_style is not None:
+            val = p_style.get(qn('w:val'), '')
             if val in ESTILOS_CAPTION:
                 estilo_caption = True
 
@@ -233,18 +246,13 @@ def _construir_paragrafo_legenda_canonica(
       para ela e o Word fazer hyperlink.
     - O texto descritivo e adicionado APOS o campo, com separador.
     """
-    from app.services._ooxml_helpers import (
-        criar_run_texto,
-        criar_runs_campo_seq,
-        criar_bookmark_par,
-        aplicar_estilo_paragrafo,
-    )
+    _ = label
 
     w = f'{{{W_NS}}}'
-    p = etree.Element(f'{w}p')
+    p = _element(f'{w}p')
     aplicar_estilo_paragrafo(p, estilo)
 
-    # bookmarkStart (apos pPr, antes dos runs)
+    # bookmarkStart (apos p_pr, antes dos runs)
     bms = bme = None
     if nome_bm:
         bms, bme = criar_bookmark_par(nome_bm, id_gen)
@@ -297,13 +305,6 @@ def _reescrever_legenda_canonica(
     Retorna o texto descritivo (sem prefixo numerico nem `{{label:..}}`)
     para que o caller possa extrair labels.
     """
-    from app.services._ooxml_helpers import (
-        criar_run_texto,
-        criar_runs_campo_seq,
-        criar_bookmark_par,
-        aplicar_estilo_paragrafo,
-    )
-
     w = f'{{{W_NS}}}'
 
     # 1. Capturar texto descritivo ANTES de apagar
@@ -316,16 +317,16 @@ def _reescrever_legenda_canonica(
         sem_label = '[Sem legenda]'
 
     # 2. Apagar TODO o conteudo do paragrafo (runs, bookmarks, fields)
-    #    PRESERVANDO o pPr (estilo), pois ele sera ajustado pelo
+    #    PRESERVANDO o p_pr (estilo), pois ele sera ajustado pelo
     #    aplicar_estilo_paragrafo abaixo se necessario.
     for filho in list(p_element):
-        if filho.tag != f'{w}pPr':
+        if filho.tag != f'{w}p_pr':
             p_element.remove(filho)
 
     # 3. Aplicar estilo correto
     aplicar_estilo_paragrafo(p_element, estilo)
 
-    # 4. Inserir bookmarkStart (apos pPr)
+    # 4. Inserir bookmarkStart (apos p_pr)
     bms = bme = None
     if nome_bm:
         bms, bme = criar_bookmark_par(nome_bm, id_gen)
@@ -391,9 +392,9 @@ def _anexar_numero_inline_equacao(p_element, numero_str: str) -> None:
         ultimo_t.text = RE_SUFIXO_EQ.sub('', texto_atual)
 
     # Adicionar tab + (numero) como novo run
-    r = etree.SubElement(p_element, f'{w}r')
-    etree.SubElement(r, f'{w}tab')
-    t = etree.SubElement(r, f'{w}t')
+    r = _sub_element(p_element, f'{w}r')
+    _sub_element(r, f'{w}tab')
+    t = _sub_element(r, f'{w}t')
     t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
     t.text = f'({numero_str})'
 
@@ -418,16 +419,8 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
     a string numerica (ex: '5.1.2'), incluindo tambem
     `'ref:nome'` que e uma referencia generica (mesmo numero).
     """
-    # Lazy default — evita ciclo de import
     if perfil is None:
-        from app.services.servico_perfil_formatacao import PerfilFormatacao
         perfil = PerfilFormatacao()
-
-    # Helpers OOXML — gerador de IDs de bookmark + limpeza idempotente
-    from app.services._ooxml_helpers import (
-        GeradorIdsBookmark,
-        remover_bookmarks_sra,
-    )
 
     doc = Document(caminho_master)
     body = doc.element.body
@@ -732,7 +725,6 @@ def _resolver_nome_bookmark(
     - Senao: fallback baseado no indice → `_Ref_sra_<prefixo>_h<H1>_n<seq>`.
       Cross-refs sem label declarado podem usar esse nome derivavel.
     """
-    from app.services._ooxml_helpers import nome_bookmark
     prefixo = _TIPO_PARA_PREFIXO_BM[tipo]
     if label:
         return nome_bookmark(prefixo, label)

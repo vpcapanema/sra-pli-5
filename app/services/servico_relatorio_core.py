@@ -1,9 +1,11 @@
 """Operacoes centrais de relatorios e capitulos ainda compartilhadas."""
+
 from __future__ import annotations
 
 from datetime import date
 
 from flask_login import current_user
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models.capitulo_documento import CapituloDocumento
@@ -35,7 +37,7 @@ def listar_relatorios_base():
 def listar_relatorios_finalizados():
     try:
         return RelatorioFinalizado.query.all()
-    except Exception:
+    except SQLAlchemyError:
         return []
 
 
@@ -44,7 +46,7 @@ def esta_bloqueado(rel):
         return True
     if rel.bloqueio_edicao:
         return True
-    if rel.status and rel.status.codigo == 'finalizado':
+    if rel.status and rel.status.codigo == "finalizado":
         return True
     return False
 
@@ -70,18 +72,14 @@ def obter_relatorio_producao(id_relatorio):
 
 
 def criar_relatorio_producao(relatorio_id, titulo):
-    status = Dominio.query.filter_by(
-        tipo='status_relatorio', valor='em_producao'
-    ).first()
+    status = Dominio.query.filter_by(tipo="status_relatorio", valor="em_producao").first()
     if not status:
-        status = Dominio.query.filter_by(
-            tipo='status_relatorio', ativo=True
-        ).first()
+        status = Dominio.query.filter_by(tipo="status_relatorio", ativo=True).first()
 
     relatorio = RelatorioProducao(
         modelo_id=relatorio_id,
         titulo_curto=titulo,
-        codigo_d20='D-20',
+        codigo_d20="D-20",
         numero_medicao=1,
         mes_referencia=date.today(),
         periodo_inicio=date.today(),
@@ -95,25 +93,29 @@ def criar_relatorio_producao(relatorio_id, titulo):
 
 
 def listar_capitulos(id_relatorio):
-    return CapituloDocumento.query.filter_by(
-        id_relatorio=id_relatorio,
-        id_capitulo_pai=None,
-    ).order_by(CapituloDocumento.ordem_capitulo).all()
+    return (
+        CapituloDocumento.query.filter_by(
+            id_relatorio=id_relatorio,
+            id_capitulo_pai=None,
+        )
+        .order_by(CapituloDocumento.ordem_capitulo)
+        .all()
+    )
 
 
 _BUCKET_TIPO = {
-    'pre_textual': 0,
-    'textual': 1,
-    'pos_textual': 2,
+    "pre_textual": 0,
+    "textual": 1,
+    "pos_textual": 2,
 }
 
 
 def chave_ordem_indice(cap):
-    bucket = _BUCKET_TIPO.get(cap.tipo_elemento or 'textual', 1)
-    idx = (cap.indice_capitulo or '').strip()
+    bucket = _BUCKET_TIPO.get(cap.tipo_elemento or "textual", 1)
+    idx = (cap.indice_capitulo or "").strip()
     partes = []
     if idx:
-        for parte in idx.split('.'):
+        for parte in idx.split("."):
             parte = parte.strip()
             if not parte:
                 continue
@@ -130,8 +132,7 @@ def listar_capitulos_ordenados(id_relatorio, incluir_inativos=False):
     query = CapituloDocumento.query.filter_by(id_relatorio=id_relatorio)
     if not incluir_inativos:
         query = query.filter(
-            (CapituloDocumento.ativo.is_(True))
-            | (CapituloDocumento.ativo.is_(None))
+            (CapituloDocumento.ativo.is_(True)) | (CapituloDocumento.ativo.is_(None))
         )
     return sorted(query.all(), key=chave_ordem_indice)
 
@@ -144,7 +145,7 @@ def criar_capitulo(
     id_capitulo_pai=None,
     nome_capitulo=None,
     indice_capitulo=None,
-    tipo_elemento='textual',
+    tipo_elemento="textual",
 ):
     from app.utils.auditoria import usuario_atual_id
 

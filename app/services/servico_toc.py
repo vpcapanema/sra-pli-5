@@ -37,8 +37,9 @@ from typing import Optional
 
 from docx import Document
 from docx.oxml.ns import qn
-from lxml import etree
+import lxml.etree as etree
 
+from app.services.servico_perfil_formatacao import PerfilFormatacao
 from app.services._ooxml_helpers import (
     GeradorIdsBookmark,
     aplicar_estilo_paragrafo,
@@ -46,6 +47,9 @@ from app.services._ooxml_helpers import (
     criar_run_texto,
     texto_paragrafo as _texto_paragrafo,
 )
+
+_element = getattr(etree, 'Element')
+_sub_element = getattr(etree, 'SubElement')
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -83,13 +87,13 @@ def _nivel_heading(p_element) -> Optional[int]:
     Reconhece styleIds com 'Heading'/'eading' (Word en-US),
     'Titulo'/'tulo' (Word pt-BR localizado) ou apenas digito.
     """
-    pPr = p_element.find(qn('w:pPr'))
-    if pPr is None:
+    p_pr = p_element.find(qn('w:pPr'))
+    if p_pr is None:
         return None
-    pStyle = pPr.find(qn('w:pStyle'))
-    if pStyle is None:
+    p_style = p_pr.find(qn('w:pStyle'))
+    if p_style is None:
         return None
-    val = pStyle.get(qn('w:val'), '')
+    val = p_style.get(qn('w:val'), '')
     m = re.search(r'(\d)', val)
     if not m:
         return None
@@ -330,7 +334,7 @@ def _heading_ja_tem_bookmark_toc(p_element) -> Optional[str]:
 
 def _garantir_bookmarks_em_headings(
     body, id_gen: GeradorIdsBookmark
-) -> dict:
+) -> list[dict]:
     """Percorre headings e garante que cada um tenha um bookmark
     `_Toc_sra_h<N>_n<seq>` envolvendo seu conteudo. Se ja tem, mantem.
 
@@ -377,12 +381,12 @@ def _garantir_bookmarks_em_headings(
             contadores[nivel] += 1
             seq = contadores[nivel]
             nome_bm = f'{PREFIXO_BOOKMARK_HEADING}h{nivel}_n{seq}'
-            # Inserir bookmarkStart no comeco do paragrafo (apos pPr)
+            # Inserir bookmarkStart no comeco do paragrafo (apos p_pr)
             # e bookmarkEnd no fim.
             bms, bme = criar_bookmark_par(nome_bm, id_gen)
-            pPr = child.find(qn('w:pPr'))
-            if pPr is not None:
-                pPr.addnext(bms)
+            p_pr = child.find(qn('w:pPr'))
+            if p_pr is not None:
+                p_pr.addnext(bms)
             else:
                 child.insert(0, bms)
             child.append(bme)
@@ -431,10 +435,10 @@ def _remover_bookmarks_toc_sra(body) -> int:
 # =====================================================================
 
 
-def _criar_paragrafo_titulo(texto: str, estilo: str):
+def _criar_paragrafo_titulo(texto: str, estilo: Optional[str]):
     """Cria <w:p> com estilo de titulo (default Heading 1)."""
     w = f'{{{W_NS}}}'
-    p = etree.Element(f'{w}p')
+    p = _element(f'{w}p')
     aplicar_estilo_paragrafo(p, estilo)
     p.append(criar_run_texto(texto))
     return p
@@ -469,18 +473,18 @@ def _criar_paragrafo_entrada_lista(
         </w:p>
     """
     w = f'{{{W_NS}}}'
-    p = etree.Element(f'{w}p')
+    p = _element(f'{w}p')
     aplicar_estilo_paragrafo(p, estilo_paragrafo)
 
     if bookmark_destino:
-        container = etree.SubElement(p, f'{w}hyperlink')
+        container = _sub_element(p, f'{w}hyperlink')
         container.set(f'{w}anchor', bookmark_destino)
         container.set(f'{w}history', '1')
     else:
         container = p
 
-    r = etree.SubElement(container, f'{w}r')
-    t = etree.SubElement(r, f'{w}t')
+    r = _sub_element(container, f'{w}r')
+    t = _sub_element(r, f'{w}t')
     t.set(*XML_SPACE_PRESERVE)
     t.text = texto
 
@@ -492,7 +496,7 @@ def _criar_paragrafo_marcador(nome_marcador: str, id_gen):
     (sem run de texto). Usado como sentinela de inicio/fim de bloco.
     """
     w = f'{{{W_NS}}}'
-    p = etree.Element(f'{w}p')
+    p = _element(f'{w}p')
     bms, bme = criar_bookmark_par(nome_marcador, id_gen)
     p.append(bms)
     p.append(bme)
@@ -540,7 +544,9 @@ def _coletar_legendas_por_tipo(body, prefixo_tipo: str) -> list:
 # =====================================================================
 
 
-def _resolver_estilo(doc, estilo_desejado: str, fallback: str) -> str:
+def _resolver_estilo(
+    doc, estilo_desejado: str, fallback: Optional[str]
+) -> Optional[str]:
     """Verifica se `estilo_desejado` existe em styles.xml. Senao,
     retorna `fallback`.
     """
@@ -564,7 +570,6 @@ def _resolver_estilo(doc, estilo_desejado: str, fallback: str) -> str:
 def _resolver_perfil(perfil):
     if perfil is not None:
         return perfil
-    from app.services.servico_perfil_formatacao import PerfilFormatacao
     return PerfilFormatacao()
 
 
@@ -786,11 +791,11 @@ def inserir_lista_equacoes(caminho_master: str, perfil=None) -> dict:
     )
 
     # 2. Coletar equacoes inline. Reutiliza heuristica do captioning.
-    M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    m_ns = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
     entradas = []
     for p in body.iter(qn('w:p')):
-        if (p.find(f'.//{{{M_NS}}}oMath') is None
-                and p.find(f'.//{{{M_NS}}}oMathPara') is None):
+        if (p.find(f'.//{{{m_ns}}}oMath') is None
+                and p.find(f'.//{{{m_ns}}}oMathPara') is None):
             continue
         # Texto do paragrafo: ultimo token entre parenteses
         # tipicamente e a numeracao "(N.M)" gerada pelo captioning.

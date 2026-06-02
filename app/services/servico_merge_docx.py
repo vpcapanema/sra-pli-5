@@ -22,7 +22,7 @@ import difflib
 import re
 import unicodedata
 from io import BytesIO
-from typing import Optional
+from typing import Optional, cast
 
 import lxml.etree as etree
 
@@ -32,9 +32,11 @@ from docxcompose.composer import Composer
 from app.models.capitulo_documento import CapituloDocumento
 from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo_base
 from app.services.servico_nivelador_erros import ServicoNiveladorErros
+from app.utils.auditoria import usuario_atual_id
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+_sub_element = getattr(etree, 'SubElement')
 
 
 def _normalizar(texto: str) -> str:
@@ -84,13 +86,13 @@ def _eh_paragrafo_heading(p_element) -> Optional[int]:
 
     Olha o `<w:pStyle w:val="Heading N"/>` dentro de `<w:pPr>`.
     """
-    pPr = p_element.find(f'{{{W_NS}}}pPr')
-    if pPr is None:
+    p_pr = p_element.find(f'{{{W_NS}}}pPr')
+    if p_pr is None:
         return None
-    pStyle = pPr.find(f'{{{W_NS}}}pStyle')
-    if pStyle is None:
+    p_style = p_pr.find(f'{{{W_NS}}}pStyle')
+    if p_style is None:
         return None
-    val = pStyle.get(f'{{{W_NS}}}val', '')
+    val = p_style.get(f'{{{W_NS}}}val', '')
     return _heading_nivel_de_estilo(val)
 
 
@@ -227,7 +229,12 @@ def _localizar_range_capitulo_interno(doc, capitulo) -> Optional[tuple[int, int]
     return (inicio, fim)
 
 
-def localizar_range_capitulo(doc, capitulo, relatorio_id=None, capitulo_id=None) -> Optional[tuple[int, int]]:
+def localizar_range_capitulo(
+    doc,
+    capitulo,
+    relatorio_id=None,
+    capitulo_id=None,
+) -> Optional[tuple[int, int]]:
     """Localiza o range de elementos do corpo (`body`) que pertencem
     ao capítulo informado.
 
@@ -260,7 +267,7 @@ def localizar_range_capitulo(doc, capitulo, relatorio_id=None, capitulo_id=None)
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return None
 
-    return resultado
+    return cast(Optional[tuple[int, int]], resultado)
 
 
 def _listar_subheadings_no_range_interno(
@@ -330,7 +337,7 @@ def listar_subheadings_no_range(
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return []
 
-    return resultado
+    return cast(list[dict], resultado)
 
 
 def _sincronizar_subcapitulos_interno(
@@ -379,7 +386,6 @@ def _sincronizar_subcapitulos_interno(
                 indice_filho = f'{indice_pai}.{ordem}'
             elif not indice_filho:
                 indice_filho = str(ordem)
-            from app.utils.auditoria import usuario_atual_id  # noqa: C0415
             novo = CapituloDocumento(
                 id_relatorio=capitulo_pai.id_relatorio,
                 id_capitulo_pai=capitulo_pai.id_capitulo_documento,
@@ -533,7 +539,7 @@ def extrair_capitulo_como_docx(
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return None
 
-    return resultado
+    return cast(Optional[bytes], resultado)
 
 
 def _substituir_texto_heading(p_element, novo_texto: str) -> None:
@@ -554,7 +560,7 @@ def _substituir_texto_heading(p_element, novo_texto: str) -> None:
         # Localiza o primeiro <w:t> dentro do primeiro run
         t_primeiro = primeiro.find(f'{{{W_NS}}}t')
         if t_primeiro is None:
-            t_primeiro = etree.SubElement(primeiro, f'{{{W_NS}}}t')
+            t_primeiro = _sub_element(primeiro, f'{{{W_NS}}}t')
         t_primeiro.text = novo_texto
         # Limpa demais <w:t> dentro do primeiro run para não duplicar
         for t in primeiro.findall(f'{{{W_NS}}}t')[1:]:
@@ -563,8 +569,8 @@ def _substituir_texto_heading(p_element, novo_texto: str) -> None:
         for r in runs[1:]:
             p_element.remove(r)
     else:
-        novo_run = etree.SubElement(p_element, f'{{{W_NS}}}r')
-        novo_t = etree.SubElement(novo_run, f'{{{W_NS}}}t')
+        novo_run = _sub_element(p_element, f'{{{W_NS}}}r')
+        novo_t = _sub_element(novo_run, f'{{{W_NS}}}t')
         novo_t.text = novo_texto
 
 
@@ -615,7 +621,7 @@ def atualizar_titulo_capitulo(
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return False
 
-    return resultado
+    return cast(bool, resultado)
 
 
 def _substituir_capitulo_interno(
@@ -898,7 +904,11 @@ def _match_fuzzy(
             'indice': melhor['indice'],
             'confianca': melhor['confianca'],
             'titulo_encontrado': melhor['texto_original'],
-            'diagnostico': f'Match fuzzy encontrado (distância={melhor["distancia_estimada"]}, ratio={melhor["ratio"]:.2f})',
+            'diagnostico': (
+                'Match fuzzy encontrado '
+                f'(distância={melhor["distancia_estimada"]}, '
+                f'ratio={melhor["ratio"]:.2f})'
+            ),
             'alternativas': alternativas
         }
     else:
@@ -939,7 +949,10 @@ def _match_fuzzy(
             'indice': None,
             'confianca': 0.0,
             'titulo_encontrado': None,
-            'diagnostico': f'Nenhum match fuzzy dentro da distância máxima ({max_distancia_edicao})',
+            'diagnostico': (
+                'Nenhum match fuzzy dentro da distância máxima '
+                f'({max_distancia_edicao})'
+            ),
             'alternativas': alternativas
         }
 
@@ -947,7 +960,7 @@ def _match_fuzzy(
 def _match_exato(
     doc,
     capitulo,
-    headings_cache: dict = None
+    headings_cache: Optional[dict] = None
 ) -> dict:
     """Match por casamento exato de estilo + título + nível.
 
@@ -1065,7 +1078,7 @@ def _match_exato(
 def _match_contexto(
     doc,
     capitulo,
-    indice_esperado: int = None
+    indice_esperado: Optional[int] = None
 ) -> dict:
     """Match por contexto: índice + tipo + classificação.
 
@@ -1205,7 +1218,7 @@ def _match_contexto(
                     return {
                         'encontrado': True,
                         'indice': heading['indice'],
-                        'confianca': 0.65,  # Ligeiramente maior que classificação por ser mais genérico
+                        'confianca': 0.65,
                         'titulo_encontrado': heading['texto_original'],
                         'diagnostico': f'Match por contexto: tipo ({tipo_elemento})',
                         'alternativas': []
@@ -1320,7 +1333,9 @@ def localizar_range_capitulo_robusto(
                 'estrategia_usada': estrategia_nome,
                 'diagnostico': (
                     f'{match_result["diagnostico"]}. '
-                    f'{"Respeitou limite de seção." if range_result.get("encontrou_limite_secao", False) else ""}'
+                    f'{"Respeitou limite de seção." if range_result.get(
+                        "encontrou_limite_secao", False
+                    ) else ""}'
                 ),
                 'alternativas': match_result.get('alternativas', [])
             }

@@ -5,6 +5,9 @@ from app.models.mixins import AuditoriaMixin
 class ModeloRelatorio(db.Model, AuditoriaMixin):
     __tablename__ = 'modelos_relatorio'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id_modelo_relatorio = db.Column(db.Integer, primary_key=True)
     nome_modelo = db.Column(db.String(200), nullable=False)
     descricao = db.Column(db.Text, nullable=True)

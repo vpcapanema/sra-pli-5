@@ -64,7 +64,7 @@ class ServicoNiveladorErros:
         try:
             resultado = funcao(*args, **kwargs)
             return resultado
-        except Exception as excecao:
+        except Exception as excecao:  # pylint: disable=broad-exception-caught
             sugestoes = ServicoNiveladorErros._obter_sugestoes(excecao)
             dict_erro = ServicoNiveladorErros._construir_dict_erro(
                 excecao=excecao,
@@ -169,7 +169,10 @@ class ServicoNiveladorErros:
             # URLs com credenciais
             (r"://[^:]+:[^@]+@", "credenciais em URL"),
             # Endereços IP internos
-            (r"\b(?:10\.|127\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)\d{1,3}\.\d{1,3}\b", "endereço IP interno"),
+            (
+                r"\b(?:10\.|127\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)\d{1,3}\.\d{1,3}\b",
+                "endereço IP interno",
+            ),
         ]
 
         mensagem_sanitizada = mensagem
@@ -177,7 +180,9 @@ class ServicoNiveladorErros:
         for padrao, tipo in padroes_sensiveis:
             if re.search(padrao, mensagem_sanitizada):
                 # Substituir por descrição genérica
-                mensagem_sanitizada = re.sub(padrao, f"[{tipo} removido por segurança]", mensagem_sanitizada)
+                mensagem_sanitizada = re.sub(
+                    padrao, f"[{tipo} removido por segurança]", mensagem_sanitizada
+                )
 
         return mensagem_sanitizada
 
@@ -190,7 +195,10 @@ class ServicoNiveladorErros:
         """
         logger = logging.getLogger(__name__)
 
-        mensagem = f"Erro na etapa '{dict_erro.get('etapa', 'N/A')}': " f"{dict_erro['tipo_erro']} - {dict_erro['erro']}"
+        mensagem = (
+            f"Erro na etapa '{dict_erro.get('etapa', 'N/A')}': "
+            f"{dict_erro['tipo_erro']} - {dict_erro['erro']}"
+        )
 
         contexto = {
             "relatorio_id": dict_erro.get("relatorio_id"),

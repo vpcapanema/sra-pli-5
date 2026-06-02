@@ -45,34 +45,33 @@ class ServicoEmail:
         """
 
     @staticmethod
-    def _enviar_brevo(api_key, remetente_email,
-                      remetente_nome, destinatario,
-                      assunto, corpo_html):
+    def _enviar_brevo(config):
+        """Envia payload para a API Brevo."""
         payload = json.dumps({
             'sender': {
-                'name': remetente_nome,
-                'email': remetente_email,
+                'name': config['remetente_nome'],
+                'email': config['remetente_email'],
             },
-            'to': [{'email': destinatario}],
-            'subject': assunto,
-            'htmlContent': corpo_html,
+            'to': [{'email': config['destinatario']}],
+            'subject': config['assunto'],
+            'htmlContent': config['corpo_html'],
         }).encode('utf-8')
 
         req = urllib.request.Request(
             BREVO_API_URL,
             data=payload,
             headers={
-                'api-key': api_key,
+                'api-key': config['api_key'],
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             },
             method='POST',
         )
 
-        resp = urllib.request.urlopen(req, timeout=20)
-        return resp.status, json.loads(
-            resp.read().decode('utf-8')
-        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return resp.status, json.loads(
+                resp.read().decode('utf-8')
+            )
 
     @staticmethod
     def enviar_convite(destinatario, nome, token):
@@ -94,12 +93,14 @@ class ServicoEmail:
 
         try:
             status, body = ServicoEmail._enviar_brevo(
-                api_key,
-                cfg.get('BREVO_FROM_EMAIL'),
-                cfg.get('BREVO_FROM_NAME'),
-                destinatario,
-                assunto,
-                corpo,
+                {
+                    'api_key': api_key,
+                    'remetente_email': cfg.get('BREVO_FROM_EMAIL'),
+                    'remetente_nome': cfg.get('BREVO_FROM_NAME'),
+                    'destinatario': destinatario,
+                    'assunto': assunto,
+                    'corpo_html': corpo,
+                }
             )
             current_app.logger.info(
                 f'Convite enviado para {destinatario} '
@@ -207,12 +208,14 @@ class ServicoEmail:
 
         try:
             status, body = ServicoEmail._enviar_brevo(
-                api_key,
-                cfg.get('BREVO_FROM_EMAIL'),
-                cfg.get('BREVO_FROM_NAME'),
-                destinatario,
-                assunto,
-                corpo,
+                {
+                    'api_key': api_key,
+                    'remetente_email': cfg.get('BREVO_FROM_EMAIL'),
+                    'remetente_nome': cfg.get('BREVO_FROM_NAME'),
+                    'destinatario': destinatario,
+                    'assunto': assunto,
+                    'corpo_html': corpo,
+                }
             )
             current_app.logger.info(
                 f'Recuperação enviada para '

@@ -42,6 +42,9 @@ from app import db
 from app.models.dominio import Dominio
 from app.models.relatorio_finalizado import RelatorioFinalizado
 from app.models.relatorio_producao import RelatorioProducao
+from app.services.servico_captioning import reindexar_captions
+from app.services.servico_cross_refs import substituir_referencias
+from app.services.servico_perfil_formatacao import PerfilFormatacao
 
 
 DIR_FINALIZADOS = ('storage', 'relatorios_finalizados')
@@ -84,6 +87,7 @@ def _nome_snapshot(rel: RelatorioProducao) -> str:
 
 
 def _nome_preview(rel: RelatorioProducao) -> str:
+    """Gera nome de arquivo para preview temporário."""
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     codigo = rel.codigo_d20 or f'rel{rel.id}'
     versao = rel.versao_atual or 'R00'
@@ -92,15 +96,13 @@ def _nome_preview(rel: RelatorioProducao) -> str:
 
 
 def _aplicar_rotinas_finais(caminho_docx: str, rel: RelatorioProducao):
+    """Aplica rotinas finais não bloqueantes no DOCX."""
     try:
-        from app.services.servico_perfil_formatacao import PerfilFormatacao
         perfil = PerfilFormatacao.de_relatorio(rel)
     except (OSError, ValueError, RuntimeError):
         perfil = None
 
     try:
-        from app.services.servico_captioning import reindexar_captions
-        from app.services.servico_cross_refs import substituir_referencias
         resultado_caps = reindexar_captions(caminho_docx, perfil=perfil)
         mapa = resultado_caps.get('mapa_labels', {}) if isinstance(
             resultado_caps, dict
@@ -111,6 +113,7 @@ def _aplicar_rotinas_finais(caminho_docx: str, rel: RelatorioProducao):
 
 
 def gerar_preview(rel: RelatorioProducao) -> dict:
+    """Gera cópia de preview com rotinas finais aplicadas."""
     if not rel.caminho_template:
         raise FinalizacaoError(
             'Relatório não possui caminho_template definido. '

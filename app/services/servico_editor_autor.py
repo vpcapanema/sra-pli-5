@@ -59,7 +59,10 @@ def obter_contexto_editor_autor(
         return {"redirect_indice": redirect_indice}
 
     envio_pendente = None
-    if _pode_abrir_capitulo(capitulo_selecionado, id_usuario, perfil_ativo):
+    if (
+        capitulo_selecionado is not None
+        and _pode_abrir_capitulo(capitulo_selecionado, id_usuario, perfil_ativo)
+    ):
         envio_pendente = (
             EnvioConteudo.query.filter_by(
                 id_capitulo_destino=capitulo_selecionado.id_capitulo_documento,

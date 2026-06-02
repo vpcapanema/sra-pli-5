@@ -37,7 +37,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 
 # Defaults — usados quando a biblioteca nao tem dado canonico para
@@ -151,14 +151,16 @@ class PerfilFormatacao:
         sao registrados em `perfil.avisos`.
         """
         avisos = []
-        formatacao = _carregar_json(
+        formatacao_raw = _carregar_json(
             os.path.join(caminho_dir, 'canonico_formatacao.json'),
             avisos,
         ) or {}
-        capitulos = _carregar_json(
+        capitulos_raw = _carregar_json(
             os.path.join(caminho_dir, 'canonico_capitulos.json'),
             avisos,
         ) or []
+        formatacao = formatacao_raw if isinstance(formatacao_raw, dict) else {}
+        capitulos = capitulos_raw if isinstance(capitulos_raw, list) else []
 
         perfil = cls(origem=f'biblioteca:{nome_biblioteca}', avisos=avisos)
         perfil._aplicar_legendas(formatacao.get('legendas') or {})
@@ -249,7 +251,7 @@ class PerfilFormatacao:
             self.estilo_titulo_toc = self.nome_heading_por_nivel[1]
 
 
-def _carregar_json(caminho: str, avisos: list) -> Optional[object]:
+def _carregar_json(caminho: str, avisos: list) -> Optional[Any]:
     """Le JSON tolerando ausencia/erro. Adiciona aviso se falhar."""
     if not os.path.exists(caminho):
         avisos.append(f'arquivo ausente: {os.path.basename(caminho)}')
@@ -305,6 +307,12 @@ def _inferir_separadores(exemplos: list) -> tuple:
         contagem_idx[sep_idx] = contagem_idx.get(sep_idx, 0) + 1
         contagem_leg[sep_leg] = contagem_leg.get(sep_leg, 0) + 1
 
-    sep_idx = max(contagem_idx, key=contagem_idx.get) if contagem_idx else None
-    sep_leg = max(contagem_leg, key=contagem_leg.get) if contagem_leg else None
+    sep_idx = (
+        max(contagem_idx.items(), key=lambda item: item[1])[0]
+        if contagem_idx else None
+    )
+    sep_leg = (
+        max(contagem_leg.items(), key=lambda item: item[1])[0]
+        if contagem_leg else None
+    )
     return sep_idx, sep_leg

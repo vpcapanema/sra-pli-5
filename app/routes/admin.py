@@ -33,7 +33,9 @@ def criar_usuario():
         email = request.form.get("email")
         perfil = request.form.get("tipo_perfil")
 
-        logs.append({"mensagem": f"Iniciando processo para {nome} ({email})...", "status": "success"})
+        logs.append(
+            {"mensagem": f"Iniciando processo para {nome} ({email})...", "status": "success"}
+        )
         logs.append({"mensagem": "Validando formato do e-mail...", "status": "success"})
         logs.append({"mensagem": "Verificando disponibilidade do perfil...", "status": "success"})
         logs.append({"mensagem": "Dados validados com sucesso", "status": "success"})
@@ -41,7 +43,9 @@ def criar_usuario():
         usuario, link = ServicoUsuario.convidar_usuario(nome=nome, email=email, perfil=perfil)
 
         logs.append({"mensagem": "Criando cadastro de usuário pendente...", "status": "success"})
-        logs.append({"mensagem": f"Nome de usuário gerado: {usuario.nome_de_usuario}", "status": "success"})
+        logs.append(
+            {"mensagem": f"Nome de usuário gerado: {usuario.nome_de_usuario}", "status": "success"}
+        )
         logs.append({"mensagem": "Token de ativação gerado com sucesso", "status": "success"})
         logs.append({"mensagem": "Salvando no banco de dados...", "status": "success"})
         logs.append({"mensagem": "Usuário criado com sucesso", "status": "success"})
@@ -53,7 +57,9 @@ def criar_usuario():
 
         flash(f"Convite enviado para {usuario.email}. " f"Link: {link}", "sucesso")
         if request.headers.get("Accept") == "application/json":
-            return jsonify({"mensagem": f"Convite enviado para {usuario.email}.", "link": link, "logs": logs})
+            return jsonify(
+                {"mensagem": f"Convite enviado para {usuario.email}.", "link": link, "logs": logs}
+            )
     except ValueError as erro:
         logs.append({"mensagem": "Processo interrompido.", "status": "error"})
         logs.append({"mensagem": str(erro), "status": "error"})
@@ -70,7 +76,7 @@ def reenviar_convite(id_usuario):
     if link:
         flash(f"Convite reenviado. Link: {link}", "sucesso")
     else:
-        flash("Não foi possível reenviar " "(conta já ativa ou não encontrada).", "erro")
+        flash("Não foi possível reenviar (conta já ativa ou não encontrada).", "erro")
     return redirect(url_for("admin.listar_usuarios"))
 
 
@@ -79,7 +85,9 @@ def editar_usuario(id_usuario):
     """Edita os dados de um usuário."""
     usuario = ServicoUsuario.obter_por_id(id_usuario)
     if request.method == "POST":
-        ServicoUsuario.atualizar_usuario(id_usuario, nome=request.form.get("nome_completo"), email=request.form.get("email"))
+        ServicoUsuario.atualizar_usuario(
+            id_usuario, nome=request.form.get("nome_completo"), email=request.form.get("email")
+        )
         flash("Usuário atualizado.", "sucesso")
         return redirect(url_for("admin.listar_usuarios"))
     return render_template(

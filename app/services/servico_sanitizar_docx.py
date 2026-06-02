@@ -7,6 +7,7 @@ parágrafos ('Invalid content for node tableRow: <>'). Este serviço lê o
 arquivo .docx, garante que toda <w:tc> tenha pelo menos um <w:p> e
 devolve os bytes sanitizados, sem modificar o arquivo original.
 """
+
 from __future__ import annotations
 
 import io
@@ -14,28 +15,25 @@ import zipfile
 from typing import Optional
 from xml.etree import ElementTree as ET
 
-W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-XML_NS = 'http://www.w3.org/XML/1998/namespace'
-NSMAP = {'w': W_NS}
-ET.register_namespace('w', W_NS)
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+XML_NS = "http://www.w3.org/XML/1998/namespace"
+NSMAP = {"w": W_NS}
+ET.register_namespace("w", W_NS)
 
 # Documentos típicos do Word incluem estes namespaces. Pré-registrar
 # evita que o ElementTree gere prefixos genéricos (ns0, ns1, ...).
 _EXTRA_NAMESPACES = {
-    'wp': (
-        'http://schemas.openxmlformats.org/drawingml/2006/'
-        'wordprocessingDrawing'
-    ),
-    'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-    'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
-    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'm': 'http://schemas.openxmlformats.org/officeDocument/2006/math',
-    'v': 'urn:schemas-microsoft-com:vml',
-    'o': 'urn:schemas-microsoft-com:office:office',
-    'w10': 'urn:schemas-microsoft-com:office:word',
-    'w14': 'http://schemas.microsoft.com/office/word/2010/wordml',
-    'w15': 'http://schemas.microsoft.com/office/word/2012/wordml',
-    'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+    "wp": ("http://schemas.openxmlformats.org/drawingml/2006/" "wordprocessingDrawing"),
+    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "pic": "http://schemas.openxmlformats.org/drawingml/2006/picture",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "v": "urn:schemas-microsoft-com:vml",
+    "o": "urn:schemas-microsoft-com:office:office",
+    "w10": "urn:schemas-microsoft-com:office:word",
+    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+    "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
 }
 for _prefix, _uri in _EXTRA_NAMESPACES.items():
     ET.register_namespace(_prefix, _uri)
@@ -43,55 +41,79 @@ for _prefix, _uri in _EXTRA_NAMESPACES.items():
 
 def _qn(local: str) -> str:
     """Devolve um nome qualificado com o namespace de wordprocessingml."""
-    return f'{{{W_NS}}}{local}'
+    return f"{{{W_NS}}}{local}"
 
 
 def _xml_qn(local: str) -> str:
     """Devolve um nome qualificado com o namespace XML."""
-    return f'{{{XML_NS}}}{local}'
+    return f"{{{XML_NS}}}{local}"
 
 
 # Conjunto de fontes seguras (disponíveis em todos os SOs e/ou no
 # Google Fonts) que não precisam de normalização.
 _FONTES_PADRAO = {
-    'arial', 'calibri', 'calibri light', 'cambria', 'candara',
-    'consolas', 'constantia', 'corbel', 'courier new', 'georgia',
-    'helvetica', 'helvetica neue', 'lucida console',
-    'lucida sans unicode', 'palatino linotype', 'segoe ui',
-    'tahoma', 'times new roman', 'trebuchet ms', 'verdana',
-    'symbol', 'wingdings',
+    "arial",
+    "calibri",
+    "calibri light",
+    "cambria",
+    "candara",
+    "consolas",
+    "constantia",
+    "corbel",
+    "courier new",
+    "georgia",
+    "helvetica",
+    "helvetica neue",
+    "lucida console",
+    "lucida sans unicode",
+    "palatino linotype",
+    "segoe ui",
+    "tahoma",
+    "times new roman",
+    "trebuchet ms",
+    "verdana",
+    "symbol",
+    "wingdings",
 }
 
 # Mapeamento de fontes proprietárias/incomuns para equivalentes padrão.
 # Chave em lowercase (sem espaços extras). Quando uma fonte não está
 # em _FONTES_PADRAO nem em _MAPA_FONTES, cai para Arial.
 _MAPA_FONTES = {
-    'futurabt': 'Arial',
-    'futura bt': 'Arial',
-    'futura': 'Arial',
-    'cg omega': 'Calibri',
-    'zapfhumnst dm bt': 'Calibri',
-    'zapfhumnst bt': 'Calibri',
-    'avantgarde bk bt': 'Arial',
-    'avantgarde': 'Arial',
-    'humanst521 bt': 'Calibri',
-    'humanst521 lt bt': 'Calibri',
-    'times new roman bold': 'Times New Roman',
-    'minionpro-regular': 'Times New Roman',
-    'minion pro': 'Times New Roman',
-    'egyptian505 lt bt': 'Times New Roman',
-    'egyptian505 bt': 'Times New Roman',
-    'helv': 'Helvetica',
-    'helvetica-bold': 'Helvetica',
-    'arial-boldmt': 'Arial',
-    'arialmt': 'Arial',
-    'timesnewromanpsmt': 'Times New Roman',
-    'timesnewromanps-boldmt': 'Times New Roman',
+    "futurabt": "Arial",
+    "futura bt": "Arial",
+    "futura": "Arial",
+    "cg omega": "Calibri",
+    "zapfhumnst dm bt": "Calibri",
+    "zapfhumnst bt": "Calibri",
+    "avantgarde bk bt": "Arial",
+    "avantgarde": "Arial",
+    "humanst521 bt": "Calibri",
+    "humanst521 lt bt": "Calibri",
+    "times new roman bold": "Times New Roman",
+    "minionpro-regular": "Times New Roman",
+    "minion pro": "Times New Roman",
+    "egyptian505 lt bt": "Times New Roman",
+    "egyptian505 bt": "Times New Roman",
+    "helv": "Helvetica",
+    "helvetica-bold": "Helvetica",
+    "arial-boldmt": "Arial",
+    "arialmt": "Arial",
+    "timesnewromanpsmt": "Times New Roman",
+    "timesnewromanps-boldmt": "Times New Roman",
 }
 
 # Atributos de <w:rFonts> que carregam nomes de fonte
-_ATRIBS_FONTE = ('ascii', 'hAnsi', 'cs', 'eastAsia',
-                 'asciiTheme', 'hAnsiTheme', 'csTheme', 'eastAsiaTheme')
+_ATRIBS_FONTE = (
+    "ascii",
+    "hAnsi",
+    "cs",
+    "eastAsia",
+    "asciiTheme",
+    "hAnsiTheme",
+    "csTheme",
+    "eastAsiaTheme",
+)
 
 
 def _normalizar_fonte(nome: str) -> str:
@@ -105,7 +127,7 @@ def _normalizar_fonte(nome: str) -> str:
     if chave in _MAPA_FONTES:
         return _MAPA_FONTES[chave]
     # Fonte desconhecida → fallback genérico
-    return 'Arial'
+    return "Arial"
 
 
 def _criar_paragrafo_valido():
@@ -115,22 +137,22 @@ def _criar_paragrafo_valido():
     Por isso usamos um run com um espaço preservado; visualmente é neutro,
     mas estruturalmente satisfaz o `block+` esperado em células de tabela.
     """
-    p = ET.Element(_qn('p'))
-    ET.SubElement(p, _qn('pPr'))
-    r = ET.SubElement(p, _qn('r'))
-    t = ET.SubElement(r, _qn('t'))
-    t.set(_xml_qn('space'), 'preserve')
-    t.text = '\u200B'
+    p = ET.Element(_qn("p"))
+    ET.SubElement(p, _qn("pPr"))
+    r = ET.SubElement(p, _qn("r"))
+    t = ET.SubElement(r, _qn("t"))
+    t.set(_xml_qn("space"), "preserve")
+    t.text = "\u200b"
     return p
 
 
 def _criar_celula_valida():
     """Cria uma célula Word mínima, estruturalmente válida."""
-    tc = ET.Element(_qn('tc'))
-    tc_pr = ET.SubElement(tc, _qn('tcPr'))
-    tc_w = ET.SubElement(tc_pr, _qn('tcW'))
-    tc_w.set(_qn('w'), '0')
-    tc_w.set(_qn('type'), 'auto')
+    tc = ET.Element(_qn("tc"))
+    tc_pr = ET.SubElement(tc, _qn("tcPr"))
+    tc_w = ET.SubElement(tc_pr, _qn("tcW"))
+    tc_w.set(_qn("w"), "0")
+    tc_w.set(_qn("type"), "auto")
     tc.append(_criar_paragrafo_valido())
     return tc
 
@@ -138,13 +160,13 @@ def _criar_celula_valida():
 def _garantir_tcpr(tc) -> bool:
     """Garante que a célula tenha <w:tcPr> como metadado estrutural."""
     for child in tc:
-        if child.tag == _qn('tcPr'):
+        if child.tag == _qn("tcPr"):
             return False
 
-    tc_pr = ET.Element(_qn('tcPr'))
-    tc_w = ET.SubElement(tc_pr, _qn('tcW'))
-    tc_w.set(_qn('w'), '0')
-    tc_w.set(_qn('type'), 'auto')
+    tc_pr = ET.Element(_qn("tcPr"))
+    tc_w = ET.SubElement(tc_pr, _qn("tcW"))
+    tc_w.set(_qn("w"), "0")
+    tc_w.set(_qn("type"), "auto")
     tc.insert(0, tc_pr)
     return True
 
@@ -154,7 +176,7 @@ def _normalizar_rfonts(root) -> bool:
     padrão. Retorna True se algo foi modificado.
     Aplica-se tanto a document.xml quanto a styles.xml/header/footer."""
     modificado = False
-    rfonts_tag = _qn('rFonts')
+    rfonts_tag = _qn("rFonts")
     for rfonts in root.iter(rfonts_tag):
         for atrib in _ATRIBS_FONTE:
             chave = _qn(atrib)
@@ -177,14 +199,14 @@ def _is_vmerge_continue(tc) -> bool:
     uma <w:tr> sao continue, a row fica vazia no ProseMirror e
     dispara `Invalid content for node tableRow: <>`.
     """
-    tcpr = tc.find(_qn('tcPr'))
+    tcpr = tc.find(_qn("tcPr"))
     if tcpr is None:
         return False
-    vm = tcpr.find(_qn('vMerge'))
+    vm = tcpr.find(_qn("vMerge"))
     if vm is None:
         return False
-    val = vm.get(_qn('val'))
-    return val is None or val == 'continue'
+    val = vm.get(_qn("val"))
+    return val is None or val == "continue"
 
 
 # =====================================================================
@@ -194,24 +216,34 @@ def _is_vmerge_continue(tc) -> bool:
 # Namespaces dos shapes flutuantes — declarados localmente para
 # que `_aplanar_text_boxes_flutuantes` possa procurar elementos sem
 # depender de imports externos.
-_WP_NS = (
-    'http://schemas.openxmlformats.org/drawingml/2006/'
-    'wordprocessingDrawing'
-)
-_WPS_NS = 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape'
-_MC_NS = 'http://schemas.openxmlformats.org/markup-compatibility/2006'
+_WP_NS = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+_WPS_NS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+_MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
 
 
 # Atributos e filhos EXCLUSIVOS de <wp:anchor> que precisam ser
 # removidos ao converter para <wp:inline>.
 _ANCHOR_ATTRS_REMOVER = (
-    'behindDoc', 'locked', 'layoutInCell', 'allowOverlap',
-    'simplePos', 'relativeHeight', 'distT', 'distB', 'distL', 'distR',
+    "behindDoc",
+    "locked",
+    "layoutInCell",
+    "allowOverlap",
+    "simplePos",
+    "relativeHeight",
+    "distT",
+    "distB",
+    "distL",
+    "distR",
 )
 _ANCHOR_FILHOS_REMOVER = (
-    'simplePos', 'positionH', 'positionV',
-    'wrapNone', 'wrapSquare', 'wrapTight', 'wrapThrough',
-    'wrapTopAndBottom',
+    "simplePos",
+    "positionH",
+    "positionV",
+    "wrapNone",
+    "wrapSquare",
+    "wrapTight",
+    "wrapThrough",
+    "wrapTopAndBottom",
 )
 
 
@@ -235,7 +267,7 @@ def _converter_anchor_para_inline(anchor) -> bool:
     Retorna True se a conversao foi bem-sucedida.
     """
     # Renomeia a tag (mantem o namespace WP)
-    novo_tag = f'{{{_WP_NS}}}inline'
+    novo_tag = f"{{{_WP_NS}}}inline"
     if anchor.tag == novo_tag:
         return False
     anchor.tag = novo_tag
@@ -248,14 +280,14 @@ def _converter_anchor_para_inline(anchor) -> bool:
     # Remove filhos exclusivos de anchor
     filhos_para_remover = []
     for filho in list(anchor):
-        local = filho.tag.split('}')[-1] if '}' in filho.tag else filho.tag
+        local = filho.tag.split("}")[-1] if "}" in filho.tag else filho.tag
         if local in _ANCHOR_FILHOS_REMOVER:
             filhos_para_remover.append(filho)
     for filho in filhos_para_remover:
         anchor.remove(filho)
 
     # Garantir que extent existe (obrigatorio em inline)
-    if anchor.find(f'{{{_WP_NS}}}extent') is None:
+    if anchor.find(f"{{{_WP_NS}}}extent") is None:
         return False  # estrutura inesperada, abortar
 
     return True
@@ -270,8 +302,8 @@ def _remover_fallbacks_alternate_content(root) -> bool:
     bytes em memória servidos ao editor.
     """
     modificado = False
-    alt_qn = f'{{{_MC_NS}}}AlternateContent'
-    fallback_qn = f'{{{_MC_NS}}}Fallback'
+    alt_qn = f"{{{_MC_NS}}}AlternateContent"
+    fallback_qn = f"{{{_MC_NS}}}Fallback"
 
     for alt in root.iter(alt_qn):
         for fallback in list(alt.findall(fallback_qn)):
@@ -283,8 +315,8 @@ def _remover_fallbacks_alternate_content(root) -> bool:
 
 def _substituir_alternate_content_por_choice(root) -> bool:
     modificado = False
-    alt_qn = f'{{{_MC_NS}}}AlternateContent'
-    choice_qn = f'{{{_MC_NS}}}Choice'
+    alt_qn = f"{{{_MC_NS}}}AlternateContent"
+    choice_qn = f"{{{_MC_NS}}}Choice"
 
     def processar(parent):
         nonlocal modificado
@@ -311,12 +343,12 @@ def _substituir_alternate_content_por_choice(root) -> bool:
 
 def _normalizar_elementos_incompativeis_preview(root) -> bool:
     modificado = False
-    p_qn = _qn('p')
-    r_qn = _qn('r')
-    fld_simple_qn = _qn('fldSimple')
+    p_qn = _qn("p")
+    r_qn = _qn("r")
+    fld_simple_qn = _qn("fldSimple")
     remover_em_run = {
-        _qn('commentReference'),
-        _qn('annotationRef'),
+        _qn("commentReference"),
+        _qn("annotationRef"),
     }
 
     for p in root.iter(p_qn):
@@ -353,8 +385,8 @@ def _remover_imagens_header_footer(xml_bytes: bytes) -> bytes:
     except ET.ParseError:
         return xml_bytes
 
-    drawing_qn = _qn('drawing')
-    pict_qn = _qn('pict')
+    drawing_qn = _qn("drawing")
+    pict_qn = _qn("pict")
     modificado = False
 
     def limpar(parent):
@@ -369,7 +401,7 @@ def _remover_imagens_header_footer(xml_bytes: bytes) -> bytes:
     limpar(root)
     if not modificado:
         return xml_bytes
-    return ET.tostring(root, xml_declaration=True, encoding='UTF-8')
+    return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
 def _espelhar_headers_footers_em_sectpr(root) -> bool:
@@ -386,37 +418,28 @@ def _espelhar_headers_footers_em_sectpr(root) -> bool:
     servido ao editor. O DOCX em disco nao e modificado.
     """
     modificado = False
-    sectpr_qn = _qn('sectPr')
-    href_qn = _qn('headerReference')
-    fref_qn = _qn('footerReference')
-    type_qn = _qn('type')
+    sectpr_qn = _qn("sectPr")
+    href_qn = _qn("headerReference")
+    fref_qn = _qn("footerReference")
+    type_qn = _qn("type")
     rid_qn = (
-        '{http://schemas.openxmlformats.org/officeDocument/'
-        '2006/relationships}id'
+        "{http://schemas.openxmlformats.org/officeDocument/"
+        "2006/relationships}id"
     )
 
     for sect in root.iter(sectpr_qn):
         for ref_qn in (href_qn, fref_qn):
             par_qn = fref_qn if ref_qn == href_qn else href_qn
-            tipos_aqui = {
-                el.get(type_qn) or 'default'
-                for el in sect.findall(ref_qn)
-            }
+            tipos_aqui = {el.get(type_qn) or "default" for el in sect.findall(ref_qn)}
             par_default = next(
-                (
-                    el for el in sect.findall(par_qn)
-                    if (el.get(type_qn) or 'default') == 'default'
-                ),
+                (el for el in sect.findall(par_qn) if (el.get(type_qn) or "default") == "default"),
                 None,
             )
             if par_default is None:
                 continue
-            tipos_par = {
-                el.get(type_qn) or 'default'
-                for el in sect.findall(par_qn)
-            }
+            tipos_par = {el.get(type_qn) or "default" for el in sect.findall(par_qn)}
             for tipo in tipos_aqui:
-                if tipo == 'default' or tipo in tipos_par:
+                if tipo == "default" or tipo in tipos_par:
                     continue
                 clone = ET.SubElement(sect, par_qn)
                 clone.set(type_qn, tipo)
@@ -456,18 +479,16 @@ def _aplanar_text_boxes_flutuantes(root) -> bool:
 
     Retorna True se algo foi modificado.
     """
-    return False
-
-    body = root.find(_qn('body'))
+    body = root.find(_qn("body"))
     if body is None:
         return False
 
     modificado = False
-    p_qn = _qn('p')
-    r_qn = _qn('r')
-    anchor_qn = f'{{{_WP_NS}}}anchor'
-    txbx_qn = _qn('txbxContent')
-    alt_qn = f'{{{_MC_NS}}}AlternateContent'
+    p_qn = _qn("p")
+    r_qn = _qn("r")
+    anchor_qn = f"{{{_WP_NS}}}anchor"
+    txbx_qn = _qn("txbxContent")
+    alt_qn = f"{{{_MC_NS}}}AlternateContent"
 
     # Localizar paragrafos do body que contem anchors com text boxes
     for paragrafo in list(body):
@@ -543,10 +564,10 @@ def _aplanar_text_boxes_flutuantes(root) -> bool:
         # So converte anchors com pic:pic dentro (= imagens reais).
         # Anchors com text box ja foram removidos no passo 1.
         pic_qn_local = (
-            '{http://schemas.openxmlformats.org/drawingml/'
-            '2006/picture}pic'
+            "{http://schemas.openxmlformats.org/drawingml/"
+            "2006/picture}pic"
         )
-        if anchor.find(f'.//{pic_qn_local}') is None:
+        if anchor.find(f".//{pic_qn_local}") is None:
             continue
         if _converter_anchor_para_inline(anchor):
             modificado = True
@@ -590,35 +611,32 @@ def _sanitizar_xml_documento(xml_bytes: bytes) -> bytes:
     if _aplanar_text_boxes_flutuantes(root):
         modificado = True
 
-    for tc in root.iter(_qn('tc')):
+    for tc in root.iter(_qn("tc")):
         if _garantir_tcpr(tc):
             modificado = True
 
-        paragrafos = [child for child in tc if child.tag == _qn('p')]
+        paragrafos = [child for child in tc if child.tag == _qn("p")]
         if not paragrafos:
             tc.append(_criar_paragrafo_valido())
             modificado = True
         else:
             ultimo = paragrafos[-1]
-            tem_texto = any(
-                (t.text or '').strip()
-                for t in ultimo.iter(_qn('t'))
-            )
+            tem_texto = any((t.text or "").strip() for t in ultimo.iter(_qn("t")))
             tem_desenho = any(
-                child.tag.endswith('}drawing') or child.tag.endswith('}pict')
+                child.tag.endswith("}drawing") or child.tag.endswith("}pict")
                 for child in ultimo.iter()
             )
             if not tem_texto and not tem_desenho:
                 # Alguns parsers descartam parágrafos totalmente vazios.
                 # Inserir um run com espaço preservado evita tableCell vazio.
-                r = ET.SubElement(ultimo, _qn('r'))
-                t = ET.SubElement(r, _qn('t'))
-                t.set(_xml_qn('space'), 'preserve')
-                t.text = '\u200B'
+                r = ET.SubElement(ultimo, _qn("r"))
+                t = ET.SubElement(r, _qn("t"))
+                t.set(_xml_qn("space"), "preserve")
+                t.text = "\u200b"
                 modificado = True
 
-    for tr in root.iter(_qn('tr')):
-        tcs_diretos = [c for c in tr if c.tag == _qn('tc')]
+    for tr in root.iter(_qn("tr")):
+        tcs_diretos = [c for c in tr if c.tag == _qn("tc")]
 
         if not tcs_diretos:
             tr.append(_criar_celula_valida())
@@ -630,9 +648,9 @@ def _sanitizar_xml_documento(xml_bytes: bytes) -> bytes:
         # merge removendo o <w:vMerge> dela.
         if all(_is_vmerge_continue(tc) for tc in tcs_diretos):
             primeira = tcs_diretos[0]
-            tcpr = primeira.find(_qn('tcPr'))
+            tcpr = primeira.find(_qn("tcPr"))
             if tcpr is not None:
-                vm = tcpr.find(_qn('vMerge'))
+                vm = tcpr.find(_qn("vMerge"))
                 if vm is not None:
                     tcpr.remove(vm)
                     modificado = True
@@ -643,7 +661,7 @@ def _sanitizar_xml_documento(xml_bytes: bytes) -> bytes:
     if not modificado:
         return xml_bytes
 
-    return ET.tostring(root, xml_declaration=True, encoding='UTF-8')
+    return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
 def _sanitizar_xml_estilos(xml_bytes: bytes) -> bytes:
@@ -655,7 +673,7 @@ def _sanitizar_xml_estilos(xml_bytes: bytes) -> bytes:
         return xml_bytes
     if not _normalizar_rfonts(root):
         return xml_bytes
-    return ET.tostring(root, xml_declaration=True, encoding='UTF-8')
+    return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
 def _sanitizar_font_table(xml_bytes: bytes) -> bytes:
@@ -668,8 +686,8 @@ def _sanitizar_font_table(xml_bytes: bytes) -> bytes:
     except ET.ParseError:
         return xml_bytes
     modificado = False
-    name_attr = _qn('name')
-    for font_el in root.iter(_qn('font')):
+    name_attr = _qn("name")
+    for font_el in root.iter(_qn("font")):
         nome = font_el.get(name_attr)
         if not nome:
             continue
@@ -679,7 +697,7 @@ def _sanitizar_font_table(xml_bytes: bytes) -> bytes:
             modificado = True
     if not modificado:
         return xml_bytes
-    return ET.tostring(root, xml_declaration=True, encoding='UTF-8')
+    return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
 def sanitizar_docx(caminho: str) -> Optional[bytes]:
@@ -689,7 +707,7 @@ def sanitizar_docx(caminho: str) -> Optional[bytes]:
     caso de erro (caminho inexistente, arquivo corrompido, etc.).
     """
     try:
-        with open(caminho, 'rb') as f:
+        with open(caminho, "rb") as f:
             docx_bytes = f.read()
     except OSError:
         return None
@@ -700,14 +718,12 @@ def sanitizar_docx(caminho: str) -> Optional[bytes]:
 def sanitizar_docx_bytes(docx_bytes: bytes) -> Optional[bytes]:
     """Variante que opera diretamente em bytes."""
     try:
-        zin = zipfile.ZipFile(io.BytesIO(docx_bytes), mode='r')
+        zin = zipfile.ZipFile(io.BytesIO(docx_bytes), mode="r")
     except zipfile.BadZipFile:
         return None
 
     saida = io.BytesIO()
-    with zipfile.ZipFile(
-        saida, mode='w', compression=zipfile.ZIP_DEFLATED
-    ) as zout:
+    with zipfile.ZipFile(saida, mode="w", compression=zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             data = zin.read(item.filename)
             nome = item.filename
@@ -716,30 +732,31 @@ def sanitizar_docx_bytes(docx_bytes: bytes) -> Optional[bytes]:
             # Inclui document.xml, headers, footers, footnotes, endnotes,
             # comments, glossary/document.xml etc.
             if (
-                nome.startswith('word/')
-                and nome.endswith('.xml')
-                and nome not in (
-                    'word/styles.xml',
-                    'word/fontTable.xml',
-                    'word/settings.xml',
-                    'word/webSettings.xml',
-                    'word/numbering.xml',
+                nome.startswith("word/")
+                and nome.endswith(".xml")
+                and nome
+                not in (
+                    "word/styles.xml",
+                    "word/fontTable.xml",
+                    "word/settings.xml",
+                    "word/webSettings.xml",
+                    "word/numbering.xml",
                 )
             ):
                 data = _sanitizar_xml_documento(data)
                 # Para header*.xml/footer*.xml, remover imagens que o
                 # renderer browser nao consegue resolver e mostraria
                 # como `<img>` quebrado.
-                base = nome.split('/')[-1]
-                if base.startswith('header') or base.startswith('footer'):
+                base = nome.split("/")[-1]
+                if base.startswith("header") or base.startswith("footer"):
                     data = _remover_imagens_header_footer(data)
 
             # styles.xml: apenas fontes
-            elif nome == 'word/styles.xml':
+            elif nome == "word/styles.xml":
                 data = _sanitizar_xml_estilos(data)
 
             # fontTable.xml: renomeia fontes proprietárias
-            elif nome == 'word/fontTable.xml':
+            elif nome == "word/fontTable.xml":
                 data = _sanitizar_font_table(data)
 
             zout.writestr(item, data)

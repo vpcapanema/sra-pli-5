@@ -63,10 +63,15 @@ em vez de quebrar. Nunca deixam o DOCX em estado invalido.
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from docx import Document
-from lxml import etree
+import lxml.etree as etree
+
+_q_name = getattr(etree, 'QName')
+_sub_element = getattr(etree, 'SubElement')
+_from_string = getattr(etree, 'fromstring')
+_to_string = getattr(etree, 'tostring')
 
 
 # Namespaces OOXML usados pelos shapes/anchors da capa.
@@ -114,9 +119,7 @@ LABELS_FOLHA_ROSTO = (
 CABECALHOS_CONTROLE_VERSOES = ('versao', 'data', 'conteudo')
 
 
-# =====================================================================
 # Helpers internos
-# =====================================================================
 
 
 def _norm(texto: Optional[str]) -> str:
@@ -154,9 +157,7 @@ def _formatar_data_br(d) -> str:
         return str(d)
 
 
-# =====================================================================
 # EXTRACAO da estrutura da capa
-# =====================================================================
 
 
 def _extrair_shape_info(anchor) -> dict:
@@ -165,21 +166,21 @@ def _extrair_shape_info(anchor) -> dict:
     Retorna dict com:
       - modo: 'anchor' | 'inline'
       - tipo_conteudo: 'text_box' | 'imagem' | 'desconhecido'
-      - nome, descr  (do <wp:docPr>)
+      - nome, descr  (do <wp:doc_pr>)
       - largura_pol, altura_pol  (do <wp:extent>, em polegadas)
       - posicao: {h: '...', v: '...'} com unidades
       - texto_interno: str (apenas para text_box)
       - rels_embed: id da relacao (apenas para imagem)
     """
-    info = {
+    info: dict[str, Any] = {
         'modo': 'anchor' if anchor.tag.endswith('anchor') else 'inline',
         'tipo_conteudo': 'desconhecido',
     }
 
-    docPr = anchor.find(_q(WP_NS, 'docPr'))
-    if docPr is not None:
-        info['nome'] = docPr.get('name', '')
-        info['descr'] = docPr.get('descr', '')
+    doc_pr = anchor.find(_q(WP_NS, 'doc_pr'))
+    if doc_pr is not None:
+        info['nome'] = doc_pr.get('name', '')
+        info['descr'] = doc_pr.get('descr', '')
 
     ext = anchor.find(_q(WP_NS, 'extent'))
     if ext is not None:
@@ -192,10 +193,10 @@ def _extrair_shape_info(anchor) -> dict:
         except (ValueError, TypeError):
             pass
 
-    posH = anchor.find(_q(WP_NS, 'positionH'))
-    posV = anchor.find(_q(WP_NS, 'positionV'))
-    pos = {}
-    for nome, p in (('h', posH), ('v', posV)):
+    pos_h = anchor.find(_q(WP_NS, 'positionH'))
+    pos_v = anchor.find(_q(WP_NS, 'positionV'))
+    pos: dict[str, dict[str, Any]] = {}
+    for nome, p in (('h', pos_h), ('v', pos_v)):
         if p is None:
             continue
         rel = p.get('relativeFrom', '?')
@@ -266,13 +267,13 @@ def extrair_estrutura_capa(doc) -> dict:
     for i, child in enumerate(body):
         if child.tag != _q(W_NS, 'p'):
             continue
-        pPr = child.find(_q(W_NS, 'pPr'))
-        if pPr is None:
+        p_pr = child.find(_q(W_NS, 'p_pr'))
+        if p_pr is None:
             continue
-        pStyle = pPr.find(_q(W_NS, 'pStyle'))
-        if pStyle is None:
+        p_style = p_pr.find(_q(W_NS, 'p_style'))
+        if p_style is None:
             continue
-        val = pStyle.get(_q(W_NS, 'val'), '').lower()
+        val = p_style.get(_q(W_NS, 'val'), '').lower()
         if ('eading' in val or 'tulo' in val) and '1' in val:
             fim_capa_idx = i
             break
@@ -284,18 +285,18 @@ def extrair_estrutura_capa(doc) -> dict:
 
     # Percorrer os elementos da capa
     for i, child in enumerate(body[:fim_capa_idx]):
-        tag = etree.QName(child.tag).localname
+        tag = _q_name(child.tag).localname
 
         if tag == 'p':
             # Descritor curto
             texto = _texto_de(child).strip()
             estilo = '(default)'
-            pPr = child.find(_q(W_NS, 'pPr'))
-            if pPr is not None:
-                ps = pPr.find(_q(W_NS, 'pStyle'))
+            p_pr = child.find(_q(W_NS, 'p_pr'))
+            if p_pr is not None:
+                ps = p_pr.find(_q(W_NS, 'p_style'))
                 if ps is not None:
                     estilo = ps.get(_q(W_NS, 'val'), '?')
-                if pPr.find(_q(W_NS, 'sectPr')) is not None:
+                if p_pr.find(_q(W_NS, 'sectPr')) is not None:
                     estrutura['secoes_indices'].append(i)
 
             descr = {
@@ -442,9 +443,7 @@ def _classificar_tabela_capa(tbl, indice_no_body: int) -> dict:
     return info
 
 
-# =====================================================================
 # ATUALIZADORES
-# =====================================================================
 
 
 def atualizar_capa(
@@ -454,7 +453,7 @@ def atualizar_capa(
     do `RelatorioProducao` fornecido.
 
     Estrategia:
-    1. Localiza o `<wps:wsp>` cujo `<wp:docPr name>` esta em
+    1. Localiza o `<wps:wsp>` cujo `<wp:doc_pr name>` esta em
        `NOMES_SHAPE_CAPA` (case-insensitive, sem acento).
     2. Dentro dele, localiza `<w:txbxContent>` e substitui o texto
        dos paragrafos preservando o estilo do primeiro run de cada
@@ -474,10 +473,10 @@ def atualizar_capa(
     shape_alvo = None
     nome_encontrado = None
     for anchor in body.iter(_q(WP_NS, 'anchor')):
-        docPr = anchor.find(_q(WP_NS, 'docPr'))
-        if docPr is None:
+        doc_pr = anchor.find(_q(WP_NS, 'doc_pr'))
+        if doc_pr is None:
             continue
-        nome = (docPr.get('name') or '').strip()
+        nome = (doc_pr.get('name') or '').strip()
         if _norm(nome) in NOMES_SHAPE_CAPA:
             wsp = anchor.find(f'.//{_q(WPS_NS, "wsp")}')
             if wsp is not None:
@@ -491,7 +490,7 @@ def atualizar_capa(
             'shape_atualizado': None,
             'avisos': [
                 'Shape de capa nao encontrado. Esperado <wps:wsp> '
-                f'com docPr em {sorted(NOMES_SHAPE_CAPA)}. '
+                f'com doc_pr em {sorted(NOMES_SHAPE_CAPA)}. '
                 'Capa permanece inalterada.'
             ],
         }
@@ -518,16 +517,16 @@ def atualizar_capa(
     if not paragrafos_existentes:
         avisos.append('Shape vazio: txbxContent nao tinha paragrafos.')
         # Cria paragrafo zerado a partir do template minimo
-        novo_p = etree.SubElement(txbx, _q(W_NS, 'p'))
+        novo_p = _sub_element(txbx, _q(W_NS, 'p'))
         paragrafos_existentes = [novo_p]
 
-    # Capturar pPr e rPr do primeiro paragrafo para preservar formatacao
-    rPr_modelo = None
-    pPr_modelo = paragrafos_existentes[0].find(_q(W_NS, 'pPr'))
+    # Capturar p_pr e rPr do primeiro paragrafo para preservar formatacao
+    r_pr_modelo = None
+    p_pr_modelo = paragrafos_existentes[0].find(_q(W_NS, 'p_pr'))
     for r in paragrafos_existentes[0].findall(_q(W_NS, 'r')):
         rpr = r.find(_q(W_NS, 'rPr'))
         if rpr is not None:
-            rPr_modelo = rpr
+            r_pr_modelo = rpr
             break
 
     # Remover paragrafos antigos
@@ -536,13 +535,13 @@ def atualizar_capa(
 
     # Criar 2 novos paragrafos (linha1 e linha2)
     for linha_texto in (linha1, linha2):
-        p_novo = etree.SubElement(txbx, _q(W_NS, 'p'))
-        if pPr_modelo is not None:
-            p_novo.append(etree.fromstring(etree.tostring(pPr_modelo)))
-        r_novo = etree.SubElement(p_novo, _q(W_NS, 'r'))
-        if rPr_modelo is not None:
-            r_novo.append(etree.fromstring(etree.tostring(rPr_modelo)))
-        t_novo = etree.SubElement(r_novo, _q(W_NS, 't'))
+        p_novo = _sub_element(txbx, _q(W_NS, 'p'))
+        if p_pr_modelo is not None:
+            p_novo.append(_from_string(_to_string(p_pr_modelo)))
+        r_novo = _sub_element(p_novo, _q(W_NS, 'r'))
+        if r_pr_modelo is not None:
+            r_novo.append(_from_string(_to_string(r_pr_modelo)))
+        t_novo = _sub_element(r_novo, _q(W_NS, 't'))
         t_novo.set(
             '{http://www.w3.org/XML/1998/namespace}space', 'preserve'
         )
@@ -755,7 +754,7 @@ def atualizar_controle_versoes(
                 ],
             }
         ultima = rows[-1]
-        nova = etree.fromstring(etree.tostring(ultima))
+        nova = _from_string(_to_string(ultima))
         ultima.addnext(nova)
         tcs = nova.findall(_q(W_NS, 'tc'))
         _substituir_texto_celula(tcs[0], versao)
@@ -798,13 +797,11 @@ def aplicar_dados_completos(
     }
 
 
-# =====================================================================
 # Helpers de mutacao DOCX
-# =====================================================================
 
 
 def _substituir_texto_celula(tc, novo_texto: str) -> None:
-    """Substitui o texto de uma <w:tc>, preservando o pPr/rPr do
+    """Substitui o texto de uma <w:tc>, preservando o p_pr/rPr do
     primeiro paragrafo/run para nao quebrar formatacao.
 
     Estrategia: mantem o primeiro <w:p> da celula, limpa runs antigos,
@@ -813,29 +810,29 @@ def _substituir_texto_celula(tc, novo_texto: str) -> None:
     paragrafos = tc.findall(_q(W_NS, 'p'))
     if not paragrafos:
         # Celula sem paragrafo — criar um
-        p = etree.SubElement(tc, _q(W_NS, 'p'))
+        p = _sub_element(tc, _q(W_NS, 'p'))
         paragrafos = [p]
 
     primeiro_p = paragrafos[0]
     # Capturar rPr modelo
-    rPr_modelo = None
+    r_pr_modelo = None
     for r in primeiro_p.findall(_q(W_NS, 'r')):
         rpr = r.find(_q(W_NS, 'rPr'))
         if rpr is not None:
-            rPr_modelo = rpr
+            r_pr_modelo = rpr
             break
 
     # Remover todos os runs e hyperlinks existentes do primeiro paragrafo
     for filho in list(primeiro_p):
-        tag = etree.QName(filho.tag).localname
+        tag = _q_name(filho.tag).localname
         if tag in ('r', 'hyperlink', 'fldSimple'):
             primeiro_p.remove(filho)
 
     # Criar run novo com o texto
-    r_novo = etree.SubElement(primeiro_p, _q(W_NS, 'r'))
-    if rPr_modelo is not None:
-        r_novo.append(etree.fromstring(etree.tostring(rPr_modelo)))
-    t_novo = etree.SubElement(r_novo, _q(W_NS, 't'))
+    r_novo = _sub_element(primeiro_p, _q(W_NS, 'r'))
+    if r_pr_modelo is not None:
+        r_novo.append(_from_string(_to_string(r_pr_modelo)))
+    t_novo = _sub_element(r_novo, _q(W_NS, 't'))
     t_novo.set(
         '{http://www.w3.org/XML/1998/namespace}space', 'preserve'
     )
@@ -873,7 +870,7 @@ def _substituir_celula_com_label(
     VALOR (todos exceto o primeiro). Se nao, recria o run de valor
     apos o tab dentro do paragrafo unico.
 
-    Em todos os casos preserva pPr e rPr do paragrafo/run original.
+    Em todos os casos preserva p_pr e rPr do paragrafo/run original.
     """
     paragrafos_texto = [
         p for p in tc.findall(_q(W_NS, 'p'))
@@ -891,32 +888,32 @@ def _substituir_celula_com_label(
     if not paragrafos_texto:
         return
     primeiro_p = paragrafos_texto[0]
-    rPr_modelo = None
+    r_pr_modelo = None
     for r in primeiro_p.findall(_q(W_NS, 'r')):
         rpr = r.find(_q(W_NS, 'rPr'))
         if rpr is not None:
-            rPr_modelo = rpr
+            r_pr_modelo = rpr
             break
 
     for filho in list(primeiro_p):
-        tag = etree.QName(filho.tag).localname
+        tag = _q_name(filho.tag).localname
         if tag in ('r', 'hyperlink', 'fldSimple'):
             primeiro_p.remove(filho)
 
-    r1 = etree.SubElement(primeiro_p, _q(W_NS, 'r'))
-    if rPr_modelo is not None:
-        r1.append(etree.fromstring(etree.tostring(rPr_modelo)))
-    t1 = etree.SubElement(r1, _q(W_NS, 't'))
+    r1 = _sub_element(primeiro_p, _q(W_NS, 'r'))
+    if r_pr_modelo is not None:
+        r1.append(_from_string(_to_string(r_pr_modelo)))
+    t1 = _sub_element(r1, _q(W_NS, 't'))
     t1.set(
         '{http://www.w3.org/XML/1998/namespace}space', 'preserve'
     )
     t1.text = label_original
 
-    r2 = etree.SubElement(primeiro_p, _q(W_NS, 'r'))
-    if rPr_modelo is not None:
-        r2.append(etree.fromstring(etree.tostring(rPr_modelo)))
-    etree.SubElement(r2, _q(W_NS, 'tab'))
-    t2 = etree.SubElement(r2, _q(W_NS, 't'))
+    r2 = _sub_element(primeiro_p, _q(W_NS, 'r'))
+    if r_pr_modelo is not None:
+        r2.append(_from_string(_to_string(r_pr_modelo)))
+    _sub_element(r2, _q(W_NS, 'tab'))
+    t2 = _sub_element(r2, _q(W_NS, 't'))
     t2.set(
         '{http://www.w3.org/XML/1998/namespace}space', 'preserve'
     )
@@ -927,22 +924,22 @@ def _substituir_runs_paragrafo(p, novo_texto: str) -> None:
     """Substitui o texto de TODOS os runs de um <w:p> por `novo_texto`,
     preservando o rPr do primeiro run original (estilo).
     """
-    rPr_modelo = None
+    r_pr_modelo = None
     for r in p.findall(_q(W_NS, 'r')):
         rpr = r.find(_q(W_NS, 'rPr'))
         if rpr is not None:
-            rPr_modelo = rpr
+            r_pr_modelo = rpr
             break
 
     for filho in list(p):
-        tag = etree.QName(filho.tag).localname
+        tag = _q_name(filho.tag).localname
         if tag in ('r', 'hyperlink', 'fldSimple'):
             p.remove(filho)
 
-    r_novo = etree.SubElement(p, _q(W_NS, 'r'))
-    if rPr_modelo is not None:
-        r_novo.append(etree.fromstring(etree.tostring(rPr_modelo)))
-    t_novo = etree.SubElement(r_novo, _q(W_NS, 't'))
+    r_novo = _sub_element(p, _q(W_NS, 'r'))
+    if r_pr_modelo is not None:
+        r_novo.append(_from_string(_to_string(r_pr_modelo)))
+    t_novo = _sub_element(r_novo, _q(W_NS, 't'))
     t_novo.set(
         '{http://www.w3.org/XML/1998/namespace}space', 'preserve'
     )

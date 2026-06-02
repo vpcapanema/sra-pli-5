@@ -28,7 +28,8 @@ Tambem integra classificacao e secoes OOXML:
    - Atualiza campos classificacao + prefixo_indice + secoes
 
 API publica:
-    ressincronizar_capitulos(rel) -> dict (DEPRECATED - usar ressincronizar_capitulos_com_classificacao)
+    ressincronizar_capitulos(rel) -> dict
+        (DEPRECATED - usar ressincronizar_capitulos_com_classificacao)
     ressincronizar_capitulos_com_classificacao(rel) -> dict {capitulos,
                                                               erros_classificacao}
     diff_capitulos(rel) -> dict (modo dry-run, sem persistir)
@@ -36,11 +37,12 @@ API publica:
 
 from __future__ import annotations
 
-import warnings
 import logging
+import warnings
 from typing import Optional
 
 from docx import Document
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models.capitulo_documento import CapituloDocumento
@@ -52,6 +54,7 @@ from app.services.servico_classificacao_capitulos import (
     ServicoClassificacaoCapitulos,
 )
 from app.services.servico_extracao_secoes import ServicoExtracaoSecoes
+from app.utils.auditoria import usuario_atual_id
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +145,7 @@ def diff_capitulos(rel) -> dict:
         return {"erro": "Relatorio sem DOCX em producao."}
 
     doc = Document(rel.caminho_template)
-    arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)
+    arvore_docx = ServicoExtracaoCanonica.extrair_capitulos(doc)
     items_docx = _achatar_arvore(arvore_docx)
     indice_docx = _construir_indice_capitulos(items_docx)
 
@@ -266,6 +269,12 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
         Log warning é registrado na primeira chamada de cada sessão.
         Use `ressincronizar_capitulos_com_classificacao(rel)` para nova API.
     """
+    if remover_sumidos:
+        logger.warning(
+            "Parametro remover_sumidos ignorado pela API nova.",
+            extra={"relatorio_id": getattr(rel, "id_relatorio_producao", None)},
+        )
+
     # Log deprecation warning
     warnings.warn(
         "ressincronizar_capitulos() está DEPRECATED. "
@@ -276,7 +285,8 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
     )
 
     logger.warning(
-        "DEPRECATION: ressincronizar_capitulos() chamado. " "Use ressincronizar_capitulos_com_classificacao() em seu lugar.",
+        "DEPRECATION: ressincronizar_capitulos() chamado. "
+        "Use ressincronizar_capitulos_com_classificacao() em seu lugar.",
         extra={
             "relatorio_id": getattr(rel, "id_relatorio_producao", None),
             "etapa": "sincronizacao_capitulos",
@@ -295,7 +305,10 @@ def ressincronizar_capitulos(rel, *, remover_sumidos: bool = False) -> dict:
         "atualizados": resultado.get("total_atualizados", 0),
         "criados": resultado.get("total_criados", 0),
         "removidos": 0,  # Novo método não deleta automaticamente
-        "sumiram": len([c for c in resultado.get("capitulos_sincronizados", []) if c.get("acao") == "inativado"]),
+        "sumiram": len([
+            c for c in resultado.get("capitulos_sincronizados", [])
+            if c.get("acao") == "inativado"
+        ]),
         "detalhes": {
             "capitulos_sincronizados": resultado.get("capitulos_sincronizados", []),
             "erros_classificacao": resultado.get("erros_classificacao", []),
@@ -347,26 +360,38 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
 
     # Validacao: relatorio deve ter DOCX de producao
     if not relatorio or not relatorio.caminho_template:
-        resultado["erros_classificacao"].append({"tipo": "validacao", "mensagem": "Relatório sem DOCX de produção."})
+        resultado["erros_classificacao"].append({
+            "tipo": "validacao",
+            "mensagem": "Relatório sem DOCX de produção.",
+        })
         resultado["total_erros"] += 1
         return resultado
 
     try:
         # Etapa 1: Extrair capitulos do template
         doc = Document(relatorio.caminho_template)
-        arvore_docx = ServicoExtracaoCanonica._extrair_capitulos(doc)
+        arvore_docx = ServicoExtracaoCanonica.extrair_capitulos(doc)
         items_achatados = _achatar_arvore(arvore_docx)
 
         if not items_achatados:
-            resultado["erros_classificacao"].append({"tipo": "extracao", "mensagem": "Nenhum capítulo detectado no template."})
+            resultado["erros_classificacao"].append({
+                "tipo": "extracao",
+                "mensagem": "Nenhum capítulo detectado no template.",
+            })
             resultado["total_erros"] += 1
             return resultado
 
         # Etapa 2: Extrair secoes OOXML
         try:
-            secoes = ServicoExtracaoSecoes.extrair_secoes_do_docx(relatorio.caminho_template, relatorio.id)
-        except Exception as e:
-            resultado["erros_classificacao"].append({"tipo": "secoes", "mensagem": f"Erro ao extrair seções: {str(e)}"})
+            secoes = ServicoExtracaoSecoes.extrair_secoes_do_docx(
+                relatorio.caminho_template,
+                relatorio.id,
+            )
+        except (OSError, ValueError, RuntimeError, SQLAlchemyError) as e:
+            resultado["erros_classificacao"].append({
+                "tipo": "secoes",
+                "mensagem": f"Erro ao extrair seções: {str(e)}",
+            })
             resultado["total_erros"] += 1
             secoes = []
 
@@ -374,7 +399,10 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
         capitulos_banco = CapituloDocumento.query.filter_by(
             id_relatorio=relatorio.id,
         ).all()
-        indice_banco = {_normalizar_titulo(cap.titulo_capitulo): cap for cap in capitulos_banco}
+        indice_banco = {
+            _normalizar_titulo(cap.titulo_capitulo): cap
+            for cap in capitulos_banco
+        }
 
         # Etapa 4: Processar cada capitulo do DOCX
         capitulos_processados = []
@@ -394,10 +422,18 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
             classificacao = None
             prefixo_indice = None
             try:
-                classificacao, _nivel_classe, prefixo_indice = ServicoClassificacaoCapitulos.classificar_por_estilo_docx(estilo_docx)
-            except Exception as e:
+                classificacao, _nivel_classe, prefixo_indice = (
+                    ServicoClassificacaoCapitulos.classificar_por_estilo_docx(
+                        estilo_docx
+                    )
+                )
+            except (AttributeError, TypeError, ValueError) as e:
                 resultado["erros_classificacao"].append(
-                    {"tipo": "classificacao", "titulo": titulo_docx, "mensagem": f"Erro ao classificar: {str(e)}"}
+                    {
+                        "tipo": "classificacao",
+                        "titulo": titulo_docx,
+                        "mensagem": f"Erro ao classificar: {str(e)}",
+                    }
                 )
                 resultado["total_erros"] += 1
                 # Continua processamento mesmo com erro na classificacao
@@ -450,9 +486,12 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
                 resultado["total_atualizados"] += 1
             else:
                 # CRIAR capitulo novo
-                from app.utils.auditoria import usuario_atual_id  # noqa: C0415
-
-                max_ordem = db.session.query(db.func.max(CapituloDocumento.ordem_capitulo)).filter_by(id_relatorio=relatorio.id).scalar() or 0
+                max_ordem = (
+                    db.session.query(db.func.max(CapituloDocumento.ordem_capitulo))
+                    .filter_by(id_relatorio=relatorio.id)
+                    .scalar()
+                    or 0
+                )
 
                 novo = CapituloDocumento(
                     id_relatorio=relatorio.id,
@@ -489,7 +528,7 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
         for cap in capitulos_banco:
             if _normalizar_titulo(cap.titulo_capitulo) not in docx_matched_keys:
                 # Verificar se eh auto-gerado (deve ser deletado)
-                auto_gerados = ServicoExtracaoCanonica._PRE_TEXTUAIS_AUTO_GERADOS
+                auto_gerados = ServicoExtracaoCanonica.pre_textuais_auto_gerados()
                 titulo_norm = _normalizar_titulo(cap.titulo_capitulo)
                 if titulo_norm in auto_gerados:
                     db.session.delete(cap)
@@ -503,10 +542,16 @@ def ressincronizar_capitulos_com_classificacao(relatorio) -> dict:
         # Montar resultado final
         resultado["sucesso"] = True
         resultado["capitulos_sincronizados"] = capitulos_processados
-        resultado["capitulos_criados"] = [c for c in capitulos_processados if c.get("acao") == "criado"]
+        resultado["capitulos_criados"] = [
+            c for c in capitulos_processados if c.get("acao") == "criado"
+        ]
 
-    except Exception as e:
-        resultado["erros_classificacao"].append({"tipo": "erro_interno", "mensagem": f"Erro ao ressincronizar: {str(e)}", "stack": str(e)})
+    except (OSError, ValueError, RuntimeError, SQLAlchemyError) as e:
+        resultado["erros_classificacao"].append({
+            "tipo": "erro_interno",
+            "mensagem": f"Erro ao ressincronizar: {str(e)}",
+            "stack": str(e),
+        })
         resultado["total_erros"] += 1
         db.session.rollback()
 

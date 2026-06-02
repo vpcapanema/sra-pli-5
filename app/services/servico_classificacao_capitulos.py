@@ -1,7 +1,7 @@
 """Serviço para classificação e validação de capítulos com conceito endurecido.
 Inclui mapeamento entre tipos conceituais e estilos DOCX para atualização automática de índices."""
 
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from app.models.capitulo_documento import CapituloDocumento
 
 
@@ -12,15 +12,58 @@ class ServicoClassificacaoCapitulos:
     # Mapeamento entre estilos DOCX e tipos conceituais
     ESTILOS_PARA_CLASSIFICACAO = {
         # Capítulos (nível 1)
-        "capitulo": ["Heading 1", "Título 1", "Titulo 1", "TÍTULO 1", "Titulo1", "Heading1", "Title 1", "Titulo 1º"],
+        "capitulo": [
+            "Heading 1",
+            "Título 1",
+            "Titulo 1",
+            "TÍTULO 1",
+            "Titulo1",
+            "Heading1",
+            "Title 1",
+            "Titulo 1º",
+        ],
         # Subcapítulos nível 2
-        "subcapitulo_nivel_2": ["Heading 2", "Título 2", "Titulo 2", "TÍTULO 2", "Titulo2", "Heading2", "Title 2", "Titulo 2º"],
+        "subcapitulo_nivel_2": [
+            "Heading 2",
+            "Título 2",
+            "Titulo 2",
+            "TÍTULO 2",
+            "Titulo2",
+            "Heading2",
+            "Title 2",
+            "Titulo 2º",
+        ],
         # Subcapítulos nível 3
-        "subcapitulo_nivel_3": ["Heading 3", "Título 3", "Titulo 3", "TÍTULO 3", "Titulo3", "Heading3", "Title 3", "Titulo 3º"],
+        "subcapitulo_nivel_3": [
+            "Heading 3",
+            "Título 3",
+            "Titulo 3",
+            "TÍTULO 3",
+            "Titulo3",
+            "Heading3",
+            "Title 3",
+            "Titulo 3º",
+        ],
         # Anexos
-        "anexo": ["Anexo", "ANEXO", "Anexo A", "Anexo_A", "Anexo Heading", "Anexo Title", "Anexo 1"],
+        "anexo": [
+            "Anexo",
+            "ANEXO",
+            "Anexo A",
+            "Anexo_A",
+            "Anexo Heading",
+            "Anexo Title",
+            "Anexo 1",
+        ],
         # Apêndices
-        "apendice": ["Apêndice", "APÊNDICE", "Apêndice I", "Apêndice_I", "Apêndice Heading", "Apêndice Title", "Apêndice 1"],
+        "apendice": [
+            "Apêndice",
+            "APÊNDICE",
+            "Apêndice I",
+            "Apêndice_I",
+            "Apêndice Heading",
+            "Apêndice Title",
+            "Apêndice 1",
+        ],
         # Pré-textuais
         "pre_textual": [
             "Title",
@@ -35,11 +78,21 @@ class ServicoClassificacaoCapitulos:
             "Lista de Abreviaturas",
         ],
         # Pós-textuais (não anexo/apêndice)
-        "pos_textual": ["Referências", "Referencias", "Bibliografia", "Glossário", "Glossario", "Índice", "Indice"],
+        "pos_textual": [
+            "Referências",
+            "Referencias",
+            "Bibliografia",
+            "Glossário",
+            "Glossario",
+            "Índice",
+            "Indice",
+        ],
     }
 
     @staticmethod
-    def classificar_por_estilo_docx(estilo_docx: str) -> Tuple[Optional[str], Optional[int], Optional[str]]:
+    def classificar_por_estilo_docx(
+        estilo_docx: str,
+    ) -> Tuple[Optional[str], Optional[int], Optional[str]]:
         """Classifica um capítulo baseado no estilo DOCX.
 
         Retorna: (classificacao, nivel, prefixo_indice)
@@ -83,7 +136,9 @@ class ServicoClassificacaoCapitulos:
         return None, None, None
 
     @staticmethod
-    def classificar_por_titulo(titulo: str, indice: str, nivel: int) -> Tuple[Optional[str], Optional[str]]:
+    def classificar_por_titulo(
+        titulo: str, indice: str, nivel: int
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Classifica um capítulo baseado no título, índice e nível.
 
         Retorna: (classificacao, prefixo_indice)
@@ -95,7 +150,11 @@ class ServicoClassificacaoCapitulos:
         if (
             "anexo" in titulo_lower
             or indice_upper.startswith("ANEXO")
-            or (indice_upper and indice_upper[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" and len(indice_upper) == 1)
+            or (
+                indice_upper
+                and indice_upper[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                and len(indice_upper) == 1
+            )
         ):
             return "anexo", "ANEXO_"
 
@@ -190,7 +249,11 @@ class ServicoClassificacaoCapitulos:
         return indice_com_prefixo
 
     @staticmethod
-    def gerar_indice_hierarquico(nivel: int, indice_pai: str = None, sequencia: int = 1) -> str:
+    def gerar_indice_hierarquico(
+        nivel: int,
+        indice_pai: Optional[str] = None,
+        sequencia: int = 1,
+    ) -> str:
         """Gera índice hierárquico baseado no nível e índice do pai.
 
         Args:
@@ -209,7 +272,7 @@ class ServicoClassificacaoCapitulos:
             return str(sequencia)
 
     @staticmethod
-    def validar_capitulo(capitulo: CapituloDocumento) -> Dict[str, any]:
+    def validar_capitulo(capitulo: CapituloDocumento) -> Dict[str, Any]:
         """Valida um capítulo completo e retorna diagnóstico.
 
         Returns:
@@ -219,7 +282,12 @@ class ServicoClassificacaoCapitulos:
                 - avisos: List[str]
                 - tipo_conceitual: str
         """
-        resultado = {"valido": True, "erros": [], "avisos": [], "tipo_conceitual": capitulo.tipo_conceitual}
+        resultado = {
+            "valido": True,
+            "erros": [],
+            "avisos": [],
+            "tipo_conceitual": capitulo.tipo_conceitual,
+        }
 
         # Validar estrutura básica
         erros_validacao = capitulo.validar_estrutura()
@@ -231,17 +299,23 @@ class ServicoClassificacaoCapitulos:
         if capitulo.e_capitulo:
             # Capítulo deve ter índice numérico simples
             if capitulo.indice_capitulo and not capitulo.indice_capitulo.isdigit():
-                resultado["avisos"].append(f"Capítulo de nível 1 tem índice não numérico: {capitulo.indice_capitulo}")
+                resultado["avisos"].append(
+                    f"Capítulo de nível 1 tem índice não numérico: {capitulo.indice_capitulo}"
+                )
 
         elif capitulo.e_subcapitulo:
             # Subcapítulo deve ter índice hierárquico
             if capitulo.indice_capitulo and "." not in capitulo.indice_capitulo:
-                resultado["avisos"].append(f"Subcapítulo tem índice não hierárquico: {capitulo.indice_capitulo}")
+                resultado["avisos"].append(
+                    f"Subcapítulo tem índice não hierárquico: {capitulo.indice_capitulo}"
+                )
 
         elif capitulo.e_anexo:
             # Anexo deve ter índice alfabético
             if capitulo.indice_capitulo and not capitulo.indice_capitulo.isalpha():
-                resultado["avisos"].append(f"Anexo tem índice não alfabético: {capitulo.indice_capitulo}")
+                resultado["avisos"].append(
+                    f"Anexo tem índice não alfabético: {capitulo.indice_capitulo}"
+                )
 
         elif capitulo.e_apendice:
             # Apêndice deve ter índice romano ou alfabético
@@ -249,7 +323,9 @@ class ServicoClassificacaoCapitulos:
                 indice = capitulo.indice_capitulo.upper()
                 romanos = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
                 if not (indice.isalpha() or indice in romanos):
-                    resultado["avisos"].append(f"Apêndice tem índice inválido: {capitulo.indice_capitulo}")
+                    resultado["avisos"].append(
+                        f"Apêndice tem índice inválido: {capitulo.indice_capitulo}"
+                    )
 
         return resultado
 
@@ -311,7 +387,9 @@ class ServicoClassificacaoCapitulos:
             }
 
             # Encontrar filhos
-            filhos = [cap for cap in capitulos if cap.id_capitulo_pai == capitulo.id_capitulo_documento]
+            filhos = [
+                cap for cap in capitulos if cap.id_capitulo_pai == capitulo.id_capitulo_documento
+            ]
             filhos.sort(key=lambda x: x.ordem_capitulo)
 
             for filho in filhos:
@@ -328,7 +406,9 @@ class ServicoClassificacaoCapitulos:
 
     @staticmethod
     def atualizar_indices_apos_operacao(
-        capitulos: List[CapituloDocumento], tipo_operacao: str, capitulo_afetado: Optional[CapituloDocumento] = None
+        capitulos: List[CapituloDocumento],
+        tipo_operacao: str,
+        capitulo_afetado: Optional[CapituloDocumento] = None,
     ) -> List[CapituloDocumento]:
         """Atualiza índices após adição, remoção ou reordenação de capítulos.
 
@@ -343,7 +423,9 @@ class ServicoClassificacaoCapitulos:
         del tipo_operacao, capitulo_afetado
 
         # Separar por tipo conceitual
-        capitulos_textuais = [c for c in capitulos if c.tipo_elemento == "textual" and not c.classificacao]
+        capitulos_textuais = [
+            c for c in capitulos if c.tipo_elemento == "textual" and not c.classificacao
+        ]
         anexos = [c for c in capitulos if c.classificacao == "anexo"]
         apendices = [c for c in capitulos if c.classificacao == "apendice"]
 
@@ -361,7 +443,11 @@ class ServicoClassificacaoCapitulos:
         for cap in capitulos_textuais:
             if cap.nivel_capitulo >= 2 and cap.capitulo_pai:
                 # Encontrar subcapítulos do mesmo pai
-                subcapitulos = [c for c in capitulos_textuais if c.id_capitulo_pai == cap.capitulo_pai.id_capitulo_documento]
+                subcapitulos = [
+                    c
+                    for c in capitulos_textuais
+                    if c.id_capitulo_pai == cap.capitulo_pai.id_capitulo_documento
+                ]
                 subcapitulos.sort(key=lambda x: x.ordem_capitulo)
 
                 # Atribuir índices hierárquicos
@@ -385,7 +471,9 @@ class ServicoClassificacaoCapitulos:
         return capitulos
 
     @staticmethod
-    def determinar_estilo_por_tipo_conceitual(tipo_conceitual: str, nivel: int = 1) -> Optional[str]:
+    def determinar_estilo_por_tipo_conceitual(
+        tipo_conceitual: str, nivel: int = 1
+    ) -> Optional[str]:
         """Determina o estilo DOCX apropriado para um tipo conceitual.
 
         Args:
@@ -416,7 +504,9 @@ class ServicoClassificacaoCapitulos:
         return None
 
     @staticmethod
-    def extrair_e_classificar_do_docx(paragrafo_texto: str, estilo_docx: str, posicao: int, total_paragrafos: int) -> Dict:
+    def extrair_e_classificar_do_docx(
+        paragrafo_texto: str, estilo_docx: str, posicao: int, total_paragrafos: int
+    ) -> Dict:
         """Extrai e classifica um capítulo a partir de um parágrafo DOCX.
 
         Args:
@@ -429,7 +519,9 @@ class ServicoClassificacaoCapitulos:
             Dicionário com propriedades do capítulo
         """
         # Classificar por estilo DOCX
-        classificacao, nivel, prefixo = ServicoClassificacaoCapitulos.classificar_por_estilo_docx(estilo_docx)
+        classificacao, nivel, prefixo = ServicoClassificacaoCapitulos.classificar_por_estilo_docx(
+            estilo_docx
+        )
 
         # Determinar tipo_elemento baseado na posição e classificação
         if classificacao in ("anexo", "apendice"):
@@ -443,7 +535,9 @@ class ServicoClassificacaoCapitulos:
 
         # Se não classificou por estilo, tentar por título
         if not classificacao:
-            classificacao, prefixo = ServicoClassificacaoCapitulos.classificar_por_titulo(paragrafo_texto, "", nivel or 1)
+            classificacao, prefixo = ServicoClassificacaoCapitulos.classificar_por_titulo(
+                paragrafo_texto, "", nivel or 1
+            )
 
         return {
             "titulo_capitulo": paragrafo_texto,

@@ -33,6 +33,14 @@ from docx import Document
 from docx.oxml.ns import qn
 
 from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo
+from app.services._ooxml_helpers import (
+    criar_run_texto,
+    criar_runs_campo_ref,
+)
+from app.services.servico_captioning import (
+    _eh_heading_paragrafo,
+    _eh_paragrafo_de_caption,
+)
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -83,11 +91,6 @@ def _processar_paragrafo(
     com runs e campos REF intercalados. Perde formatacao inline pre-
     existente do paragrafo, mas e o preco para gerar OOXML correto.
     """
-    from app.services._ooxml_helpers import (
-        criar_run_texto,
-        criar_runs_campo_ref,
-    )
-
     resolvidas = 0
     nao_resolvidas = 0
 
@@ -155,7 +158,6 @@ def _processar_paragrafo(
 def _consolidar_em_unico_run(p_element, novo_texto: str):
     """Apaga todos os runs e cria um unico com `novo_texto` (preserva pPr).
     """
-    from app.services._ooxml_helpers import criar_run_texto
     w = f'{{{W_NS}}}'
     for filho in list(p_element):
         if filho.tag in (f'{w}r', f'{w}hyperlink'):
@@ -184,11 +186,6 @@ def substituir_referencias(
     # IMPORTANTE: pulamos paragrafos que ja sao legendas (estilo
     # Caption ou prefixo conhecido) — eles foram processados pelo
     # `servico_captioning` e nao devem ter cross-refs no texto.
-    from app.services.servico_captioning import (
-        _eh_heading_paragrafo,
-        _eh_paragrafo_de_caption,
-    )
-
     em_regiao_textual = False
     for child in list(body):
         if child.tag == qn('w:p'):

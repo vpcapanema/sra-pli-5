@@ -26,6 +26,22 @@ from flask_login import current_user
 
 from app.models.relatorio_producao import RelatorioProducao
 from app.services.servico_perfil_formatacao import PerfilFormatacao
+from app.services import servico_relatorio_core as relatorio_core
+from app.services.servico_captioning import reindexar_captions
+from app.services.servico_capa import atualizar_capa, atualizar_folha_rosto
+from app.services.servico_cross_refs import substituir_referencias
+from app.services.servico_extracao_canonica import validar_estrutura_canonica
+from app.services.servico_finalizar_relatorio import finalizar
+from app.services.servico_sincronizar_capitulos import (
+    ressincronizar_capitulos_com_classificacao,
+)
+from app.services.servico_toc import (
+    inserir_lista_equacoes,
+    inserir_lista_figuras,
+    inserir_lista_siglas,
+    inserir_lista_tabelas,
+    inserir_sumario,
+)
 
 
 # ===========================================================
@@ -78,6 +94,8 @@ class Acao:
 
 @dataclass
 class ResultadoAcao:
+    """Resultado padronizado retornado por handlers de acao."""
+
     ok: bool
     mensagem: str
     redirect_url: str = ''
@@ -89,31 +107,26 @@ class ResultadoAcao:
 # ===========================================================
 
 def _h_inserir_sumario(rel, perfil):
-    from app.services.servico_toc import inserir_sumario
     info = inserir_sumario(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Sumário', info)
 
 
 def _h_inserir_lista_figuras(rel, perfil):
-    from app.services.servico_toc import inserir_lista_figuras
     info = inserir_lista_figuras(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Lista de Figuras', info)
 
 
 def _h_inserir_lista_tabelas(rel, perfil):
-    from app.services.servico_toc import inserir_lista_tabelas
     info = inserir_lista_tabelas(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Lista de Tabelas', info)
 
 
 def _h_inserir_lista_equacoes(rel, perfil):
-    from app.services.servico_toc import inserir_lista_equacoes
     info = inserir_lista_equacoes(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Lista de Equações', info)
 
 
 def _h_inserir_lista_siglas(rel, perfil):
-    from app.services.servico_toc import inserir_lista_siglas
     info = inserir_lista_siglas(rel.caminho_template, perfil=perfil)
     return _resumo_toc('Lista de Siglas e Abreviaturas', info)
 
@@ -126,9 +139,6 @@ def _h_sincronizar_capitulos(rel, perfil):
     Integra classificacao de capitulos e mapeamento de secoes OOXML.
     """
     del perfil
-    from app.services.servico_sincronizar_capitulos import (
-        ressincronizar_capitulos_com_classificacao,
-    )
     info = ressincronizar_capitulos_com_classificacao(rel)
     if not info.get('sucesso'):
         erros = info.get('erros_classificacao', [])
@@ -142,8 +152,6 @@ def _h_sincronizar_capitulos(rel, perfil):
 
 
 def _h_reindexar_captions(rel, perfil):
-    from app.services.servico_captioning import reindexar_captions
-    from app.services.servico_cross_refs import substituir_referencias
 
     info = reindexar_captions(rel.caminho_template, perfil=perfil)
     mapa = info.get('mapa_labels', {}) if isinstance(info, dict) else {}
@@ -168,37 +176,17 @@ def _h_atualizar_capa(rel, perfil):
     clonagem. Quando o servico dedicado existir, basta substituir
     o corpo desta funcao.
     """
-    try:
-        from app.services.servico_capa import atualizar_capa
-    except ImportError:
-        return (
-            'Atualização manual de capa pendente — atualmente é feita '
-            'apenas na clonagem do relatório.'
-        )
     info = atualizar_capa(rel.caminho_template, rel, perfil=perfil)
     return f'Capa atualizada. {info or ""}'.strip()
 
 
 def _h_atualizar_folha_rosto(rel, perfil):
-    try:
-        from app.services.servico_capa import atualizar_folha_rosto
-    except ImportError:
-        return (
-            'Atualização manual da folha de rosto pendente — atualmente '
-            'é feita apenas na clonagem do relatório.'
-        )
     info = atualizar_folha_rosto(rel.caminho_template, rel, perfil=perfil)
     return f'Folha de rosto atualizada. {info or ""}'.strip()
 
 
 def _h_validar_estrutura(rel, perfil):
     """Checa se o DOCX tem todos os elementos canonicos esperados."""
-    try:
-        from app.services.servico_extracao_canonica import (
-            validar_estrutura_canonica,
-        )
-    except ImportError:
-        return 'Validação de estrutura pendente de implementação.'
     info = validar_estrutura_canonica(rel.caminho_template, perfil=perfil)
     if isinstance(info, dict):
         problemas = info.get('problemas') or []
@@ -214,7 +202,6 @@ def _h_validar_estrutura(rel, perfil):
 def _h_gerar_final(rel, perfil):
     """Delega ao servico de finalizacao. Bloqueia futuras edicoes."""
     del perfil
-    from app.services.servico_finalizar_relatorio import finalizar
     rf = finalizar(id_relatorio=rel.id, id_usuario=current_user.id)
     checksum_curto = (rf.checksum_docx or '')[:8]
     return (
@@ -431,13 +418,13 @@ def listar_por_grupo(perfil_ativo: str, rel_bloqueado: bool):
     # Pre-textuais primeiro (botoes que o coordenador usa no dia a dia),
     # depois Numeracao/Refs (manutencao), e Finalizacao por ultimo
     # (acao destrutiva, deve estar visualmente separada).
-    _ORDEM_GRUPOS = {'pre_textuais': 1, 'numeracao': 2, 'finalizacao': 3}
+    ordem_grupos = {'pre_textuais': 1, 'numeracao': 2, 'finalizacao': 3}
 
     grupos: dict = {}
     for acao in sorted(
         CATALOGO,
         key=lambda a: (
-            _ORDEM_GRUPOS.get(a.grupo, 99), a.ordem, a.label,
+            ordem_grupos.get(a.grupo, 99), a.ordem, a.label,
         ),
     ):
         item = {
@@ -471,7 +458,6 @@ def validar_pre_execucao(acao: Acao, rel, perfil_ativo: str):
         )
 
     if acao.bloqueia_se_finalizado:
-        from app.services import servico_relatorio_core as relatorio_core
         if relatorio_core.esta_bloqueado(rel):
             return False, (
                 f'Relatório finalizado — não é possível executar '
