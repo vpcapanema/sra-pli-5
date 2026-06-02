@@ -458,8 +458,18 @@ class ServicoEnvioAutor:
 
     @staticmethod
     def _biblioteca_mais_recente():
-        """Retorna a biblioteca de formatação mais recente (por data de criação)."""
+        """Retorna a biblioteca de formatação mais recente (por data de criação).
+
+        Prioriza D20-15 se existir, pois é a biblioteca de referência atual.
+        """
         from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica  # noqa: C0415
+        # Prioriza D20-15 se existir
+        d20_15 = BibliotecaFormatacaoCanonica.query.filter_by(
+            nome_biblioteca="D20-15", ativa=True, extraida=True
+        ).first()
+        if d20_15:
+            return d20_15
+        # Caso contrário, retorna a mais recente por data de criação
         return (
             BibliotecaFormatacaoCanonica.query
             .filter_by(ativa=True, extraida=True)
