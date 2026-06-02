@@ -18,7 +18,12 @@ class AuditoriaMixin:
 
     Datas usam UTC explicitamente (steering rule: nunca `datetime.utcnow()`).
     """
+
     criado_por = Column(Integer, nullable=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     atualizado_por = Column(Integer, nullable=True)
-    atualizado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    atualizado_em = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
