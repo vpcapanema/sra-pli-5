@@ -281,7 +281,7 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
             if self.id_capitulo_pai is not None:
                 erros.append("Capítulo de nível 1 não pode ter pai")
             if self.classificacao not in (None, "textual"):
-                erros.append("Capítulo de nível 1 deve ter classificação " "'textual' ou None")
+                erros.append("Capítulo de nível 1 deve ter classificação 'textual' ou None")
 
         # Subcapítulo (nível ≥ 2)
         elif self.nivel_capitulo >= 2:

@@ -15,7 +15,7 @@ class RelatorioFinalizado(db.Model):
     )
     biblioteca_id = db.Column(
         db.Integer,
-        db.ForeignKey("bibliotecas_formatacao_canonica." "id_biblioteca_formatacao_canonica"),
+        db.ForeignKey("bibliotecas_formatacao_canonica.id_biblioteca_formatacao_canonica"),
         nullable=True,
     )
     status_id = db.Column(db.Integer, db.ForeignKey("dominios.id_dominio"), nullable=True)
