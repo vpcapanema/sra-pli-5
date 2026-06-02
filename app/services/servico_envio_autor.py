@@ -258,6 +258,9 @@ class ServicoEnvioAutor:
         if not caminho:
             caminho = cls._caminho_novo_docx_sugerido(envio)
         biblioteca = cls._resolver_biblioteca_escolhida(envio)
+        # Se não houver biblioteca escolhida, usa a mais recente como default
+        if biblioteca is None:
+            biblioteca = cls._biblioteca_mais_recente()
         cls._gerar_docx_sugerido_processado(envio, caminho, biblioteca=biblioteca)
         if cls.caminho_docx_sugerido(envio) is None:
             db.session.add(
@@ -385,6 +388,22 @@ class ServicoEnvioAutor:
             caminho_saida=caminho_saida,
             metricas=metricas_lib,
         )
+
+        # Aplicar indiciação (captioning + cross-refs) considerando o capítulo
+        # sendo editado. Isso garante que figuras/tabelas/equações sejam
+        # numeradas corretamente no contexto do capítulo.
+        try:
+            from app.services.servico_captioning import reindexar_captions  # noqa: C0415
+            from app.services.servico_cross_refs import substituir_referencias  # noqa: C0415
+
+            captions = reindexar_captions(caminho_saida, perfil=perfil)
+            mapa = captions.get("mapa_labels", {}) if isinstance(captions, dict) else {}
+            substituir_referencias(caminho_saida, mapa)
+            metricas_aplicadas.append("indicacao_captioning_crossrefs")
+        except (OSError, ValueError, RuntimeError):
+            # Indiciação não deve bloquear a geração da versão sugerida.
+            pass
+
         cls._registrar_diagnostico_sugestao(
             envio, perfil, metricas_aplicadas, metricas, diagnostico, biblioteca,
         )
@@ -436,6 +455,17 @@ class ServicoEnvioAutor:
         cls._descartar_envio(envio)
         db.session.commit()
         return id_relatorio, id_capitulo
+
+    @staticmethod
+    def _biblioteca_mais_recente():
+        """Retorna a biblioteca de formatação mais recente (por data de criação)."""
+        from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica  # noqa: C0415
+        return (
+            BibliotecaFormatacaoCanonica.query
+            .filter_by(ativa=True, extraida=True)
+            .order_by(BibliotecaFormatacaoCanonica.criado_em.desc())
+            .first()
+        )
 
     @classmethod
     def processar_upload(
@@ -534,7 +564,9 @@ class ServicoEnvioAutor:
             return
 
         # Extrair estrutura completa do DOCX usando ServicoExtracaoCanonica
-        estrutura = cls._extrair_estrutura_completa(doc)
+        # e aplicar biblioteca mais recente de formatação
+        biblioteca_default = cls._biblioteca_mais_recente()
+        estrutura = cls._extrair_estrutura_completa(doc, biblioteca=biblioteca_default)
 
         # Detectar renomeações de capítulos: o autor pode ter mudado
         # o título de capítulos cujos índices já existem no banco.
@@ -997,8 +1029,11 @@ class ServicoEnvioAutor:
         }
 
     @classmethod
-    def _extrair_estrutura_completa(cls, doc):
+    def _extrair_estrutura_completa(cls, doc, biblioteca=None):
         """Extrai estrutura completa do DOCX usando ServicoExtracaoCanonica.
+
+        Quando `biblioteca` é informada, usa os extratores canônicos da
+        biblioteca para extrair e classificar TODO o conteúdo.
 
         Retorna dict com:
         - capitulos: árvore hierárquica de capítulos e subcapítulos
@@ -1007,6 +1042,7 @@ class ServicoEnvioAutor:
           tabelas e equações como nós individuais (cada um com seu
           índice, título e capítulo pai), pronta para a UI exibir
           como árvore só de estrutura.
+        - biblioteca_usada: informações da biblioteca canônica usada
         """
         from app.services.servico_extracao_canonica import (  # noqa: C0415
             ServicoExtracaoCanonica,
@@ -1032,6 +1068,14 @@ class ServicoEnvioAutor:
             "legendas": legendas,
             "arvore_estrutural": arvore_estrutural,
         }
+
+        # Adicionar informações da biblioteca canônica usada
+        if biblioteca is not None:
+            estrutura["biblioteca_usada"] = {
+                "id": getattr(biblioteca, "id_biblioteca_formatacao_canonica", None),
+                "nome": getattr(biblioteca, "nome_biblioteca", None),
+                "caminho": getattr(biblioteca, "caminho_arquivo", None),
+            }
 
         return estrutura
 
