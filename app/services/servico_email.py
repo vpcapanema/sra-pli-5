@@ -1,3 +1,5 @@
+"""Serviço de envio de e-mails transacionais."""
+
 import json
 import urllib.request
 import urllib.error
@@ -7,9 +9,11 @@ BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
 
 class ServicoEmail:
+    """Envia convites e recuperação de senha via Brevo."""
 
     @staticmethod
     def _corpo_convite(nome, link):
+        """Monta o HTML do convite de ativação."""
         return f"""
         <div style="font-family:sans-serif;max-width:480px;
                     margin:0 auto;padding:24px;">
@@ -72,6 +76,7 @@ class ServicoEmail:
 
     @staticmethod
     def enviar_convite(destinatario, nome, token):
+        """Envia convite de ativação e retorna o link gerado."""
         cfg = current_app.config
         base_url = cfg['APP_BASE_URL']
         link = f"{base_url}/ativar-conta/{token}"
@@ -110,7 +115,7 @@ class ServicoEmail:
             raise RuntimeError(
                 f'Falha no envio do convite por e-mail: {e.code}'
             ) from e
-        except Exception as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             current_app.logger.error(
                 f'Erro ao enviar e-mail para '
                 f'{destinatario}: {e}'
@@ -182,6 +187,7 @@ class ServicoEmail:
         token,
         perfil
     ):
+        """Envia link de recuperação de senha e retorna o link gerado."""
         cfg = current_app.config
         base_url = cfg['APP_BASE_URL']
         link = f"{base_url}/redefinir-senha/{token}"
@@ -219,7 +225,7 @@ class ServicoEmail:
                 f'{destinatario}: {e.code} '
                 f'{e.read().decode()}'
             )
-        except Exception as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             current_app.logger.error(
                 f'Erro ao enviar e-mail para '
                 f'{destinatario}: {e}'

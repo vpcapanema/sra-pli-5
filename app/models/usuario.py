@@ -11,6 +11,9 @@ class Usuario(db.Model, UserMixin):
     """
     __tablename__ = 'usuarios'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(200), nullable=False)

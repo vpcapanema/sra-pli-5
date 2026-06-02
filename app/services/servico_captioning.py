@@ -41,7 +41,9 @@ from typing import Optional
 
 from docx import Document
 from docx.oxml.ns import qn
-from lxml import etree
+import lxml.etree as etree
+
+from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -99,12 +101,6 @@ def _eh_heading_paragrafo(p_element) -> Optional[int]:
         if 1 <= n <= 9:
             return n
     return None
-
-
-def _texto_paragrafo(p_element) -> str:
-    """Concatena todos os <w:t> de um paragrafo."""
-    pedacos = [t.text or '' for t in p_element.iter(qn('w:t'))]
-    return ''.join(pedacos)
 
 
 def _eh_paragrafo_de_caption(
@@ -629,25 +625,34 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
                 contadores[(indice_h1_atual, 'figura')] += 1
                 num = contadores[(indice_h1_atual, 'figura')]
                 numero_str = f'{indice_h1_atual}{sep_idx}{num}'
-                kw_fig = dict(
-                    indice_h1=indice_h1_atual,
-                    sep_idx=sep_idx,
-                    sep_leg=sep_leg,
-                    seq_num=num,
-                    estilo_caption=estilo_por_tipo['figura'],
-                    rotulo=rotulo_por_tipo['figura'],
-                    id_gen=id_gen,
-                )
                 if posicao_por_tipo['figura'] == 'acima':
                     novo_i, label, nome_bm = (
                         _inserir_ou_atualizar_caption_antes(
-                            body, i, 'figura', **kw_fig,
+                            body,
+                            i,
+                            'figura',
+                            indice_h1=indice_h1_atual,
+                            sep_idx=sep_idx,
+                            sep_leg=sep_leg,
+                            seq_num=num,
+                            estilo_caption=estilo_por_tipo['figura'],
+                            rotulo=rotulo_por_tipo['figura'],
+                            id_gen=id_gen,
                         )
                     )
                     i = novo_i + 1
                 else:
                     label, nome_bm = _inserir_ou_atualizar_caption_apos(
-                        body, i, 'figura', **kw_fig,
+                        body,
+                        i,
+                        'figura',
+                        indice_h1=indice_h1_atual,
+                        sep_idx=sep_idx,
+                        sep_leg=sep_leg,
+                        seq_num=num,
+                        estilo_caption=estilo_por_tipo['figura'],
+                        rotulo=rotulo_por_tipo['figura'],
+                        id_gen=id_gen,
                     )
                     i += 2
                 registrar_label(
@@ -663,25 +668,34 @@ def reindexar_captions(caminho_master: str, perfil=None) -> dict:
             contadores[(indice_h1_atual, 'tabela')] += 1
             num = contadores[(indice_h1_atual, 'tabela')]
             numero_str = f'{indice_h1_atual}{sep_idx}{num}'
-            kw_tab = dict(
-                indice_h1=indice_h1_atual,
-                sep_idx=sep_idx,
-                sep_leg=sep_leg,
-                seq_num=num,
-                estilo_caption=estilo_por_tipo['tabela'],
-                rotulo=rotulo_por_tipo['tabela'],
-                id_gen=id_gen,
-            )
             if posicao_por_tipo['tabela'] == 'acima':
                 novo_i, label, nome_bm = (
                     _inserir_ou_atualizar_caption_antes(
-                        body, i, 'tabela', **kw_tab,
+                        body,
+                        i,
+                        'tabela',
+                        indice_h1=indice_h1_atual,
+                        sep_idx=sep_idx,
+                        sep_leg=sep_leg,
+                        seq_num=num,
+                        estilo_caption=estilo_por_tipo['tabela'],
+                        rotulo=rotulo_por_tipo['tabela'],
+                        id_gen=id_gen,
                     )
                 )
                 i = novo_i
             else:
                 label, nome_bm = _inserir_ou_atualizar_caption_apos(
-                    body, i, 'tabela', **kw_tab,
+                    body,
+                    i,
+                    'tabela',
+                    indice_h1=indice_h1_atual,
+                    sep_idx=sep_idx,
+                    sep_leg=sep_leg,
+                    seq_num=num,
+                    estilo_caption=estilo_por_tipo['tabela'],
+                    rotulo=rotulo_por_tipo['tabela'],
+                    id_gen=id_gen,
                 )
             registrar_label(label, 'tabela', numero_str, nome_bm)
             tabelas_total += 1

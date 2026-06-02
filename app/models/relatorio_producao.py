@@ -6,6 +6,9 @@ class RelatorioProducao(db.Model):
 
     __tablename__ = 'relatorios_producao'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id = db.Column(db.Integer, primary_key=True)
 
     @property

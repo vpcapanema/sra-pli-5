@@ -44,6 +44,7 @@ from app.services._ooxml_helpers import (
     aplicar_estilo_paragrafo,
     criar_bookmark_par,
     criar_run_texto,
+    texto_paragrafo as _texto_paragrafo,
 )
 
 
@@ -74,11 +75,6 @@ PREFIXO_BOOKMARK_HEADING = '_Toc_sra_'
 # =====================================================================
 # Detecao de elementos no DOCX
 # =====================================================================
-
-
-def _texto_paragrafo(p_element) -> str:
-    pedacos = [t.text or '' for t in p_element.iter(qn('w:t'))]
-    return ''.join(pedacos)
 
 
 def _nivel_heading(p_element) -> Optional[int]:

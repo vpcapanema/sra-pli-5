@@ -6,6 +6,7 @@
 from io import BytesIO
 import json
 import os
+import shutil
 from datetime import datetime
 
 from flask import (
@@ -22,6 +23,7 @@ from flask import (
 )
 from docx import Document
 from flask_login import login_required, current_user
+from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
 from app import db
@@ -30,7 +32,7 @@ from app.models.relatorio_producao import RelatorioProducao
 from app.models.envio_conteudo import EnvioConteudo
 from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.models.dominio import Dominio
-from app.services.servico_relatorio import ServicoRelatorio
+from app.services import servico_relatorio_core as relatorio_core
 from app.services.servico_relatorio_operacoes import (
     criar_relatorio_producao as criar_relatorio_producao_service,
     editar_envio_inline as editar_envio_inline_service,
@@ -171,7 +173,7 @@ def panorama():
 @relatorio_bp.route("/modelos")
 def listar_modelos():
     """Lista modelos de relatório."""
-    modelos = ServicoRelatorio.listar_modelos(apenas_ativos=False)
+    modelos = relatorio_core.listar_modelos(apenas_ativos=False)
     return render_conteudo(
         ["components/relatorio/lista_modelos.html"],
         perfil_ativo=session.get("perfil_ativo", ""),
@@ -182,7 +184,7 @@ def listar_modelos():
 @relatorio_bp.route("/modelos/novo", methods=["POST"])
 def criar_modelo():
     """Cria um novo modelo de relatório."""
-    ServicoRelatorio.criar_modelo(
+    relatorio_core.criar_modelo(
         nome_modelo=request.form.get("nome_modelo"),
         descricao=request.form.get("descricao"),
     )
@@ -193,7 +195,7 @@ def criar_modelo():
 @relatorio_bp.route("/base")
 def relatorios_base():
     """Lista relatórios base disponíveis."""
-    relatorios = ServicoRelatorio.listar_relatorios_finalizados()
+    relatorios = relatorio_core.listar_relatorios_finalizados()
     return render_conteudo(
         ["relatorio/relatorios_base.html"], relatorios_finalizados=relatorios
     )
@@ -216,7 +218,7 @@ def criar_relatorio_base():
     caminho = os.path.join(dir_relatorios, nome_seguro)
     arquivo.save(caminho)
 
-    # NOTE: Implementar criar_relatorio_base em ServicoRelatorio
+    # NOTE: Implementar criar_relatorio_base no service de relatorios.
     # Por enquanto, usar criar_relatorio_finalizado
     flash("Funcionalidade em desenvolvimento.", "info")
     return redirect(url_for("relatorio.relatorios_base"))
@@ -236,8 +238,8 @@ def relatorios_producao():
 @relatorio_bp.route("/versao-trabalho")
 def versao_trabalho():
     """Lista versões de trabalho."""
-    versoes = ServicoRelatorio.listar_versoes_trabalho()
-    relatorios = ServicoRelatorio.listar_relatorios_base()
+    versoes = relatorio_core.listar_versoes_trabalho()
+    relatorios = relatorio_core.listar_relatorios_base()
     return render_conteudo(
         ["components/relatorio/card_cadastro_relatorio_versao_trabalho.html"],
         perfil_ativo=session.get("perfil_ativo", ""),
@@ -249,21 +251,21 @@ def versao_trabalho():
 @relatorio_bp.route("/capitulos")
 def listar_capitulos():
     """Lista de relatórios de produção - redireciona para detalhe."""
-    relatorios = ServicoRelatorio.listar_relatorios_producao()
+    relatorios = relatorio_core.listar_relatorios_producao()
     return render_conteudo(["relatorio/capitulos.html"], relatorios_producao=relatorios)
 
 
 @relatorio_bp.route("/editor")
 def editor():
     """Lista de relatórios para edição - redireciona para editor específico."""
-    relatorios = ServicoRelatorio.listar_relatorios_producao()
+    relatorios = relatorio_core.listar_relatorios_producao()
     return render_conteudo(["relatorio/editor.html"], relatorios_producao=relatorios)
 
 
 @relatorio_bp.route("/versao-trabalho/nova", methods=["POST"])
 def criar_versao():
     """Cria uma nova versão de trabalho."""
-    versao = ServicoRelatorio.criar_versao_trabalho(
+    versao = relatorio_core.criar_versao_trabalho(
         id_relatorio_base=request.form.get("id_relatorio_base", type=int),
         titulo=request.form.get("titulo"),
     )
@@ -293,7 +295,7 @@ def detalhe_versao(id_versao):
 @relatorio_bp.route("/versao-trabalho/<int:id_versao>/capitulo/novo", methods=["POST"])
 def criar_capitulo(id_versao):
     """Cria um novo capítulo na versão de trabalho."""
-    ServicoRelatorio.criar_capitulo(
+    relatorio_core.criar_capitulo(
         id_relatorio=id_versao,
         titulo_capitulo=request.form.get("titulo_capitulo"),
         ordem_capitulo=request.form.get("ordem_capitulo", type=int),
@@ -317,7 +319,7 @@ def criar_capitulo(id_versao):
 )
 def vincular_biblioteca(id_versao):
     """Vincula uma biblioteca de formatação canônica à versão."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
@@ -467,7 +469,7 @@ def editor_autor():
             return redirect(url_for("principal.index"))
         id_versao = primeiro_relatorio.id
 
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
@@ -523,11 +525,11 @@ def editor_autor():
 @login_required
 def editor_autor_assumir_capitulos(id_versao):
     """Autor assume responsabilidade por capítulos selecionados."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
-    if ServicoRelatorio.esta_bloqueado(versao):
+    if relatorio_core.esta_bloqueado(versao):
         flash("Relatório finalizado ou bloqueado.", "erro")
         return redirect(url_for("relatorio.editor_autor", id_versao=id_versao))
 
@@ -547,12 +549,12 @@ def editor_autor_assumir_capitulos(id_versao):
 @login_required
 def editor_autor_enviar_final(id_versao):
     """Envia conteúdo final do autor para revisão do coordenador."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         flash("Versão não encontrada.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
 
-    if ServicoRelatorio.esta_bloqueado(versao):
+    if relatorio_core.esta_bloqueado(versao):
         flash("Relatório já finalizado/bloqueado.", "erro")
         return redirect(
             url_for("relatorio.editor_autor") + "?id_versao=" + str(id_versao)
@@ -592,7 +594,7 @@ def abrir_editor(id_relatorio):
     O identificador do capitulo e o indice (ex: "4.4.7"), nao o ID do banco.
     Se receber um ID numerico, converte para indice antes de propagar.
     """
-    rel = ServicoRelatorio.obter_versao_trabalho(id_relatorio)
+    rel = relatorio_core.obter_versao_trabalho(id_relatorio)
     if not rel:
         flash("Relatório não encontrado.", "erro")
         return redirect(url_for("relatorio.relatorios_producao"))
@@ -1104,7 +1106,7 @@ def _executar_insercao_pre_textual(
         return redirect(url_for("relatorio.detalhe_versao", id_versao=id_relatorio))
 
     rel = RelatorioProducao.query.get_or_404(id_relatorio)
-    if ServicoRelatorio.esta_bloqueado(rel):
+    if relatorio_core.esta_bloqueado(rel):
         flash(
             f"Relatório já finalizado — não é possível atualizar "
             f"{nome_amigavel}. Crie uma nova versão.",
@@ -1201,7 +1203,7 @@ def reindexar_captions_route(id_relatorio):
         return redirect(url_for("relatorio.editor_coordenador", id_versao=id_relatorio))
 
     rel = RelatorioProducao.query.get_or_404(id_relatorio)
-    if ServicoRelatorio.esta_bloqueado(rel):
+    if relatorio_core.esta_bloqueado(rel):
         flash(
             "Relatório finalizado — não é possível reindexar. Crie uma nova versão.",
             "erro",
@@ -1276,6 +1278,91 @@ def baixar_docx_producao(id_relatorio):
     )
 
 
+def _envio_autorizado(envio):
+    return (
+        envio.id_usuario == current_user.id
+        or session.get("perfil_ativo") in ("coordenador", "admin")
+    )
+
+
+@relatorio_bp.route("/envios-conteudo/<int:id_envio>/docx-original")
+@login_required
+def baixar_envio_docx_original(id_envio):
+    """Serve o DOCX original enviado pelo autor."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if not _envio_autorizado(envio):
+        return ("Sem permissão", 403)
+    if not envio.caminho_arquivo or not os.path.exists(envio.caminho_arquivo):
+        return ("Arquivo não encontrado", 404)
+    return send_file(
+        envio.caminho_arquivo,
+        as_attachment=False,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@relatorio_bp.route("/envios-conteudo/<int:id_envio>/docx-sugerido", methods=["GET", "PUT"])
+@login_required
+def envio_docx_sugerido(id_envio):
+    """Serve ou salva a versão DOCX sugerida/editada do envio."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if not _envio_autorizado(envio):
+        return ("Sem permissão", 403)
+
+    if request.method == "PUT":
+        ok, mensagem = ServicoEnvioAutor.salvar_docx_sugerido(
+            envio, request.get_data()
+        )
+        status = 200 if ok else 400
+        return jsonify({"ok": ok, "mensagem": mensagem}), status
+
+    caminho = ServicoEnvioAutor.garantir_docx_sugerido(envio)
+    db.session.commit()
+    if not caminho or not os.path.exists(caminho):
+        return ("Arquivo não encontrado", 404)
+    return send_file(
+        caminho,
+        as_attachment=False,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@relatorio_bp.route("/envios-conteudo/<int:id_envio>/diagnostico")
+@login_required
+def diagnostico_envio(id_envio):
+    """Retorna o diagnóstico extraído do envio do autor."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if not _envio_autorizado(envio):
+        return jsonify({"ok": False, "erro": "Sem permissão"}), 403
+    try:
+        estrutura = json.loads(envio.sugestoes_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        estrutura = {}
+    return jsonify({
+        "ok": True,
+        "estrutura": estrutura,
+        "arquivo": envio.nome_arquivo,
+        "status_envio": envio.status_envio,
+    })
+
+
+@relatorio_bp.route("/envios-conteudo/<int:id_envio>/rejeitar-novo", methods=["POST"])
+@login_required
+def rejeitar_envio_novo(id_envio):
+    """Remove o envio atual para permitir novo upload pelo autor."""
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if not _envio_autorizado(envio):
+        flash("Sem permissão.", "erro")
+        return redirect(url_for("principal.index"))
+    id_relatorio, id_capitulo = ServicoEnvioAutor.rejeitar_para_novo_upload(envio)
+    capitulo = CapituloDocumento.query.get(id_capitulo)
+    flash("Envio removido. Carregue um novo DOCX.", "info")
+    params = {"id_versao": id_relatorio}
+    if capitulo and capitulo.indice_capitulo:
+        params["capitulo"] = capitulo.indice_capitulo
+    return redirect(url_for("relatorio.editor_autor", **params))
+
+
 @relatorio_bp.route("/producao/upload-docx", methods=["POST"])
 def upload_docx_clonagem():
     """Faz upload de DOCX para clonagem."""
@@ -1327,7 +1414,7 @@ def upload_conteudo(id_versao, id_capitulo):
     têm acesso irrestrito (podem enviar conteúdo em nome de qualquer
     capítulo, ex.: para correções urgentes).
     """
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     capitulo = CapituloDocumento.query.get_or_404(id_capitulo)
     if not versao or capitulo.id_relatorio != versao.id:
         if request.method == "GET":
@@ -1336,7 +1423,7 @@ def upload_conteudo(id_versao, id_capitulo):
         return redirect(url_for("relatorio.relatorios_producao"))
 
     # Bloqueio pós-finalização: nenhum upload é aceito.
-    if ServicoRelatorio.esta_bloqueado(versao):
+    if relatorio_core.esta_bloqueado(versao):
         if request.method == "GET":
             return '<p class="ea__panel-text">Relatório finalizado/bloqueado.</p>'
         flash(
@@ -1425,7 +1512,7 @@ def upload_conteudo(id_versao, id_capitulo):
         .order_by(EnvioConteudo.criado_em.desc())
         .first()
     )
-    capitulos_nav = ServicoRelatorio.listar_capitulos(id_versao)
+    capitulos_nav = relatorio_core.listar_capitulos(id_versao)
     return render_conteudo(
         ["components/capitulo/upload_docx.html"],
         versao_trabalho=versao,
@@ -1448,7 +1535,7 @@ def previa_envio(id_envio):
         return redirect(url_for("principal.index"))
 
     previas = envio.previsualizacoes
-    versao = ServicoRelatorio.obter_versao_trabalho(envio.id_relatorio)
+    versao = relatorio_core.obter_versao_trabalho(envio.id_relatorio)
 
     # Carregar sugestões do envio
     sugestoes = {}

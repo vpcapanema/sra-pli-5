@@ -384,53 +384,7 @@
                     </form>
                 </section>
 
-                {% if envio_pendente %}
-                <section class="ea__upload-card ea__upload-card--status">
-                    <div class="ea__upload-card-head">
-                        <div>
-                            <p class="ea__upload-kicker">Envio pendente</p>
-                            <h3 class="ea__upload-title">Último arquivo recebido</h3>
-                        </div>
-                    </div>
 
-                    <div class="ea__upload-status">
-                        <p>
-                            Arquivo enviado:
-                            <strong>{{ envio_pendente.nome_arquivo }}</strong>
-                        </p>
-                        <p>
-                            Situação:
-                            <span class="sra-badge sra-badge--{{ envio_pendente.status_envio }}">
-                                {{ envio_pendente.status_envio | replace('_', ' ') | capitalize }}
-                            </span>
-                        </p>
-                    </div>
-
-                    <div class="ea__upload-actions">
-                        <form method="POST"
-                              action="{{ url_for('relatorio.confirmar_envio', id_envio=envio_pendente.id_envio_conteudo, acao='importar') }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="ea__primary-btn">
-                                <i class="ph ph-check"></i>
-                                Importar conteúdo
-                            </button>
-                        </form>
-
-                        <form method="POST"
-                              action="{{ url_for('relatorio.confirmar_envio', id_envio=envio_pendente.id_envio_conteudo, acao='rejeitar') }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="ea__secondary-btn">
-                                <i class="ph ph-x"></i>
-                                Rejeitar e reenviar
-                            </button>
-                        </form>
-                    </div>
-
-                    <p class="ea__upload-help">
-                        A prévia completa continua disponível no fluxo de upload do capítulo.
-                    </p>
-                </section>
-                {% endif %}
             </div>
             {% else %}
             <div class="ea__upload-empty">
@@ -442,6 +396,103 @@
             {% endif %}
         </div>
     </section>
+
+    {% if envio_pendente %}
+    <section class="ea__preview-workbench"
+             id="ea-preview-workbench"
+             data-envio-id="{{ envio_pendente.id_envio_conteudo }}"
+             data-original-url="{{ url_for('relatorio.baixar_envio_docx_original', id_envio=envio_pendente.id_envio_conteudo) }}"
+             data-sugerido-url="{{ url_for('relatorio.envio_docx_sugerido', id_envio=envio_pendente.id_envio_conteudo) }}"
+             data-save-url="{{ url_for('relatorio.envio_docx_sugerido', id_envio=envio_pendente.id_envio_conteudo) }}"
+             data-diagnostico-url="{{ url_for('relatorio.diagnostico_envio', id_envio=envio_pendente.id_envio_conteudo) }}">
+        <div class="ea__preview-head">
+            <div>
+                <p class="ea__upload-kicker">Prévia de trabalho</p>
+                <h2 class="ea__preview-title">{{ envio_pendente.nome_arquivo }}</h2>
+            </div>
+            <span class="sra-badge sra-badge--{{ envio_pendente.status_envio }}">
+                {{ envio_pendente.status_envio | replace('_', ' ') | capitalize }}
+            </span>
+        </div>
+
+        <div class="ea__preview-grid">
+            <article class="ea__preview-pane">
+                <div class="ea__preview-pane-head">
+                    <h3>Conteúdo upado</h3>
+                    <div class="ea__mini-controls" data-preview-controls="original">
+                        <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
+                        <span data-zoom-value>100%</span>
+                        <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
+                        <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
+                        <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
+                    </div>
+                </div>
+                <div class="ea__docx-mini-mount" id="ea-upload-original-mount"></div>
+            </article>
+            <article class="ea__preview-pane">
+                <div class="ea__preview-pane-head">
+                    <h3>Conteúdo sugerido/editável</h3>
+                    <div class="ea__mini-controls" data-preview-controls="sugerido">
+                        <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
+                        <span data-zoom-value>100%</span>
+                        <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
+                        <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
+                        <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
+                    </div>
+                </div>
+                <div class="ea__docx-mini-mount" id="ea-upload-sugerido-mount"></div>
+            </article>
+        </div>
+
+        <div class="ea__diagnostico" id="ea-preview-diagnostico">
+            <strong>Diagnóstico e elementos extraídos</strong>
+            <p>Carregando diagnóstico...</p>
+        </div>
+
+        <div class="ea__preview-actions">
+            <button type="button" class="ea__primary-btn" id="ea-btnAbrirModalImportar">
+                <i class="ph ph-git-merge"></i>
+                Revisar e importar conteúdo
+            </button>
+            <form method="POST"
+                  action="{{ url_for('relatorio.rejeitar_envio_novo', id_envio=envio_pendente.id_envio_conteudo) }}"
+                  data-confirm
+                  data-confirm-message="Remover o upload e a prévia sugerida para enviar um novo DOCX?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="ea__secondary-btn">
+                    <i class="ph ph-trash"></i>
+                    Rejeitar e enviar novo conteúdo
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <div class="ea__modal" id="ea-modal-importar" hidden>
+        <div class="ea__modal-card">
+            <div class="ea__modal-head">
+                <h2>Revisar e importar conteúdo</h2>
+                <button type="button" class="ea__modal-close" data-modal-close>&times;</button>
+            </div>
+            <p>
+                O conteúdo sugerido/editado será mesclado no capítulo
+                <strong>{{ capitulo_selecionado.indice_capitulo or '—' }} {{ capitulo_selecionado.titulo_capitulo }}</strong>
+                do DOCX de produção.
+            </p>
+            <div class="ea__modal-preview" id="ea-modal-sugerido-mount"></div>
+            <div class="ea__modal-actions">
+                <button type="button" class="ea__secondary-btn" data-modal-close>Voltar</button>
+                <form method="POST"
+                      action="{{ url_for('relatorio.confirmar_envio', id_envio=envio_pendente.id_envio_conteudo, acao='importar') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="ea__primary-btn">
+                        <i class="ph ph-check"></i>
+                        Importar conteúdo
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="ea__body">
         <aside class="ea__commands">

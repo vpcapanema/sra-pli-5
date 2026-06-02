@@ -1,3 +1,5 @@
+"""Rotas de autenticação e recuperação de acesso."""
+
 from flask import (
     Blueprint, render_template, redirect,
     url_for, flash, request, session
@@ -15,18 +17,23 @@ class LoginForm(FlaskForm):
     """Formulário de login com CSRF protection."""
     email = StringField('E-mail', validators=[DataRequired(), Email()])
     senha = PasswordField('Senha', validators=[DataRequired()])
-    tipo_perfil = SelectField('Tipo de perfil', 
-                             choices=[('', 'Selecione...'),
-                                     ('admin', 'Administrador'),
-                                     ('coordenador', 'Coordenador'),
-                                     ('autor', 'Autor')],
-                             validators=[DataRequired()])
+    tipo_perfil = SelectField(
+        'Tipo de perfil',
+        choices=[
+            ('', 'Selecione...'),
+            ('admin', 'Administrador'),
+            ('coordenador', 'Coordenador'),
+            ('autor', 'Autor'),
+        ],
+        validators=[DataRequired()],
+    )
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    """Autentica usuário e define o perfil ativo na sessão."""
     form = LoginForm()
-    
+
     if form.validate_on_submit():
         email = form.email.data
         senha = form.senha.data
@@ -42,12 +49,13 @@ def login():
         login_user(usuario)
         session['perfil_ativo'] = perfil
         return redirect(url_for('principal.index'))
-    
+
     return render_template('login.html', form=form)
 
 
 @auth_bp.route('/recuperar-senha', methods=['GET', 'POST'])
 def recuperar_senha():
+    """Solicita envio de link para recuperação de senha."""
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         perfil = request.form.get('tipo_perfil')
@@ -67,6 +75,7 @@ def recuperar_senha():
     methods=['GET', 'POST']
 )
 def redefinir_senha(token):
+    """Redefine senha a partir de token de recuperação válido."""
     usuario = ServicoUsuario.obter_por_token_recuperacao(token)
     if not usuario or not usuario.ativo:
         flash('Link inválido ou expirado.', 'erro')
@@ -92,7 +101,7 @@ def redefinir_senha(token):
                 token=token
             )
 
-        user, erro = ServicoUsuario.redefinir_senha(
+        _, erro = ServicoUsuario.redefinir_senha(
             token, senha
         )
         if erro:
@@ -119,6 +128,7 @@ def redefinir_senha(token):
     methods=['GET', 'POST']
 )
 def ativar_conta(token):
+    """Ativa conta de usuário a partir de token válido."""
     usuario = ServicoUsuario.obter_por_token(token)
     if not usuario:
         flash('Link inválido ou já utilizado.', 'erro')
@@ -145,7 +155,7 @@ def ativar_conta(token):
                 usuario=usuario
             )
 
-        user, erro = ServicoUsuario.ativar_conta(
+        _, erro = ServicoUsuario.ativar_conta(
             token, senha
         )
         if erro:
@@ -172,5 +182,6 @@ def ativar_conta(token):
 @auth_bp.route('/logout')
 @login_required
 def logout():
+    """Encerra sessão do usuário autenticado."""
     logout_user()
     return redirect(url_for('auth.login'))

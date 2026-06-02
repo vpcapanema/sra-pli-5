@@ -240,7 +240,7 @@ def baixar_envio_segmento_docx(id_envio, id_capitulo):
         blob = gerar_segmento_docx(id_envio, id_capitulo)
     except ValueError as e:
         return jsonify({'erro': str(e)}), 400
-    except (OSError, ValueError, RuntimeError) as e:
+    except (OSError, RuntimeError) as e:
         return jsonify({'erro': f'Falha ao gerar segmento: {e}'}), 500
     if not blob:
         return ('', 204)
@@ -460,6 +460,8 @@ def _servir_docx_producao(vt, *, as_attachment: bool, nome: str):
             download_name=nome,
             mimetype=mimetype,
         )
+    if conteudo is None:
+        return jsonify({'erro': 'DOCX não disponível'}), 404
     return send_file(
         BytesIO(conteudo),
         as_attachment=as_attachment,

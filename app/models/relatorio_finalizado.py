@@ -7,6 +7,9 @@ class RelatorioFinalizado(db.Model):
     """Representa um relatório finalizado e exportado."""
     __tablename__ = 'relatorios_finalizados'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id = db.Column(db.Integer, primary_key=True)
     relatorio_id = db.Column(
         db.Integer,

@@ -7,6 +7,9 @@ class BibliotecaFormatacaoCanonica(db.Model, AuditoriaMixin):
 
     __tablename__ = 'bibliotecas_formatacao_canonica'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id_biblioteca_formatacao_canonica = db.Column(
         db.Integer, primary_key=True
     )

@@ -178,11 +178,14 @@ class EditorErrorBoundary extends React.Component {
  * Faz fetch da URL informada, transforma em ArrayBuffer e renderiza
  * o editor em modo "viewing" (leitura).
  */
-function FullDocxViewer({ url, mode = 'viewing' }) {
+function FullDocxViewer({ url, mode = 'viewing', saveUrl = null, csrfToken = '' }) {
     const [buffer, setBuffer] = useState(null);
     const [error, setError] = useState(null);
     const [editorFailed, setEditorFailed] = useState(false);
     const [failureMsg, setFailureMsg] = useState('');
+    const [dirty, setDirty] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const editorRef = useRef(null);
 
     // Modos válidos do @eigenpal/docx-editor-react.
     // Aceitar 'review' como alias legado para 'viewing'.
@@ -237,6 +240,28 @@ function FullDocxViewer({ url, mode = 'viewing' }) {
             </div>
         );
     }
+    const salvarDocx = async () => {
+        if (!saveUrl || !editorRef.current || saving) return;
+        setSaving(true);
+        try {
+            const salvo = await editorRef.current.save({ selective: false });
+            if (!salvo) throw new Error('Editor não retornou DOCX.');
+            const resp = await fetch(saveUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: salvo,
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            setDirty(false);
+        } catch (err) {
+            alert('Erro ao salvar DOCX: ' + ((err && err.message) || 'erro'));
+        }
+        setSaving(false);
+    };
+
     if (editorFailed) {
         return (
             <div className="ew__placeholder">
@@ -253,17 +278,48 @@ function FullDocxViewer({ url, mode = 'viewing' }) {
                 setEditorFailed(true);
             }}
         >
-            <EigenpalDocxEditor
-                documentBuffer={buffer}
-                mode={editorMode}
-                readOnly={editorMode === 'viewing'}
-                onError={(err) => {
-                    setFailureMsg(
-                        (err && err.message) || 'erro de renderização'
-                    );
-                    setEditorFailed(true);
-                }}
-            />
+            <div className="sra-docx-viewer">
+                {saveUrl && (
+                    <div className="sra-docx-editor__toolbar">
+                        <button
+                            className="btn--primary"
+                            onClick={salvarDocx}
+                            disabled={!dirty || saving}
+                        >
+                            {saving ? 'Salvando...' : 'Salvar alterações'}
+                        </button>
+                        {dirty && (
+                            <span className="sra-docx-editor__badge">
+                                Alterações não salvas
+                            </span>
+                        )}
+                    </div>
+                )}
+                <EigenpalDocxEditor
+                    ref={editorRef}
+                    documentBuffer={buffer}
+                    mode={editorMode}
+                    readOnly={editorMode === 'viewing'}
+                    onChange={() => setDirty(true)}
+                    onSave={(salvo) => {
+                        if (!saveUrl || !salvo) return;
+                        fetch(saveUrl, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                'X-CSRF-Token': csrfToken,
+                            },
+                            body: salvo,
+                        }).then(() => setDirty(false));
+                    }}
+                    onError={(err) => {
+                        setFailureMsg(
+                            (err && err.message) || 'erro de renderização'
+                        );
+                        setEditorFailed(true);
+                    }}
+                />
+            </div>
         </EditorErrorBoundary>
     );
 }

@@ -3,7 +3,11 @@ from app.models.mixins import AuditoriaMixin
 
 
 class PrevisualizacaoConteudo(db.Model, AuditoriaMixin):
+    """Pré-visualização gerada para um envio de conteúdo."""
     __tablename__ = 'previsualizacoes_conteudo'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     id_previsualizacao_conteudo = db.Column(db.Integer, primary_key=True)
     id_envio_conteudo = db.Column(

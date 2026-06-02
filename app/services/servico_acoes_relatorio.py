@@ -125,6 +125,7 @@ def _h_sincronizar_capitulos(rel, perfil):
 
     Integra classificacao de capitulos e mapeamento de secoes OOXML.
     """
+    del perfil
     from app.services.servico_sincronizar_capitulos import (
         ressincronizar_capitulos_com_classificacao,
     )
@@ -212,6 +213,7 @@ def _h_validar_estrutura(rel, perfil):
 
 def _h_gerar_final(rel, perfil):
     """Delega ao servico de finalizacao. Bloqueia futuras edicoes."""
+    del perfil
     from app.services.servico_finalizar_relatorio import finalizar
     rf = finalizar(id_relatorio=rel.id, id_usuario=current_user.id)
     checksum_curto = (rf.checksum_docx or '')[:8]
@@ -469,8 +471,8 @@ def validar_pre_execucao(acao: Acao, rel, perfil_ativo: str):
         )
 
     if acao.bloqueia_se_finalizado:
-        from app.services.servico_relatorio import ServicoRelatorio
-        if ServicoRelatorio.esta_bloqueado(rel):
+        from app.services import servico_relatorio_core as relatorio_core
+        if relatorio_core.esta_bloqueado(rel):
             return False, (
                 f'Relatório finalizado — não é possível executar '
                 f'"{acao.label}".'

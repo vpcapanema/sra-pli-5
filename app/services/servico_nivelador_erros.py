@@ -6,12 +6,13 @@ de exceções e retorno estruturado de erros, incluindo contexto e sugestões.
 Propriedade 1 do design: Rastreabilidade Estruturada de Erros - toda operação
 que falha retorna dict estruturado com sucesso=False, erro, sugestões.
 """
+
 from __future__ import annotations
 
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 
 class ServicoNiveladorErros:
@@ -88,15 +89,15 @@ class ServicoNiveladorErros:
         """
         sugestoes = []
         tipo_excecao = type(excecao)
-        
+
         # Verifica mapeamento direto
         if tipo_excecao in ServicoNiveladorErros._SUGESTOES_PADRAO:
             sugestoes.append(ServicoNiveladorErros._SUGESTOES_PADRAO[tipo_excecao])
-        
+
         # Adiciona sugestão genérica se não houver específica
         if not sugestoes:
             sugestoes.append("Verifique os dados fornecidos e tente novamente.")
-        
+
         return sugestoes
 
     @staticmethod
@@ -123,64 +124,61 @@ class ServicoNiveladorErros:
         """
         # Sanitizar mensagem de erro para remover informações sensíveis
         mensagem_erro = ServicoNiveladorErros._sanitizar_mensagem_erro(str(excecao))
-        
+
         return {
-            'sucesso': False,
-            'erro': mensagem_erro,
-            'tipo_erro': type(excecao).__name__,
-            'etapa': etapa,
-            'relatorio_id': relatorio_id,
-            'capitulo_id': capitulo_id,
-            'usuario_id': usuario_id,
-            'sugestoes': sugestoes or [],
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            "sucesso": False,
+            "erro": mensagem_erro,
+            "tipo_erro": type(excecao).__name__,
+            "etapa": etapa,
+            "relatorio_id": relatorio_id,
+            "capitulo_id": capitulo_id,
+            "usuario_id": usuario_id,
+            "sugestoes": sugestoes or [],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     @staticmethod
     def _sanitizar_mensagem_erro(mensagem: str) -> str:
         """Remove informações sensíveis da mensagem de erro.
-        
+
         Property 9: Segurança em Mensagens de Erro - mensagens NÃO devem
         conter caminhos absolutos, dados sensíveis (senhas, tokens) ou
         stack traces internas.
-        
+
         Args:
             mensagem: Mensagem de erro original.
-            
+
         Returns:
             str: Mensagem sanitizada.
         """
         # Padrões de informações sensíveis
         padroes_sensiveis = [
             # Caminhos absolutos
-            (r'/[^/\s]+(/[^/\s]+)*\.\w+', 'arquivo'),
-            (r'[A-Za-z]:\\[^\\]+(\\[^\\]+)*\.\w+', 'arquivo'),
-            (r'/home/[^/\s]+/', 'diretório do usuário'),
-            (r'/etc/', 'diretório de configuração'),
-            (r'/var/', 'diretório do sistema'),
-            
+            (r"/[^/\s]+(/[^/\s]+)*\.\w+", "arquivo"),
+            (r"[A-Za-z]:\\[^\\]+(\\[^\\]+)*\.\w+", "arquivo"),
+            (r"/home/[^/\s]+/", "diretório do usuário"),
+            (r"/etc/", "diretório de configuração"),
+            (r"/var/", "diretório do sistema"),
             # Credenciais e tokens
-            (r'Token:\s*\S+', 'token'),
-            (r'API[_-]?[Kk]ey:\s*\S+', 'chave de API'),
-            (r'[Ss]ecret:\s*\S+', 'segredo'),
-            (r'[Pp]assword=\S+', 'senha'),
-            (r'[Pp]wd=\S+', 'senha'),
-            (r'API Key:\s*\S+', 'chave de API'),
-            
+            (r"Token:\s*\S+", "token"),
+            (r"API[_-]?[Kk]ey:\s*\S+", "chave de API"),
+            (r"[Ss]ecret:\s*\S+", "segredo"),
+            (r"[Pp]assword=\S+", "senha"),
+            (r"[Pp]wd=\S+", "senha"),
+            (r"API Key:\s*\S+", "chave de API"),
             # URLs com credenciais
-            (r'://[^:]+:[^@]+@', 'credenciais em URL'),
-            
+            (r"://[^:]+:[^@]+@", "credenciais em URL"),
             # Endereços IP internos
-            (r'\b(?:10\.|127\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)\d{1,3}\.\d{1,3}\b', 'endereço IP interno'),
+            (r"\b(?:10\.|127\.|172\.(?:1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)\d{1,3}\.\d{1,3}\b", "endereço IP interno"),
         ]
-        
+
         mensagem_sanitizada = mensagem
-        
+
         for padrao, tipo in padroes_sensiveis:
             if re.search(padrao, mensagem_sanitizada):
                 # Substituir por descrição genérica
-                mensagem_sanitizada = re.sub(padrao, f'[{tipo} removido por segurança]', mensagem_sanitizada)
-        
+                mensagem_sanitizada = re.sub(padrao, f"[{tipo} removido por segurança]", mensagem_sanitizada)
+
         return mensagem_sanitizada
 
     @staticmethod
@@ -191,21 +189,18 @@ class ServicoNiveladorErros:
             dict_erro: Dicionário estruturado de erro.
         """
         logger = logging.getLogger(__name__)
-        
-        mensagem = (
-            f"Erro na etapa '{dict_erro.get('etapa', 'N/A')}': "
-            f"{dict_erro['tipo_erro']} - {dict_erro['erro']}"
-        )
-        
+
+        mensagem = f"Erro na etapa '{dict_erro.get('etapa', 'N/A')}': " f"{dict_erro['tipo_erro']} - {dict_erro['erro']}"
+
         contexto = {
-            'relatorio_id': dict_erro.get('relatorio_id'),
-            'capitulo_id': dict_erro.get('capitulo_id'),
-            'usuario_id': dict_erro.get('usuario_id'),
-            'sugestoes': dict_erro.get('sugestoes', []),
-            'timestamp': dict_erro.get('timestamp'),
+            "relatorio_id": dict_erro.get("relatorio_id"),
+            "capitulo_id": dict_erro.get("capitulo_id"),
+            "usuario_id": dict_erro.get("usuario_id"),
+            "sugestoes": dict_erro.get("sugestoes", []),
+            "timestamp": dict_erro.get("timestamp"),
         }
-        
-        logger.error(mensagem, extra={'contexto': contexto})
+
+        logger.error(mensagem, extra={"contexto": contexto})
 
     @staticmethod
     def adicionar_sugestao_padrao(

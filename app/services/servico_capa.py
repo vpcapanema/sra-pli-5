@@ -466,6 +466,7 @@ def atualizar_capa(
     Retorna dict {'sucesso': bool, 'shape_atualizado': str | None,
                   'avisos': [str]}.
     """
+    del perfil
     doc = Document(caminho_docx)
     body = doc.element.body
     avisos = []
@@ -569,6 +570,7 @@ def atualizar_folha_rosto(
     (ex.: CONTRATACAO, FINANCIAMENTO costumam ser fixos do
     contrato e ja vem corretos no template).
     """
+    del perfil
     doc = Document(caminho_docx)
     body = doc.element.body
     avisos = []
@@ -672,6 +674,7 @@ def atualizar_controle_versoes(
     `descricao_modificacoes` default = 'Versao inicial' se for R00,
     senao 'Atualizacao automatica'.
     """
+    del perfil
     doc = Document(caminho_docx)
     body = doc.element.body
     avisos = []

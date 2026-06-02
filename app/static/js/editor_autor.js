@@ -416,6 +416,157 @@
         }
     }
 
+    function csrfToken() {
+        var input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
+    }
+
+    var previewHandles = {};
+    var previewZoom = { original: 100, sugerido: 100 };
+
+    function previewUrl(url) {
+        return url + (url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+    }
+
+    function montarPreviewDocx(tipo, forceReload) {
+        var workbench = document.getElementById('ea-preview-workbench');
+        if (!workbench || !window.SRADocxEditor || !window.SRADocxEditor.mountFullViewer) {
+            return;
+        }
+        var mountId = tipo === 'original'
+            ? 'ea-upload-original-mount'
+            : 'ea-upload-sugerido-mount';
+        var mount = document.getElementById(mountId);
+        if (!mount) return;
+        if (previewHandles[tipo] && window.SRADocxEditor.unmountFullViewer) {
+            window.SRADocxEditor.unmountFullViewer(previewHandles[tipo]);
+            previewHandles[tipo] = null;
+        }
+        mount.innerHTML = '<div class="ea__viewer-loading"><i class="ph ph-spinner ph-spin"></i> Carregando...</div>';
+        var url = tipo === 'original'
+            ? workbench.dataset.originalUrl
+            : workbench.dataset.sugeridoUrl;
+        previewHandles[tipo] = window.SRADocxEditor.mountFullViewer(mountId, {
+            url: forceReload ? previewUrl(url) : url,
+            saveUrl: tipo === 'sugerido' ? workbench.dataset.saveUrl : null,
+            csrfToken: csrfToken(),
+            mode: tipo === 'sugerido' ? 'editing' : 'viewing',
+        });
+        setTimeout(function () {
+            aplicarZoomPreview(tipo, previewZoom[tipo]);
+        }, 500);
+    }
+
+    function montarPreviewUpload() {
+        var workbench = document.getElementById('ea-preview-workbench');
+        if (!workbench || !window.SRADocxEditor || !window.SRADocxEditor.mountFullViewer) {
+            return;
+        }
+        montarPreviewDocx('original', false);
+        montarPreviewDocx('sugerido', false);
+        configurarControlesPreview();
+        carregarDiagnosticoPreview(workbench.dataset.diagnosticoUrl);
+        configurarModalImportar(workbench.dataset.sugeridoUrl);
+    }
+
+    function aplicarZoomPreview(tipo, percent) {
+        var mountId = tipo === 'original'
+            ? 'ea-upload-original-mount'
+            : 'ea-upload-sugerido-mount';
+        var mount = document.getElementById(mountId);
+        if (!mount) return;
+        var alvo = mount.querySelector('.sra-docx-viewer')
+            || mount.querySelector('.docx-editor')
+            || mount.firstElementChild;
+        if (!alvo) return;
+        alvo.style.transform = 'scale(' + (percent / 100) + ')';
+        alvo.style.transformOrigin = 'top center';
+        alvo.style.width = percent === 100 ? '' : (10000 / percent) + '%';
+    }
+
+    function configurarControlesPreview() {
+        document.querySelectorAll('[data-preview-controls]').forEach(function (box) {
+            var tipo = box.getAttribute('data-preview-controls');
+            var value = box.querySelector('[data-zoom-value]');
+            function setZoom(percent) {
+                previewZoom[tipo] = Math.max(50, Math.min(200, percent));
+                if (value) value.textContent = previewZoom[tipo] + '%';
+                aplicarZoomPreview(tipo, previewZoom[tipo]);
+            }
+            box.querySelectorAll('[data-zoom]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var acao = btn.getAttribute('data-zoom');
+                    if (acao === 'out') setZoom(previewZoom[tipo] - 10);
+                    if (acao === 'in') setZoom(previewZoom[tipo] + 10);
+                    if (acao === 'reset') setZoom(100);
+                });
+            });
+            var reload = box.querySelector('[data-reload]');
+            if (reload) {
+                reload.addEventListener('click', function () {
+                    montarPreviewDocx(tipo, true);
+                });
+            }
+        });
+    }
+
+    function carregarDiagnosticoPreview(url) {
+        var box = document.getElementById('ea-preview-diagnostico');
+        if (!box || !url) return;
+        fetch(url)
+            .then(function (resp) { return resp.json(); })
+            .then(function (dados) {
+                var estrutura = dados.estrutura || {};
+                var caps = estrutura.capitulos || [];
+                var arvore = estrutura.arvore_estrutural || [];
+                var pendentes = estrutura.renomeacoes_pendentes || [];
+                var automaticas = estrutura.renomeacoes_automaticas_pendentes || [];
+                box.innerHTML = ''
+                    + '<strong>Diagnóstico e elementos extraídos</strong>'
+                    + '<div class="ea__diag-grid">'
+                    + '<span>Capítulos: <b>' + caps.length + '</b></span>'
+                    + '<span>Estrutura: <b>' + arvore.length + '</b></span>'
+                    + '<span>Renomeações pendentes: <b>' + pendentes.length + '</b></span>'
+                    + '<span>Renomeações automáticas: <b>' + automaticas.length + '</b></span>'
+                    + '</div>'
+                    + '<pre class="ea__diag-json"></pre>';
+                var pre = box.querySelector('pre');
+                pre.textContent = JSON.stringify(estrutura, null, 2);
+            })
+            .catch(function () {
+                box.innerHTML = '<strong>Diagnóstico</strong><p>Não foi possível carregar.</p>';
+            });
+    }
+
+    function configurarModalImportar(sugeridoUrl) {
+        var btn = document.getElementById('ea-btnAbrirModalImportar');
+        var modal = document.getElementById('ea-modal-importar');
+        if (!btn || !modal) return;
+        var modalHandle = null;
+
+        function fechar() {
+            modal.hidden = true;
+            if (modalHandle && window.SRADocxEditor.unmountFullViewer) {
+                window.SRADocxEditor.unmountFullViewer(modalHandle);
+                modalHandle = null;
+            }
+        }
+
+        btn.addEventListener('click', function () {
+            modal.hidden = false;
+            if (!modalHandle && window.SRADocxEditor.mountFullViewer) {
+                modalHandle = window.SRADocxEditor.mountFullViewer('ea-modal-sugerido-mount', {
+                    url: sugeridoUrl,
+                    mode: 'viewing',
+                });
+            }
+        });
+
+        modal.querySelectorAll('[data-modal-close]').forEach(function (el) {
+            el.addEventListener('click', fechar);
+        });
+    }
+
     /**
      * Inicialização
      */
@@ -427,6 +578,7 @@
         configurarCapitulosLivres();
         setupAttributionForm();
         montarEditor(false);
+        montarPreviewUpload();
 
         if (typeof SRALogger !== 'undefined') {
             SRALogger.info('[ea-editor-autor] inicializado completamente');

@@ -25,7 +25,7 @@ from app.services.servico_configuracoes import (
     excluir_relatorio_base as excluir_relatorio_base_service,
     excluir_relatorio_finalizado as excluir_relatorio_finalizado_service,
 )
-from app.services.servico_relatorio import ServicoRelatorio
+from app.services import servico_relatorio_core as relatorio_core
 from app.utils.htmx import render_conteudo
 
 configuracoes_bp = Blueprint(
@@ -137,7 +137,7 @@ def biblioteca_relatorios_base():
     """Biblioteca de relatórios base — visualização de relatórios."""
     try:
         relatorios_finalizados = \
-            ServicoRelatorio.listar_relatorios_finalizados()
+            relatorio_core.listar_relatorios_finalizados()
     except SQLAlchemyError as e:
         flash(f'Erro ao carregar relatórios base: {str(e)}', 'erro')
         relatorios_finalizados = []
@@ -219,7 +219,7 @@ def editar_relatorio_finalizado_inline(id_relatorio):
                 'numero_medicao': relatorio.numero_medicao,
             }
         })
-    except Exception as e:
+    except (SQLAlchemyError, ValueError, TypeError) as e:
         return jsonify(
             {'erro': f'Erro ao atualizar: {e}'}
         ), 500

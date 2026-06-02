@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Optional
 
 from docx.oxml.ns import qn
-from lxml import etree
+import lxml.etree as etree
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -75,6 +75,12 @@ def criar_run_texto(texto: str, preservar_espaco: bool = True):
         t.set(*XML_SPACE_PRESERVE)
     t.text = texto
     return r
+
+
+def texto_paragrafo(p_element, *, strip: bool = False) -> str:
+    """Extrai texto plano de um paragrafo OOXML concatenando todos os w:t."""
+    texto = ''.join(t.text or '' for t in p_element.iter(qn('w:t')))
+    return texto.strip() if strip else texto
 
 
 def criar_runs_campo(

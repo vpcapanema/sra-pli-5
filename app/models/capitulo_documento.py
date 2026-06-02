@@ -22,6 +22,9 @@ class CapituloDocumento(db.Model, AuditoriaMixin):
     """Capítulo conceitual associado a uma versão de relatório."""
     __tablename__ = 'capitulos_documento'
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     id_capitulo_documento = db.Column(db.Integer, primary_key=True)
     id_relatorio = db.Column(
         db.Integer,

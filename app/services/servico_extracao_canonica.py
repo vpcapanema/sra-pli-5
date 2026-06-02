@@ -7,6 +7,7 @@ de formatação, gerando um JSON canônico pronto para consumo.
 import json
 import os
 import re
+import tempfile
 
 from docx import Document
 
@@ -104,7 +105,7 @@ class ServicoExtracaoCanonica:
                     'secoes_indices': [],
                     'detalhe': capa_detalhada,
                 })
-        except Exception as exc:  # pragma: no cover - extracao opcional
+        except (AttributeError, OSError, RuntimeError, ValueError) as exc:
             # A capa detalhada e enriquecimento, nao bloqueia extracao
             for bloco in macro:
                 if bloco.get('tipo') == 'capa':
@@ -474,9 +475,11 @@ class ServicoExtracaoCanonica:
                 p = item.get('posicao', '')
                 if p:
                     posicoes[p] = posicoes.get(p, 0) + 1
-            est_top = max(estilos, key=estilos.get)
-            pos_top = (max(posicoes, key=posicoes.get)
-                       if posicoes else None)
+            est_top = max(estilos.items(), key=lambda item: item[1])[0]
+            pos_top = (
+                max(posicoes.items(), key=lambda item: item[1])[0]
+                if posicoes else None
+            )
             return {
                 'estilo_predominante': est_top,
                 'posicao_predominante': pos_top,
@@ -877,3 +880,16 @@ class ServicoExtracaoCanonica:
     def _emu_para_mm(emu_val):
         """Converte EMU (no contexto pgSz em twips) para mm."""
         return round(emu_val * 25.4 / 1440, 2)
+
+
+def validar_estrutura_canonica(caminho_docx, perfil=None):
+    """Valida a estrutura canônica básica de um DOCX."""
+    del perfil
+    problemas = []
+    with tempfile.TemporaryDirectory() as diretorio_saida:
+        dados = ServicoExtracaoCanonica.extrair(caminho_docx, diretorio_saida)
+    if not dados.get('capitulos'):
+        problemas.append('Nenhum capítulo canônico encontrado.')
+    if not dados.get('formatacao'):
+        problemas.append('Formatação canônica não extraída.')
+    return {'problemas': problemas}

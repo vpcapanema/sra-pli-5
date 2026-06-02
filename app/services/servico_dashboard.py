@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import os
 
-from sqlalchemy.orm import joinedload
-
 from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.envio_conteudo import EnvioConteudo
 from app.models.relatorio_finalizado import RelatorioFinalizado
@@ -41,11 +39,6 @@ def _listar_arquivos_relatorios_base():
 def _listar_envios_dashboard(perfil_ativo, id_usuario):
     envios_query = (
         EnvioConteudo.query
-        .options(
-            joinedload(EnvioConteudo.relatorio),
-            joinedload(EnvioConteudo.capitulo_destino),
-            joinedload(EnvioConteudo.criador),
-        )
         .order_by(EnvioConteudo.criado_em.desc())
     )
     if perfil_ativo == 'autor':

@@ -9,7 +9,7 @@ from app.models.capitulo_documento import CapituloDocumento
 from app.models.dominio import Dominio
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.usuario import Usuario
-from app.services.servico_relatorio import ServicoRelatorio
+from app.services import servico_relatorio_core as relatorio_core
 from app.services.servico_acoes_relatorio import listar_por_grupo
 from app.services.servico_sincronizar_capitulos import (
     ressincronizar_capitulos_com_classificacao,
@@ -46,7 +46,7 @@ def listar_panorama_relatorios():
 
 def obter_contexto_detalhe_versao(id_versao):
     """Monta o contexto da tela de detalhe da versao de trabalho."""
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         return None
 
@@ -57,7 +57,7 @@ def obter_contexto_detalhe_versao(id_versao):
 
     return {
         "versao_trabalho": versao,
-        "capitulos": ServicoRelatorio.listar_capitulos(id_versao),
+        "capitulos": relatorio_core.listar_capitulos(id_versao),
         "capitulos_flat": capitulos_flat,
         "bibliotecas_disponiveis": (
             BibliotecaFormatacaoCanonica.query.filter_by(ativa=True).all()
@@ -77,7 +77,7 @@ def obter_contexto_editor_coordenador(id_versao, perfil_ativo, logger):
             return None, todos_relatorios
         id_versao = todos_relatorios[0].id
 
-    versao = ServicoRelatorio.obter_versao_trabalho(id_versao)
+    versao = relatorio_core.obter_versao_trabalho(id_versao)
     if not versao:
         return None, todos_relatorios
 
@@ -102,13 +102,13 @@ def obter_contexto_editor_coordenador(id_versao, perfil_ativo, logger):
                 exc,
             )
 
-    rel_bloqueado = ServicoRelatorio.esta_bloqueado(versao)
+    rel_bloqueado = relatorio_core.esta_bloqueado(versao)
     return {
         "versao": versao,
         "todos_relatorios": todos_relatorios,
         "bibliotecas": bibliotecas,
         "biblioteca_atual": biblioteca_atual,
-        "capitulos": ServicoRelatorio.listar_capitulos_ordenados(versao.id),
+        "capitulos": relatorio_core.listar_capitulos_ordenados(versao.id),
         "rel_bloqueado": rel_bloqueado,
         "grupos_acoes": listar_por_grupo(
             perfil_ativo=perfil_ativo or "",

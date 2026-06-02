@@ -3,7 +3,11 @@ from app.models.mixins import AuditoriaMixin
 
 
 class Notificacao(db.Model, AuditoriaMixin):
+    """Notificação destinada a um usuário."""
     __tablename__ = 'notificacoes'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     id_notificacao = db.Column(db.Integer, primary_key=True)
     id_usuario_destino = db.Column(

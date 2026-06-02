@@ -18,16 +18,19 @@ A fonte única de verdade do conteúdo é o `.docx` em produção em
 """
 from __future__ import annotations
 
+import difflib
 import re
 import unicodedata
 from io import BytesIO
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional
 
-from lxml import etree
+import lxml.etree as etree
 
 from docx import Document
 from docxcompose.composer import Composer
 
+from app.models.capitulo_documento import CapituloDocumento
+from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo_base
 from app.services.servico_nivelador_erros import ServicoNiveladorErros
 
 
@@ -93,24 +96,20 @@ def _eh_paragrafo_heading(p_element) -> Optional[int]:
 
 def _texto_paragrafo(p_element) -> str:
     """Extrai texto plano de um `<w:p>` (concatena todos os `<w:t>`)."""
-    pedacos = []
-    for t in p_element.iter(f'{{{W_NS}}}t'):
-        if t.text:
-            pedacos.append(t.text)
-    return ''.join(pedacos).strip()
+    return _texto_paragrafo_base(p_element, strip=True)
 
 
 def _calcular_range_respeitando_secao(doc, indice_inicio: int, nivel_inicio: int) -> dict:
     """Calcula range respeitando limites de seção.
-    
-    Encontra próximo heading de nível ≤ nivel_inicio, respeitando quebras 
+
+    Encontra próximo heading de nível ≤ nivel_inicio, respeitando quebras
     de seção (sectPr). Retorna dict com informações do range.
-    
+
     Args:
         doc: Documento python-docx
         indice_inicio: Índice do elemento de início (heading do capítulo)
         nivel_inicio: Nível do heading do capítulo
-        
+
     Returns:
         Dict com:
             - inicio: índice do heading do capítulo
@@ -121,22 +120,22 @@ def _calcular_range_respeitando_secao(doc, indice_inicio: int, nivel_inicio: int
     """
     body = doc.element.body
     total_elementos = len(body)
-    
+
     # Encontrar a seção atual (procurar sectPr anterior mais próximo)
     secao_atual = 0
     for i in range(indice_inicio, -1, -1):
         if body[i].tag == f'{{{W_NS}}}sectPr':
             secao_atual = i
             break
-    
+
     # Procurar fim: próximo heading de nível ≤ nivel_inicio OU próximo sectPr
     fim = None
     encontrou_limite_secao = False
     secao_fim = secao_atual
-    
+
     for j in range(indice_inicio + 1, total_elementos):
         child = body[j]
-        
+
         # Verificar se é sectPr (fim da seção atual)
         if child.tag == f'{{{W_NS}}}sectPr':
             fim = j - 1
@@ -144,14 +143,14 @@ def _calcular_range_respeitando_secao(doc, indice_inicio: int, nivel_inicio: int
             # A seção termina neste sectPr
             secao_fim = j
             break
-        
+
         # Verificar se é heading de nível ≤ nivel_inicio
         if child.tag == f'{{{W_NS}}}p':
             nivel_j = _eh_paragrafo_heading(child)
             if nivel_j is not None and nivel_j <= nivel_inicio:
                 fim = j - 1
                 break
-    
+
     # Se não encontrou limite, vai até o final (excluindo sectPr final)
     if fim is None:
         # Encontrar último elemento que não é sectPr
@@ -161,7 +160,7 @@ def _calcular_range_respeitando_secao(doc, indice_inicio: int, nivel_inicio: int
                 break
         if fim is None:
             fim = indice_inicio
-    
+
     return {
         'inicio': indice_inicio,
         'fim': fim,
@@ -256,11 +255,11 @@ def localizar_range_capitulo(doc, capitulo, relatorio_id=None, capitulo_id=None)
         capitulo_id=capitulo_id,
         etapa='localizacao_capitulo'
     )
-    
+
     # Se o resultado é um dict de erro, retorna None
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return None
-    
+
     return resultado
 
 
@@ -326,11 +325,11 @@ def listar_subheadings_no_range(
         capitulo_id=capitulo_id,
         etapa='listagem_subheadings'
     )
-    
+
     # Se o resultado é um dict de erro, retorna lista vazia
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return []
-    
+
     return resultado
 
 
@@ -340,8 +339,6 @@ def _sincronizar_subcapitulos_interno(
     caminho_docx: str,
 ) -> dict:
     """Implementação interna de sincronizar_subcapitulos."""
-    from app.models.capitulo_documento import CapituloDocumento
-
     doc = Document(caminho_docx)
     rng = localizar_range_capitulo(doc, capitulo_pai)
     if rng is None:
@@ -450,11 +447,11 @@ def sincronizar_subcapitulos(
         capitulo_id=capitulo_id,
         etapa='sincronizacao_subcapitulos'
     )
-    
+
     # Se o resultado é um dict de erro, retorna dict de erro
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return resultado
-    
+
     return resultado
 
 
@@ -531,11 +528,11 @@ def extrair_capitulo_como_docx(
         capitulo_id=capitulo_id,
         etapa='extracao_capitulo_docx'
     )
-    
+
     # Se o resultado é um dict de erro, retorna None
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return None
-    
+
     return resultado
 
 
@@ -613,11 +610,11 @@ def atualizar_titulo_capitulo(
         capitulo_id=capitulo_id,
         etapa='atualizacao_titulo_capitulo'
     )
-    
+
     # Se o resultado é um dict de erro, retorna False
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return False
-    
+
     return resultado
 
 
@@ -629,7 +626,7 @@ def _substituir_capitulo_interno(
     preservar_heading: bool = True,
 ) -> dict | bool:
     """Implementação interna de substituir_capitulo.
-    
+
     Returns:
         dict ou bool: Retorna dict de erro com 'sugestoes' se capítulo não encontrado,
                       ou True se bem-sucedido, ou False se erro na substituição.
@@ -647,7 +644,7 @@ def _substituir_capitulo_interno(
             'sugestoes': resultado_localizacao.get('alternativas', []),
             'diagnostico': resultado_localizacao.get('diagnostico', 'Capítulo não encontrado')
         }
-    
+
     inicio = resultado_localizacao['inicio']
     fim = resultado_localizacao['fim']
 
@@ -747,19 +744,31 @@ def substituir_capitulo(
         capitulo_id=capitulo_id,
         etapa='substituicao_capitulo'
     )
-    
+
     # Se o resultado é um dict de erro, retorna o dict com sugestões
     if isinstance(resultado, dict) and not resultado.get('sucesso', True):
         return resultado
-    
+
     # Se é True (sucesso)
     if resultado is True:
         return True
-    
+
     # Se é False ou outro tipo, retorna False
     return False
 
-import difflib
+
+def remover_capitulo_do_docx(caminho_docx: str, capitulo) -> bool:
+    """Remove o range de um capítulo do DOCX de produção."""
+    doc = Document(caminho_docx)
+    rng = localizar_range_capitulo(doc, capitulo)
+    if rng is None:
+        return False
+    inicio, fim = rng
+    body = doc.element.body
+    for idx in range(fim, inicio - 1, -1):
+        body.remove(body[idx])
+    doc.save(caminho_docx)
+    return True
 
 
 def _match_fuzzy(
@@ -768,15 +777,15 @@ def _match_fuzzy(
     max_distancia_edicao: int = 2
 ) -> dict:
     """Match por fuzzy (distância de edição).
-    
+
     Procura heading com distância de Levenshtein ≤ max_distancia_edicao
     em relação ao título normalizado do capítulo.
-    
+
     Args:
         doc: Documento python-docx
         capitulo: Objeto CapituloDocumento com título a buscar
         max_distancia_edicao: Distância máxima de edição permitida (default: 2)
-        
+
     Returns:
         Dict com:
             - encontrado: bool
@@ -786,8 +795,6 @@ def _match_fuzzy(
             - diagnostico: str
             - alternativas: list de dicts com melhores matches
     """
-    from app.models.capitulo_documento import CapituloDocumento
-    
     # Normalizar título do capítulo
     titulo_alvo = _normalizar(capitulo.titulo_capitulo)
     if not titulo_alvo:
@@ -799,11 +806,11 @@ def _match_fuzzy(
             'diagnostico': 'Título do capítulo vazio após normalização',
             'alternativas': []
         }
-    
+
     # Coletar todos os headings do documento
     body = doc.element.body
     headings = []
-    
+
     for i, child in enumerate(body):
         if child.tag != f'{{{W_NS}}}p':
             continue
@@ -820,7 +827,7 @@ def _match_fuzzy(
             'texto_normalizado': texto_norm,
             'nivel': nivel
         })
-    
+
     if not headings:
         return {
             'encontrado': False,
@@ -830,20 +837,20 @@ def _match_fuzzy(
             'diagnostico': 'Nenhum heading encontrado no documento',
             'alternativas': []
         }
-    
+
     # Calcular similaridade para cada heading
     matches = []
     for heading in headings:
         texto_norm = heading['texto_normalizado']
-        
+
         # Usar SequenceMatcher para calcular similaridade
         ratio = difflib.SequenceMatcher(None, titulo_alvo, texto_norm).ratio()
-        
+
         # Calcular distância de edição aproximada
         # Para strings curtas, podemos estimar: distância ≈ (1 - ratio) * max(len(a), len(b))
         max_len = max(len(titulo_alvo), len(texto_norm))
         distancia_estimada = int((1 - ratio) * max_len)
-        
+
         if distancia_estimada <= max_distancia_edicao:
             # Mapear ratio para confiança 0.5-0.9
             # ratio 0.8-1.0 → confiança 0.7-0.9
@@ -854,10 +861,10 @@ def _match_fuzzy(
                 confianca = 0.5 + (ratio - 0.6) * 1.0  # 0.5-0.7
             else:
                 confianca = 0.5
-            
+
             # Limitar confiança entre 0.5 e 0.9
             confianca = max(0.5, min(0.9, confianca))
-            
+
             matches.append({
                 'indice': heading['indice'],
                 'texto_original': heading['texto_original'],
@@ -867,10 +874,10 @@ def _match_fuzzy(
                 'distancia_estimada': distancia_estimada,
                 'confianca': confianca
             })
-    
+
     # Ordenar por confiança (maior primeiro)
     matches.sort(key=lambda x: x['confianca'], reverse=True)
-    
+
     if matches:
         melhor = matches[0]
         # Preparar alternativas (melhores 3 matches)
@@ -885,7 +892,7 @@ def _match_fuzzy(
                 'distancia_estimada': match['distancia_estimada'],
                 'nivel': match['nivel']
             })
-        
+
         return {
             'encontrado': True,
             'indice': melhor['indice'],
@@ -903,7 +910,7 @@ def _match_fuzzy(
             ratio = difflib.SequenceMatcher(None, titulo_alvo, texto_norm).ratio()
             max_len = max(len(titulo_alvo), len(texto_norm))
             distancia_estimada = int((1 - ratio) * max_len)
-            
+
             todas_matches.append({
                 'indice': heading['indice'],
                 'texto_original': heading['texto_original'],
@@ -913,7 +920,7 @@ def _match_fuzzy(
                 'distancia_estimada': distancia_estimada,
                 'confianca': ratio  # Usar ratio como confiança para ordenação
             })
-        
+
         todas_matches.sort(key=lambda x: x['confianca'], reverse=True)
         alternativas = []
         for i, match in enumerate(todas_matches[:3]):
@@ -926,7 +933,7 @@ def _match_fuzzy(
                 'distancia_estimada': match['distancia_estimada'],
                 'nivel': match['nivel']
             })
-        
+
         return {
             'encontrado': False,
             'indice': None,
@@ -943,12 +950,12 @@ def _match_exato(
     headings_cache: dict = None
 ) -> dict:
     """Match por casamento exato de estilo + título + nível.
-    
+
     Args:
         doc: Documento python-docx
         capitulo: Objeto CapituloDocumento com título a buscar
         headings_cache: Cache opcional de headings para performance
-        
+
     Returns:
         Dict com:
             - encontrado: bool
@@ -958,13 +965,11 @@ def _match_exato(
             - diagnostico: str
             - alternativas: list vazia (não aplicável para match exato)
     """
-    from app.models.capitulo_documento import CapituloDocumento
-    
     # Normalizar título do capítulo
     titulo_alvo = _normalizar(capitulo.titulo_capitulo)
     indice_alvo = (capitulo.indice_capitulo or '').strip()
     nivel_alvo = capitulo.nivel_capitulo or 1
-    
+
     if not titulo_alvo and not indice_alvo:
         return {
             'encontrado': False,
@@ -974,9 +979,9 @@ def _match_exato(
             'diagnostico': 'Título e índice do capítulo vazios',
             'alternativas': []
         }
-    
+
     body = doc.element.body
-    
+
     # Usar cache se fornecido, senão buscar headings
     if headings_cache is not None and 'headings' in headings_cache:
         headings = headings_cache['headings']
@@ -998,18 +1003,18 @@ def _match_exato(
                 'texto_normalizado': texto_norm,
                 'nivel': nivel
             })
-        
+
         # Atualizar cache se fornecido
         if headings_cache is not None:
             headings_cache['headings'] = headings
-    
+
     # Buscar match exato
     for heading in headings:
         texto_norm = heading['texto_normalizado']
-        
+
         # Verificar casamento por título normalizado
         casou_titulo = bool(titulo_alvo) and texto_norm == titulo_alvo
-        
+
         # Verificar casamento por índice (prefixo do texto original)
         casou_indice = False
         if indice_alvo and heading['texto_original']:
@@ -1021,12 +1026,12 @@ def _match_exato(
                     char_apos = texto_original[len(indice_alvo)]
                     if char_apos in ' .)':
                         casou_indice = True
-        
+
         if casou_titulo or casou_indice:
             # Verificar se nível corresponde (opcional, mas aumenta confiança)
             nivel_corresponde = heading['nivel'] == nivel_alvo
             confianca = 0.95 if nivel_corresponde else 0.9
-            
+
             diagnostico_parts = []
             if casou_titulo:
                 diagnostico_parts.append('título normalizado')
@@ -1034,9 +1039,9 @@ def _match_exato(
                 diagnostico_parts.append('índice')
             if nivel_corresponde:
                 diagnostico_parts.append('nível correspondente')
-            
+
             diagnostico = f'Match exato por {", ".join(diagnostico_parts)}'
-            
+
             return {
                 'encontrado': True,
                 'indice': heading['indice'],
@@ -1045,7 +1050,7 @@ def _match_exato(
                 'diagnostico': diagnostico,
                 'alternativas': []
             }
-    
+
     # Nenhum match exato encontrado
     return {
         'encontrado': False,
@@ -1063,15 +1068,15 @@ def _match_contexto(
     indice_esperado: int = None
 ) -> dict:
     """Match por contexto: índice + tipo + classificação.
-    
+
     Usa número do capítulo ou classificação para inferir posição
     quando título não é encontrado.
-    
+
     Args:
         doc: Documento python-docx
         capitulo: Objeto CapituloDocumento
         indice_esperado: Índice esperado do capítulo (opcional)
-        
+
     Returns:
         Dict com:
             - encontrado: bool
@@ -1081,23 +1086,21 @@ def _match_contexto(
             - diagnostico: str
             - alternativas: list vazia
     """
-    from app.models.capitulo_documento import CapituloDocumento
-    
     # Extrair número do capítulo para match por contexto
     # Prioridade: 1. parâmetro indice_esperado, 2. propriedade numero_capitulo_esperado do modelo
     numero_capitulo = None
-    
+
     # 1. Usar parâmetro se fornecido (sobrescreve qualquer valor do modelo)
     if indice_esperado is not None:
         numero_capitulo = indice_esperado
     # 2. Usar propriedade numero_capitulo_esperado do modelo
     else:
         numero_capitulo = getattr(capitulo, 'numero_capitulo_esperado', None)
-    
+
     # Obter classificação e tipo do capítulo
     classificacao = getattr(capitulo, 'classificacao', None)
     tipo_elemento = getattr(capitulo, 'tipo_elemento', None)
-    
+
     if not numero_capitulo and not classificacao and not tipo_elemento:
         return {
             'encontrado': False,
@@ -1107,11 +1110,11 @@ def _match_contexto(
             'diagnostico': 'Sem número de capítulo, classificação ou tipo para match por contexto',
             'alternativas': []
         }
-    
+
     # Coletar todos os headings do documento
     body = doc.element.body
     headings = []
-    
+
     for i, child in enumerate(body):
         if child.tag != f'{{{W_NS}}}p':
             continue
@@ -1128,7 +1131,7 @@ def _match_contexto(
             'texto_normalizado': texto_norm,
             'nivel': nivel
         })
-    
+
     if not headings:
         return {
             'encontrado': False,
@@ -1138,7 +1141,7 @@ def _match_contexto(
             'diagnostico': 'Nenhum heading encontrado no documento',
             'alternativas': []
         }
-    
+
     # Tentar match por número de capítulo
     if numero_capitulo:
         # Procurar heading que comece com o número do capítulo
@@ -1155,11 +1158,11 @@ def _match_contexto(
                     'diagnostico': f'Match por contexto: número do capítulo ({numero_capitulo})',
                     'alternativas': []
                 }
-    
+
     # Tentar match por classificação (ex: "ANEXO", "APÊNDICE")
     if classificacao:
         classificacao_lower = classificacao.lower()
-        
+
         # Mapear classificações para padrões de busca
         padroes_busca = {
             'anexo': r'ANEXO\s*[A-Z]?',
@@ -1168,7 +1171,7 @@ def _match_contexto(
             'pos_textual': r'(REFER[EÊ]NCIAS|BIBLIOGRAFIA)',
             'textual': r'^\s*\d+[\.\)\s]'  # Capítulos textuais começam com número
         }
-        
+
         if classificacao_lower in padroes_busca:
             padrao = padroes_busca[classificacao_lower]
             for heading in headings:
@@ -1182,18 +1185,18 @@ def _match_contexto(
                         'diagnostico': f'Match por contexto: classificação ({classificacao})',
                         'alternativas': []
                     }
-    
+
     # Tentar match por tipo_elemento (fallback quando não há classificação)
     if tipo_elemento and not classificacao:
         tipo_lower = tipo_elemento.lower()
-        
+
         # Mapear tipos para padrões de busca
         padroes_tipo = {
             'pre_textual': r'(SUM[ÁA]RIO|RESUMO|ABSTRACT|LISTA)',
             'pos_textual': r'(REFER[EÊ]NCIAS|BIBLIOGRAFIA)',
             'textual': r'^\s*\d+[\.\)\s]'  # Capítulos textuais começam com número
         }
-        
+
         if tipo_lower in padroes_tipo:
             padrao = padroes_tipo[tipo_lower]
             for heading in headings:
@@ -1207,7 +1210,7 @@ def _match_contexto(
                         'diagnostico': f'Match por contexto: tipo ({tipo_elemento})',
                         'alternativas': []
                     }
-    
+
     # Nenhum match por contexto encontrado
     return {
         'encontrado': False,
@@ -1225,14 +1228,14 @@ def localizar_range_capitulo_robusto(
     estrategia: str = 'multi_niveis'
 ) -> dict:
     """Localiza range com múltiplas estratégias e contexto.
-    
+
     Implementa cascata de estratégias: exato → fuzzy → contexto.
-    
+
     Args:
         doc: Documento python-docx
         capitulo: Objeto CapituloDocumento
         estrategia: Estratégia a usar ('multi_niveis', 'exato', 'fuzzy', 'contexto')
-        
+
     Returns:
         Dict com:
             - encontrado: bool
@@ -1246,11 +1249,9 @@ def localizar_range_capitulo_robusto(
             - diagnostico: str
             - alternativas: list de dicts com melhores matches
     """
-    from app.models.capitulo_documento import CapituloDocumento
-    
     # Cache de headings para performance (usado por múltiplas estratégias)
     headings_cache = {}
-    
+
     # Resultado padrão (não encontrado)
     resultado_padrao = {
         'encontrado': False,
@@ -1264,7 +1265,7 @@ def localizar_range_capitulo_robusto(
         'diagnostico': 'Capítulo não localizado',
         'alternativas': []
     }
-    
+
     # Definir ordem das estratégias baseado no parâmetro
     if estrategia == 'exato':
         estrategias = ['exato']
@@ -1274,7 +1275,7 @@ def localizar_range_capitulo_robusto(
         estrategias = ['contexto']
     else:  # 'multi_niveis' (padrão)
         estrategias = ['exato', 'fuzzy', 'contexto']
-    
+
     # Executar estratégias em cascata
     for estrategia_nome in estrategias:
         if estrategia_nome == 'exato':
@@ -1285,11 +1286,11 @@ def localizar_range_capitulo_robusto(
             match_result = _match_contexto(doc, capitulo)
         else:
             continue
-        
+
         if match_result['encontrado']:
             # Encontrou! Calcular range completo
             indice_inicio = match_result['indice']
-            
+
             # Determinar nível do heading encontrado
             nivel_inicio = None
             body = doc.element.body
@@ -1297,16 +1298,16 @@ def localizar_range_capitulo_robusto(
                 child = body[indice_inicio]
                 if child.tag == f'{{{W_NS}}}p':
                     nivel_inicio = _eh_paragrafo_heading(child)
-            
+
             # Usar nível do capítulo como fallback
             if nivel_inicio is None:
                 nivel_inicio = capitulo.nivel_capitulo or 1
-            
+
             # Calcular range respeitando seção
             range_result = _calcular_range_respeitando_secao(
                 doc, indice_inicio, nivel_inicio
             )
-            
+
             # Construir resultado completo
             return {
                 'encontrado': True,
@@ -1317,14 +1318,17 @@ def localizar_range_capitulo_robusto(
                 'titulo_encontrado': match_result['titulo_encontrado'],
                 'confianca': match_result['confianca'],
                 'estrategia_usada': estrategia_nome,
-                'diagnostico': f'{match_result["diagnostico"]}. {range_result.get("encontrou_limite_secao", False) and "Respeitou limite de seção." or ""}',
+                'diagnostico': (
+                    f'{match_result["diagnostico"]}. '
+                    f'{"Respeitou limite de seção." if range_result.get("encontrou_limite_secao", False) else ""}'
+                ),
                 'alternativas': match_result.get('alternativas', [])
             }
-        
+
         # Se não encontrou nesta estratégia, adicionar alternativas ao resultado
         if match_result.get('alternativas'):
             resultado_padrao['alternativas'].extend(match_result['alternativas'])
-    
+
     # Nenhuma estratégia encontrou o capítulo
     # Consolidar alternativas de todas as estratégias
     if resultado_padrao['alternativas']:
@@ -1332,16 +1336,26 @@ def localizar_range_capitulo_robusto(
         alternativas_unicas = {}
         for alt in resultado_padrao['alternativas']:
             chave = alt.get('titulo_normalizado', alt.get('titulo', ''))
-            if chave not in alternativas_unicas or alt.get('confianca', 0) > alternativas_unicas[chave].get('confianca', 0):
+            if (
+                chave not in alternativas_unicas
+                or alt.get('confianca', 0) > alternativas_unicas[chave].get('confianca', 0)
+            ):
                 alternativas_unicas[chave] = alt
-        
+
         resultado_padrao['alternativas'] = list(alternativas_unicas.values())
         # Ordenar por confiança
         resultado_padrao['alternativas'].sort(key=lambda x: x.get('confianca', 0), reverse=True)
         # Manter apenas as 3 melhores
         resultado_padrao['alternativas'] = resultado_padrao['alternativas'][:3]
-        
+
         if resultado_padrao['alternativas']:
-            resultado_padrao['diagnostico'] = f'Capítulo não localizado. Alternativas sugeridas: {", ".join([alt.get("titulo", "sem título") for alt in resultado_padrao["alternativas"][:2]])}'
-    
+            titulos = [
+                alt.get("titulo", "sem título")
+                for alt in resultado_padrao["alternativas"][:2]
+            ]
+            resultado_padrao['diagnostico'] = (
+                'Capítulo não localizado. Alternativas sugeridas: '
+                f'{", ".join(titulos)}'
+            )
+
     return resultado_padrao

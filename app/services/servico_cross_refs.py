@@ -27,10 +27,12 @@ Compatibilidade retroativa:
 from __future__ import annotations
 
 import re
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from docx import Document
 from docx.oxml.ns import qn
+
+from app.services._ooxml_helpers import texto_paragrafo as _texto_paragrafo
 
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -50,12 +52,7 @@ RE_LABEL_DECLARACAO = re.compile(
 )
 
 
-def _texto_paragrafo(p_element) -> str:
-    pedacos = [t.text or '' for t in p_element.iter(qn('w:t'))]
-    return ''.join(pedacos)
-
-
-def _resolver_info(mapa_labels: dict, chave: str) -> dict:
+def _resolver_info(mapa_labels: dict, chave: str) -> Optional[dict]:
     """Retorna dict `{'numero': str, 'bookmark': str|None}` para `chave`,
     ou None se nao encontrado. Aceita `mapa_labels` no formato novo
     (dict) ou antigo (string pura — bookmark None).

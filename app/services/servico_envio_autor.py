@@ -19,6 +19,7 @@ Pipeline:
      capítulos.
 """
 
+import json
 import os
 import re
 import unicodedata
@@ -30,6 +31,10 @@ from app import db
 from app.models.envio_conteudo import EnvioConteudo
 from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.models.capitulo_documento import CapituloDocumento
+
+
+TIPO_PREVIA_DOCX_SUGERIDO = 'docx_sugerido'
+VERSAO_DOCX_SUGERIDO = 'analise_upload_v2'
 
 
 def _normalizar(texto):
@@ -135,6 +140,13 @@ class ServicoEnvioAutor:
             base_dir, 'storage', 'uploads', str(id_relatorio)
         )
 
+    @staticmethod
+    def diretorio_versoes_sugeridas(base_dir, id_relatorio):
+        """Diretório das versões sugeridas: storage/VERSAO_SUGERIDA/{id}/."""
+        return os.path.join(
+            base_dir, 'storage', 'VERSAO_SUGERIDA', str(id_relatorio)
+        )
+
     @classmethod
     def _descartar_envios_anteriores(cls, *, id_relatorio,
                                      id_capitulo_destino,
@@ -169,8 +181,143 @@ class ServicoEnvioAutor:
         except OSError:
             pass
         for prev in list(envio.previsualizacoes or []):
+            if prev.caminho_saida and os.path.exists(prev.caminho_saida):
+                try:
+                    os.remove(prev.caminho_saida)
+                except OSError:
+                    pass
             db.session.delete(prev)
         db.session.delete(envio)
+
+    @staticmethod
+    def caminho_docx_sugerido(envio):
+        """Retorna o caminho da versão DOCX sugerida/editável do envio."""
+        for prev in envio.previsualizacoes or []:
+            if prev.tipo_previsualizacao == TIPO_PREVIA_DOCX_SUGERIDO:
+                return prev.caminho_saida
+        return None
+
+    @classmethod
+    def garantir_docx_sugerido(cls, envio):
+        """Cria a versão sugerida processada a partir da análise do upload."""
+        caminho = cls.caminho_docx_sugerido(envio)
+        if (
+            caminho
+            and os.path.exists(caminho)
+            and cls._docx_sugerido_esta_processado(envio)
+        ):
+            return caminho
+        if not envio.caminho_arquivo or not os.path.exists(envio.caminho_arquivo):
+            return None
+
+        if not caminho:
+            caminho = cls._caminho_novo_docx_sugerido(envio)
+        cls._gerar_docx_sugerido_processado(envio, caminho)
+        if cls.caminho_docx_sugerido(envio) is None:
+            db.session.add(PrevisualizacaoConteudo(
+                id_envio_conteudo=envio.id_envio_conteudo,
+                tipo_previsualizacao=TIPO_PREVIA_DOCX_SUGERIDO,
+                caminho_saida=caminho,
+            ))
+        db.session.flush()
+        return caminho
+
+    @classmethod
+    def _caminho_novo_docx_sugerido(cls, envio):
+        """Monta caminho com vínculo explícito ao upload correspondente."""
+        base_dir = os.path.dirname(
+            os.path.dirname(
+                os.path.dirname(
+                    os.path.dirname(os.path.abspath(envio.caminho_arquivo))
+                )
+            )
+        )
+        dir_sugerido = cls.diretorio_versoes_sugeridas(
+            base_dir, envio.id_relatorio
+        )
+        os.makedirs(dir_sugerido, exist_ok=True)
+        nome_upload = os.path.splitext(os.path.basename(envio.caminho_arquivo))[0]
+        nome_sugerido = (
+            f'envio_{envio.id_envio_conteudo}_'
+            f'upload_{nome_upload}_sugerido.docx'
+        )
+        return os.path.join(dir_sugerido, nome_sugerido)
+
+    @staticmethod
+    def _docx_sugerido_esta_processado(envio):
+        try:
+            estrutura = json.loads(envio.sugestoes_json or '{}')
+        except (TypeError, ValueError):
+            return False
+        return estrutura.get('docx_sugerido', {}).get('gerado_por') == (
+            VERSAO_DOCX_SUGERIDO
+        )
+
+    @classmethod
+    def _gerar_docx_sugerido_processado(cls, envio, caminho_saida):
+        """Gera DOCX sugerido por serviço canônico especializado."""
+        from app.models.relatorio_producao import RelatorioProducao  # noqa: C0415
+        from app.services.servico_perfil_formatacao import PerfilFormatacao  # noqa: C0415
+        from app.services.servico_versao_sugerida_canonica import (  # noqa: C0415
+            ServicoVersaoSugeridaCanonica,
+        )
+
+        rel = RelatorioProducao.query.get(envio.id_relatorio)
+        perfil = PerfilFormatacao.de_relatorio(rel) if rel else PerfilFormatacao()
+        metricas_aplicadas, metricas = ServicoVersaoSugeridaCanonica.gerar(
+            envio=envio,
+            relatorio=rel,
+            perfil=perfil,
+            caminho_saida=caminho_saida,
+        )
+        cls._registrar_diagnostico_sugestao(
+            envio, perfil, metricas_aplicadas, metricas
+        )
+
+    @staticmethod
+    def _registrar_diagnostico_sugestao(envio, perfil, metricas_aplicadas, metricas):
+        try:
+            estrutura = json.loads(envio.sugestoes_json or '{}')
+        except (TypeError, ValueError):
+            estrutura = {}
+        estrutura['docx_sugerido'] = {
+            'gerado_por': VERSAO_DOCX_SUGERIDO,
+            'base': 'upload_original',
+            'processamentos': metricas_aplicadas,
+            'metricas_obrigatorias_aplicadas': True,
+            'perfil_formatacao': getattr(perfil, 'origem', 'default'),
+            'avisos_perfil': getattr(perfil, 'avisos', []),
+            'biblioteca_canonica': {
+                'diretorio': (metricas or {}).get('diretorio'),
+                'docx_base': (metricas or {}).get('docx_base'),
+                'tem_formatacao': bool((metricas or {}).get('formatacao')),
+                'tem_capitulos': bool((metricas or {}).get('capitulos')),
+                'tem_macro': bool((metricas or {}).get('macro')),
+            },
+        }
+        envio.sugestoes_json = json.dumps(estrutura, ensure_ascii=False)
+
+    @classmethod
+    def salvar_docx_sugerido(cls, envio, conteudo):
+        """Persiste alterações do autor na versão sugerida já gerada."""
+        caminho = cls.caminho_docx_sugerido(envio)
+        if not caminho or not os.path.exists(caminho):
+            return False, (
+                'DOCX sugerido ainda não foi gerado pelo sistema.'
+            )
+        with open(caminho, 'wb') as arquivo:
+            arquivo.write(conteudo)
+        db.session.commit()
+        return True, 'DOCX sugerido salvo.'
+
+    @classmethod
+    def rejeitar_para_novo_upload(cls, envio):
+        """Remove upload, prévia sugerida e registros para permitir novo envio."""
+        id_relatorio = envio.id_relatorio
+        id_capitulo = envio.id_capitulo_destino
+        cls._descartar_envio(envio)
+        db.session.commit()
+        return id_relatorio, id_capitulo
 
     @classmethod
     def processar_upload(cls, *, id_relatorio, id_usuario,
@@ -228,6 +375,7 @@ class ServicoEnvioAutor:
 
         # Extração + classificação + prévia
         cls._gerar_previas(envio, id_capitulo_destino)
+        cls.garantir_docx_sugerido(envio)
 
         db.session.commit()
         return envio
@@ -365,6 +513,8 @@ class ServicoEnvioAutor:
         # Gerar prévia HTML por capítulo destino
         for id_cap, segmentos in segmentos_por_cap.items():
             cap = CapituloDocumento.query.get(id_cap)
+            if cap is None:
+                continue
             html_parts = [
                 f'<section class="ew__previa-cap" data-cap="{id_cap}">',
                 (
@@ -469,8 +619,8 @@ class ServicoEnvioAutor:
 
         rel = RelatorioProducao.query.get(envio.id_relatorio)
         # Gate de bloqueio: relatório finalizado não aceita merge.
-        from app.services.servico_relatorio import ServicoRelatorio
-        if ServicoRelatorio.esta_bloqueado(rel):
+        from app.services import servico_relatorio_core as relatorio_core
+        if relatorio_core.esta_bloqueado(rel):
             return {
                 'ok': False,
                 'erro': (
@@ -498,10 +648,13 @@ class ServicoEnvioAutor:
             }
 
         try:
+            caminho_autor = (
+                cls.caminho_docx_sugerido(envio) or envio.caminho_arquivo
+            )
             ok = substituir_capitulo(
                 caminho_master=rel.caminho_template,
                 capitulo=cap_destino,
-                caminho_autor=envio.caminho_arquivo,
+                caminho_autor=caminho_autor,
                 preservar_heading=True,
             )
         except (OSError, ValueError, RuntimeError) as e:

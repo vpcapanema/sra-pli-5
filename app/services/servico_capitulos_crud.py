@@ -4,7 +4,8 @@ from __future__ import annotations
 from app import db
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.relatorio_producao import RelatorioProducao
-from app.services.servico_relatorio import ServicoRelatorio
+from app.services import servico_relatorio_core as relatorio_core
+from app.services.servico_merge_docx import remover_capitulo_do_docx
 
 
 def validar_acesso_capitulos(rel, perfil):
@@ -13,7 +14,7 @@ def validar_acesso_capitulos(rel, perfil):
         return False, 'Apenas o coordenador pode gerenciar capítulos.'
     if rel is None:
         return False, 'Relatório não encontrado.'
-    if ServicoRelatorio.esta_bloqueado(rel):
+    if relatorio_core.esta_bloqueado(rel):
         return False, (
             'Relatório finalizado/bloqueado — capítulos não podem '
             'ser modificados. Crie uma nova versão para continuar.'
@@ -153,11 +154,8 @@ def _remover_range_docx(rel, cap):
     if not rel.caminho_template:
         return False, ''
     try:
-        from app.services.servico_merge_docx import remover_capitulo_do_docx
         remover_capitulo_do_docx(rel.caminho_template, cap)
         return True, ''
-    except ImportError:
-        return False, ''
     except (OSError, ValueError, RuntimeError) as erro:
         return False, str(erro)
 

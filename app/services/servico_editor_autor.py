@@ -8,7 +8,7 @@ from app.models.relatorio_producao import RelatorioProducao
 from app.models.usuario import Usuario
 from app.models.dominio import Dominio
 from app.services.servico_acoes_relatorio import listar_por_grupo
-from app.services.servico_relatorio import ServicoRelatorio
+from app.services import servico_relatorio_core as relatorio_core
 
 
 def atribuir_responsavel_capitulo(
@@ -19,7 +19,7 @@ def atribuir_responsavel_capitulo(
     if cap.id_relatorio != id_versao:
         return False, "Capítulo não pertence à versão informada.", cap
     rel = RelatorioProducao.query.get(cap.id_relatorio)
-    if ServicoRelatorio.esta_bloqueado(rel):
+    if relatorio_core.esta_bloqueado(rel):
         return (
             False,
             "Relatório finalizado ou bloqueado — não é possível alterar "
@@ -33,13 +33,13 @@ def atribuir_responsavel_capitulo(
 
 
 def obter_contexto_editor_autor(
-    versao, id_versao, id_usuario, perfil_ativo, id_capitulo_selecionado
+    versao, _id_versao, id_usuario, perfil_ativo, id_capitulo_selecionado
 ):
     """Monta contexto da tela do editor do autor."""
     todos_relatorios = RelatorioProducao.query.order_by(
         RelatorioProducao.criado_em.desc()
     ).all()
-    caps_autor = ServicoRelatorio.listar_capitulos_ordenados(versao.id)
+    caps_autor = relatorio_core.listar_capitulos_ordenados(versao.id)
     capitulos_do_autor_ids = {
         cap.id_capitulo_documento
         for cap in caps_autor
@@ -48,7 +48,7 @@ def obter_contexto_editor_autor(
     capitulos_livres = [
         cap for cap in caps_autor if cap.id_usuario_responsavel is None
     ]
-    rel_bloqueado = ServicoRelatorio.esta_bloqueado(versao)
+    rel_bloqueado = relatorio_core.esta_bloqueado(versao)
     capitulo_selecionado = _resolver_capitulo_selecionado(
         caps_autor, id_capitulo_selecionado
     )
@@ -142,12 +142,11 @@ def _indice_redirect_legado(capitulo_selecionado, capitulos, identificador):
 
 
 def _pode_abrir_capitulo(capitulo, id_usuario, perfil_ativo):
+    if capitulo is None:
+        return False
     return (
-        capitulo is not None
-        and (
-            capitulo.id_usuario_responsavel == id_usuario
-            or perfil_ativo in ("coordenador", "admin")
-        )
+        capitulo.id_usuario_responsavel == id_usuario
+        or perfil_ativo in ("coordenador", "admin")
     )
 
 

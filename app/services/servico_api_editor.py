@@ -13,10 +13,13 @@ from app.models.biblioteca_formatacao import BibliotecaFormatacaoCanonica
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.dominio import Dominio
 from app.models.envio_conteudo import EnvioConteudo
+from app.models.notificacao import Notificacao
 from app.models.previsualizacao_conteudo import PrevisualizacaoConteudo
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.usuario import Usuario
+from app.services.servico_envio_autor import gerar_docx_segmento
 from app.services.servico_finalizar_relatorio import finalizar
+from app.services.servico_merge_docx import extrair_capitulo_como_docx
 from app.services.servico_sanitizar_docx import sanitizar_docx, sanitizar_docx_bytes
 
 
@@ -146,8 +149,6 @@ def listar_segmentos_envio(id_envio):
 
 def gerar_segmento_docx(id_envio, id_capitulo):
     """Gera bytes DOCX de um segmento de envio."""
-    from app.services.servico_envio_autor import gerar_docx_segmento
-
     envio = EnvioConteudo.query.get_or_404(id_envio)
     cap = CapituloDocumento.query.get_or_404(id_capitulo)
     if cap.id_relatorio != envio.id_relatorio:
@@ -175,8 +176,6 @@ def converter_html_para_docx(dados):
 
 def extrair_conteudo_capitulo(id_cap):
     """Extrai e sanitiza DOCX de capitulo a partir do documento em producao."""
-    from app.services.servico_merge_docx import extrair_capitulo_como_docx
-
     cap = CapituloDocumento.query.get_or_404(id_cap)
     rel = RelatorioProducao.query.get(cap.id_relatorio)
     if not rel or not rel.caminho_template:
@@ -273,7 +272,7 @@ def listar_autores_api():
     autores = (
         Usuario.query.filter(
             Usuario.perfil_id == perfil_autor.id_dominio,
-            Usuario.ativo == True,  # noqa: E712
+            Usuario.ativo.is_(True),
         )
         .order_by(Usuario.nome)
         .all()
@@ -290,8 +289,6 @@ def listar_autores_api():
 
 def notificar(id_usuario, mensagem):
     """Cria notificacao simples para usuario."""
-    from app.models.notificacao import Notificacao
-
     notif = Notificacao(
         id_usuario_destino=id_usuario,
         tipo_notificacao='workflow',
