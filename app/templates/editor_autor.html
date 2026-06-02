@@ -417,6 +417,17 @@
             </span>
         </div>
 
+        <div class="ea__preview-paths">
+            <div class="ea__preview-path">
+                <span class="ea__preview-path-label">Upload:</span>
+                <code>{{ caminhos_relativos.upload or '—' }}</code>
+            </div>
+            <div class="ea__preview-path">
+                <span class="ea__preview-path-label">Sugerido:</span>
+                <code>{{ caminhos_relativos.sugerido or '—' }}</code>
+            </div>
+        </div>
+
         <div class="ea__preview-grid">
             <article class="ea__preview-pane">
                 <div class="ea__preview-pane-head">
@@ -429,6 +440,10 @@
                         <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
                     </div>
                 </div>
+                <p class="ea__preview-file-path">
+                    <span class="ea__preview-file-path-label">Arquivo:</span>
+                    <code>{{ caminhos_relativos.upload or '—' }}</code>
+                </p>
                 <div class="ea__docx-mini-mount" id="ea-upload-original-mount"></div>
             </article>
             <article class="ea__preview-pane">
@@ -442,6 +457,10 @@
                         <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
                     </div>
                 </div>
+                <p class="ea__preview-file-path">
+                    <span class="ea__preview-file-path-label">Arquivo:</span>
+                    <code>{{ caminhos_relativos.sugerido or '—' }}</code>
+                </p>
                 <div class="ea__biblioteca-bar">
                     <label class="ea__biblioteca-label" for="ea-sel-biblioteca">
                         <i class="ph ph-paint-brush-broad"></i>

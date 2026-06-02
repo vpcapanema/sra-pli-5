@@ -189,23 +189,23 @@ class ServicoEnvioAutor:
     """Orquestra upload, extração, classificação e confirmação de envios."""
 
     @staticmethod
-    def diretorio_uploads(base_dir, id_relatorio, nome_autor=None):
+    def diretorio_uploads(base_dir, codigo_relatorio, nome_autor=None):
         """Diretório onde os uploads são salvos: storage/uploads/{codigo_relatorio}/{autor}/.
 
         Se nome_autor for None, retorna storage/uploads/{codigo_relatorio}/.
         """
-        base = os.path.join(base_dir, "storage", "uploads", str(id_relatorio))
+        base = os.path.join(base_dir, "storage", "uploads", str(codigo_relatorio))
         if nome_autor:
             return os.path.join(base, nome_autor)
         return base
 
     @staticmethod
-    def diretorio_versoes_sugeridas(base_dir, id_relatorio, nome_autor=None):
-        """Diretório das versões sugeridas: storage/VERSAO_SUGERIDA/{codigo_relatorio}/{autor}/.
+    def diretorio_versoes_sugeridas(base_dir, nome_responsavel, nome_autor=None):
+        """Diretório das versões sugeridas: storage/versao_sugerida/{responsavel}/{autor}/.
 
-        Se nome_autor for None, retorna storage/VERSAO_SUGERIDA/{codigo_relatorio}/.
+        Se nome_autor for None, retorna storage/versao_sugerida/{responsavel}/.
         """
-        base = os.path.join(base_dir, "storage", "VERSAO_SUGERIDA", str(id_relatorio))
+        base = os.path.join(base_dir, "storage", "versao_sugerida", str(nome_responsavel))
         if nome_autor:
             return os.path.join(base, nome_autor)
         return base
@@ -301,7 +301,15 @@ class ServicoEnvioAutor:
         autor = Usuario.query.get(envio.id_usuario)
         nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
 
-        dir_sugerido = cls.diretorio_versoes_sugeridas(base_dir, envio.id_relatorio, nome_autor)
+        # Obter nome do responsavel pelo capitulo destino
+        cap = CapituloDocumento.query.get(envio.id_capitulo_destino)
+        if cap and cap.id_usuario_responsavel:
+            resp = Usuario.query.get(cap.id_usuario_responsavel)
+            nome_responsavel = resp.nome.replace(' ', '_').lower() if resp else 'sem_responsavel'
+        else:
+            nome_responsavel = 'sem_responsavel'
+
+        dir_sugerido = cls.diretorio_versoes_sugeridas(base_dir, nome_responsavel, nome_autor)
         os.makedirs(dir_sugerido, exist_ok=True)
         nome_sugerido = "conteudo_sugerido.docx"
         return os.path.join(dir_sugerido, nome_sugerido)
@@ -531,7 +539,12 @@ class ServicoEnvioAutor:
         autor = Usuario.query.get(id_usuario)
         nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
 
-        dir_destino = cls.diretorio_uploads(base_dir, id_relatorio, nome_autor)
+        # Obter codigo_d20 do relatorio
+        from app.models.relatorio_producao import RelatorioProducao
+        rel = RelatorioProducao.query.get(id_relatorio)
+        codigo_relatorio = rel.codigo_d20 if rel else str(id_relatorio)
+
+        dir_destino = cls.diretorio_uploads(base_dir, codigo_relatorio, nome_autor)
         os.makedirs(dir_destino, exist_ok=True)
 
         from werkzeug.utils import secure_filename

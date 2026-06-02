@@ -1,6 +1,8 @@
 """Servicos do editor do autor/coordenador."""
 from __future__ import annotations
 
+import os
+
 from app import db
 from app.models.capitulo_documento import CapituloDocumento
 from app.models.envio_conteudo import EnvioConteudo
@@ -9,6 +11,9 @@ from app.models.usuario import Usuario
 from app.models.dominio import Dominio
 from app.services.servico_acoes_relatorio import listar_por_grupo
 from app.services import servico_relatorio_core as relatorio_core
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def atribuir_responsavel_capitulo(
@@ -72,6 +77,31 @@ def obter_contexto_editor_autor(
             .first()
         )
 
+    caminhos_relativos = {}
+    if envio_pendente and envio_pendente.caminho_arquivo:
+        try:
+            caminhos_relativos["upload"] = os.path.relpath(
+                envio_pendente.caminho_arquivo, BASE_DIR
+            )
+        except ValueError:
+            caminhos_relativos["upload"] = envio_pendente.caminho_arquivo
+
+        from app.services.servico_envio_autor import ServicoEnvioAutor
+
+        try:
+            # pylint: disable=protected-access
+            caminho_sugerido = (
+                ServicoEnvioAutor._caminho_docx_sugerido(  # type: ignore[attr-defined]
+                    envio_pendente
+                )
+            )
+            if caminho_sugerido:
+                caminhos_relativos["sugerido"] = os.path.relpath(
+                    caminho_sugerido, BASE_DIR
+                )
+        except Exception:
+            caminhos_relativos["sugerido"] = None
+
     return {
         "versao": versao,
         "todos_relatorios": todos_relatorios,
@@ -84,6 +114,7 @@ def obter_contexto_editor_autor(
         ),
         "capitulo_selecionado": capitulo_selecionado,
         "envio_pendente": envio_pendente,
+        "caminhos_relativos": caminhos_relativos,
         "perfil_ativo": perfil_ativo,
         "autores_disponiveis": _listar_autores(perfil_ativo),
         "id_capitulo_selecionado": id_capitulo_selecionado,

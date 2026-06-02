@@ -1,0 +1,38 @@
+INSERT INTO relatorios_producao (
+    id,
+    codigo_d20,
+    numero_medicao,
+    mes_referencia,
+    periodo_inicio,
+    periodo_fim,
+    titulo_curto,
+    status_id,
+    criado_por,
+    criado_em,
+    atualizado_em,
+    ano_referencia,
+    versao_atual,
+    bloqueio_edicao,
+    modelo_id,
+    biblioteca_id,
+    caminho_template
+  )
+VALUES (
+    id:integer,
+    'codigo_d20:character varying',
+    numero_medicao:integer,
+    'mes_referencia:date',
+    'periodo_inicio:date',
+    'periodo_fim:date',
+    'titulo_curto:character varying',
+    status_id:integer,
+    criado_por:integer,
+    'criado_em:timestamp without time zone',
+    'atualizado_em:timestamp without time zone',
+    ano_referencia:integer,
+    'versao_atual:character varying',
+    bloqueio_edicao:boolean,
+    modelo_id:integer,
+    biblioteca_id:integer,
+    'caminho_template:character varying'
+  );
