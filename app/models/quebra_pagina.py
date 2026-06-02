@@ -1,8 +1,12 @@
 """Modelo para representar quebras de página dentro de seções DOCX."""
+
 from app import db
 from app.models.mixins import AuditoriaMixin
+
+
 class QuebraPagina(db.Model, AuditoriaMixin):
     """Representa uma quebra de página ou coluna dentro de uma seção DOCX."""
+
     __tablename__ = "quebras_pagina"
     id_quebra = db.Column(db.Integer, primary_key=True)
     id_secao = db.Column(db.Integer, db.ForeignKey("secoes_docx.id_secao"), nullable=False)
@@ -14,6 +18,7 @@ class QuebraPagina(db.Model, AuditoriaMixin):
     contexto_anterior = db.Column(db.Text, nullable=True)
     contexto_posterior = db.Column(db.Text, nullable=True)
     secao = db.relationship("SecaoDOCX", back_populates="quebras")
+
     @property
     def descricao_tipo(self):
         """Descrição amigável do tipo de quebra."""
@@ -23,10 +28,12 @@ class QuebraPagina(db.Model, AuditoriaMixin):
             "textWrapping": "Quebra de texto",
         }
         return map_tipos.get(self.tipo_quebra, self.tipo_quebra)
+
     @property
     def e_quebra_visivel(self):
         """Retorna True se a quebra é visível no documento."""
         return self.tipo_quebra in ("page", "column")
+
     @property
     def posicao_relativa(self):
         """Retorna posição relativa formatada."""
@@ -35,6 +42,7 @@ class QuebraPagina(db.Model, AuditoriaMixin):
         if self.tipo_posicao == "caractere":
             return f"Caractere {self.posicao_na_secao}"
         return f"Posição {self.posicao_na_secao}"
+
     def to_dict(self):
         """Converte para dicionário para serialização."""
         return {
