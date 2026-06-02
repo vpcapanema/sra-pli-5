@@ -55,6 +55,27 @@ def _nome_estilo_paragrafo(paragrafo):
     return getattr(estilo, 'name', '') or ''
 
 
+def _elemento_xml(objeto):
+    """Retorna o elemento XML interno de objetos python-docx, se existir."""
+    return getattr(objeto, '_element', None)
+
+
+def _xml_findall(objeto, caminho, namespaces=None):
+    """Executa findall no XML interno quando ele existe."""
+    elemento = _elemento_xml(objeto)
+    if elemento is None:
+        return []
+    return elemento.findall(caminho, namespaces)
+
+
+def _xml_xpath(objeto, caminho):
+    """Executa xpath no XML interno quando ele existe."""
+    elemento = _elemento_xml(objeto)
+    if elemento is None:
+        return []
+    return elemento.xpath(caminho)
+
+
 def _heading_nivel(estilo):
     """Retorna nível do heading (1..9) ou None."""
     if not estilo:
@@ -108,7 +129,7 @@ def gerar_docx_segmento(envio, capitulo):
         if nivel is not None and texto:
             norm = _normalizar(texto)
             if norm in mapa:
-                coletando = (norm == alvo_norm)
+                coletando = norm == alvo_norm
                 continue
         if not coletando:
             continue
@@ -441,7 +462,6 @@ class ServicoEnvioAutor:
             cls._notificar_coordenadores_renomeacao(envio, pendentes)
 
         # Armazenar estrutura no envio para uso na prévia
-        import json  # noqa: C0415
         envio.sugestoes_json = json.dumps(estrutura)
 
         # Particionar conteúdo: header (antes do primeiro heading casado)
@@ -771,7 +791,6 @@ class ServicoEnvioAutor:
         aplicadas — banco + DOCX em produção. Atualiza status do
         capítulo para 'aprovado' e notifica o autor.
         """
-        from app.models.envio_conteudo import EnvioConteudo  # noqa: C0415
         from app.models.relatorio_producao import (  # noqa: C0415
             RelatorioProducao,
         )
@@ -854,7 +873,6 @@ class ServicoEnvioAutor:
         observação. NÃO reverte o conteúdo já mesclado no DOCX em
         produção — o autor pode fazer um novo envio para sobrescrever.
         """
-        from app.models.envio_conteudo import EnvioConteudo  # noqa: C0415
         from app.models.notificacao import Notificacao  # noqa: C0415
 
         if capitulo.status_capitulo != 'aguardando_aprovacao':
@@ -923,16 +941,14 @@ class ServicoEnvioAutor:
         )
 
         # Extrair árvore de capítulos
-        capitulos_arvore = ServicoExtracaoCanonica._extrair_capitulos(  # noqa: SLF001, E501
-            doc
-        )
+        capitulos_arvore = ServicoExtracaoCanonica.extrair_capitulos(doc)
 
         # Se não encontrou capítulos via Heading, tentar detecção por padrão
         if not capitulos_arvore:
             capitulos_arvore = cls._extrair_capitulos_por_padrao(doc)
 
         # Extrair legendas (figuras e tabelas) — agregados
-        legendas = ServicoExtracaoCanonica._extrair_legendas(doc)  # noqa: SLF001, E501
+        legendas = ServicoExtracaoCanonica.extrair_legendas(doc)
 
         # Construir árvore estrutural (capítulos + figuras + tabelas
         # + equações como nós individuais sob seu capítulo pai).
@@ -948,6 +964,11 @@ class ServicoEnvioAutor:
         }
 
         return estrutura
+
+    @classmethod
+    def extrair_estrutura_completa(cls, doc):
+        """Extrai estrutura completa do DOCX por meio da API publica."""
+        return cls._extrair_estrutura_completa(doc)
 
     @classmethod
     def _construir_arvore_estrutural(cls, doc, capitulos_arvore):
@@ -986,13 +1007,11 @@ class ServicoEnvioAutor:
         return capitulos_arvore
 
     @classmethod
-    @classmethod
     def _aplicar_renomeacoes_automaticas(cls, envio, caminho_master):
         """Aplica as renomeações de subcapítulos (nível >= 3) que
         foram detectadas no upload e armazenadas em
         `renomeacoes_automaticas_pendentes`. Sempre aplica no
         momento da importação — não exige aprovação."""
-        import json  # noqa: C0415
         if not envio.sugestoes_json:
             return []
         try:
@@ -1104,7 +1123,6 @@ class ServicoEnvioAutor:
         from app.services.servico_merge_docx import (  # noqa: C0415
             atualizar_titulo_capitulo,
         )
-        import json  # noqa: C0415
         if not envio.sugestoes_json:
             return []
         try:
@@ -1280,9 +1298,9 @@ class ServicoEnvioAutor:
                 # Equações OOXML (omml) podem aparecer em parágrafos
                 # sem texto nos runs — detectar pelo elemento <m:oMath>
                 tem_math = bool(
-                    para._element.findall('.//m:oMath', ns)  # noqa: SLF001
-                    or para._element.findall(  # noqa: SLF001
-                        './/m:oMathPara', ns
+                    _xml_findall(para, './/m:oMath', ns)
+                    or _xml_findall(
+                        para, './/m:oMathPara', ns
                     )
                 )
                 if tem_math:
@@ -1329,8 +1347,8 @@ class ServicoEnvioAutor:
 
             # Equação OOXML embutida em parágrafo com texto
             tem_math = bool(
-                para._element.findall('.//m:oMath', ns)  # noqa: SLF001
-                or para._element.findall('.//m:oMathPara', ns)  # noqa: SLF001
+                _xml_findall(para, './/m:oMath', ns)
+                or _xml_findall(para, './/m:oMathPara', ns)
             )
             if tem_math:
                 elementos.append({
@@ -1400,8 +1418,6 @@ class ServicoEnvioAutor:
         Detecta títulos que começam com numeração como "1.", "1.1", "1.1.1"
         mesmo sem estilo Heading.
         """
-        import re  # noqa: C0415
-
         # Padrão para numeração hierárquica: 1, 1.1, 1.1.1, etc.
         padrao_numeracao = re.compile(r'^\s*(\d+(?:\.\d+)*)\s+(.+)')
 
@@ -1532,7 +1548,7 @@ class ServicoEnvioAutor:
         # python-docx não detecta facilmente imagens flutuantes,
         # então focamos em imagens inline em parágrafos
         for para in doc.paragraphs:
-            if para._element.xpath('.//pic:pic'):
+            if _xml_xpath(para, './/pic:pic'):
                 # Parágrafo contém imagem
                 texto_legenda = para.text.strip()
                 if texto_legenda:
@@ -1571,8 +1587,9 @@ class ServicoEnvioAutor:
             legenda = None
             # Busca parágrafo anterior
             for para in doc.paragraphs:
-                if table._element in para._element.xpath(  # noqa: E501
-                    'following-sibling::w:p'
+                if _elemento_xml(table) in _xml_xpath(
+                    para,
+                    'following-sibling::w:p',
                 ):
                     if para.text.strip():
                         legenda = para.text.strip()
@@ -1580,8 +1597,9 @@ class ServicoEnvioAutor:
             if not legenda:
                 # Busca parágrafo seguinte
                 for para in doc.paragraphs:
-                    if table._element in para._element.xpath(  # noqa: E501
-                        'preceding-sibling::w:p'
+                    if _elemento_xml(table) in _xml_xpath(
+                        para,
+                        'preceding-sibling::w:p',
                     ):
                         if para.text.strip():
                             legenda = para.text.strip()

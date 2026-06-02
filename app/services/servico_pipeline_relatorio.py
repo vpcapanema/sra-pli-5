@@ -16,8 +16,10 @@ Propriedades validadas:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import os
 import hashlib
+import os
+import re
+import tempfile
 from typing import Dict, Any
 
 from app.models.relatorio_producao import RelatorioProducao
@@ -108,9 +110,15 @@ class ServicoPipelineRelatorio:
                 resultado["checksum_pre"] = _calcular_checksum_arquivo(relatorio.caminho_template)
 
             # Fase 1: Validar pré-condições
-            precond_result = ServicoPipelineRelatorio._validar_precondiciones(relatorio_id, uploads_dict)
+            precond_result = ServicoPipelineRelatorio._validar_precondiciones(
+                relatorio_id, uploads_dict
+            )
             resultado["etapas"].append(
-                {"etapa": "validacao_precondiciones", "resultado": precond_result, "timestamp": datetime.now(timezone.utc).isoformat()}
+                {
+                    "etapa": "validacao_precondiciones",
+                    "resultado": precond_result,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             )
 
             if not precond_result.get("valido", False):
@@ -120,7 +128,13 @@ class ServicoPipelineRelatorio:
 
             # Fase 2: Fazer merge de capítulos
             merge_result = ServicoPipelineRelatorio._fazer_merge(relatorio, uploads_dict)
-            resultado["etapas"].append({"etapa": "merge", "resultado": merge_result, "timestamp": datetime.now(timezone.utc).isoformat()})
+            resultado["etapas"].append(
+                {
+                    "etapa": "merge",
+                    "resultado": merge_result,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
             if not merge_result.get("sucesso", False):
                 resultado["erros"].append("Fase de merge falhou")
@@ -134,8 +148,16 @@ class ServicoPipelineRelatorio:
 
             # Fase 3: Numeração (parar se nenhum capítulo foi merged)
             if merge_result.get("capítulos_processados", 0) > 0:
-                num_result = ServicoPipelineRelatorio._executar_numeracao(relatorio.caminho_template)
-                resultado["etapas"].append({"etapa": "numeracao", "resultado": num_result, "timestamp": datetime.now(timezone.utc).isoformat()})
+                num_result = ServicoPipelineRelatorio._executar_numeracao(
+                    relatorio.caminho_template
+                )
+                resultado["etapas"].append(
+                    {
+                        "etapa": "numeracao",
+                        "resultado": num_result,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
                 if not num_result.get("sucesso", False):
                     resultado["avisos"].append("Numeração teve erros")
@@ -143,30 +165,53 @@ class ServicoPipelineRelatorio:
 
             # Fase 4: Referências cruzadas
             if len(resultado["etapas"]) > 2:  # Se numeration foi executada
-                refs_result = ServicoPipelineRelatorio._atualizar_refs_cruzadas(relatorio.caminho_template, {})
-                resultado["etapas"].append({"etapa": "cross_refs", "resultado": refs_result, "timestamp": datetime.now(timezone.utc).isoformat()})
+                refs_result = ServicoPipelineRelatorio._atualizar_refs_cruzadas(
+                    relatorio.caminho_template, {}
+                )
+                resultado["etapas"].append(
+                    {
+                        "etapa": "cross_refs",
+                        "resultado": refs_result,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
                 if refs_result.get("tags_orfas", 0) > 0:
                     resultado["avisos"].append(f"Detectadas {refs_result['tags_orfas']} tags órfãs")
 
             # Fase 5: Regenerar índices (TOC, LOF, LOT)
             indices_result = ServicoPipelineRelatorio._regenerar_indices(relatorio.caminho_template)
-            resultado["etapas"].append({"etapa": "indices", "resultado": indices_result, "timestamp": datetime.now(timezone.utc).isoformat()})
+            resultado["etapas"].append(
+                {
+                    "etapa": "indices",
+                    "resultado": indices_result,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
             if not indices_result.get("sucesso", False):
                 resultado["avisos"].append("Índices tiveram erros")
 
             # Fase 6: Validar pós-condições
-            postcond_result = ServicoPipelineRelatorio._validar_poscondiciones(relatorio.caminho_template)
+            postcond_result = ServicoPipelineRelatorio._validar_poscondiciones(
+                relatorio.caminho_template
+            )
             resultado["etapas"].append(
-                {"etapa": "validacao_poscondiciones", "resultado": postcond_result, "timestamp": datetime.now(timezone.utc).isoformat()}
+                {
+                    "etapa": "validacao_poscondiciones",
+                    "resultado": postcond_result,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             )
 
             if postcond_result.get("inconsistencias", []):
                 for inconsistencia in postcond_result["inconsistencias"]:
                     if isinstance(inconsistencia, dict) and "remediacao" in inconsistencia:
                         # Formato novo (5.2)
-                        resultado["avisos"].append(f"[{inconsistencia['tipo']}] {inconsistencia['elemento']}: " f"{inconsistencia['remediacao']}")
+                        resultado["avisos"].append(
+                            f"[{inconsistencia['tipo']}] {inconsistencia['elemento']}: "
+                            f"{inconsistencia['remediacao']}"
+                        )
                     else:
                         # Formato antigo
                         resultado["avisos"].append(str(inconsistencia))
@@ -193,7 +238,9 @@ class ServicoPipelineRelatorio:
         return resultado
 
     @staticmethod
-    def _validar_precondiciones(relatorio_id: int, uploads_dict: Dict[int, bytes]) -> Dict[str, Any]:
+    def _validar_precondiciones(
+        relatorio_id: int, uploads_dict: Dict[int, bytes]
+    ) -> Dict[str, Any]:
         """Valida pré-condições antes de iniciar pipeline com mensagens amigáveis.
 
         Validações:
@@ -211,32 +258,48 @@ class ServicoPipelineRelatorio:
 
         Valida Property 7: Pré-condições rejeitam estados inválidos com explicitação de motivos.
         """
-        resultado = {"valido": True, "motivos_rejeicao": [], "proximos_passos": [], "detalhes_validacoes": []}
+        resultado = {
+            "valido": True,
+            "motivos_rejeicao": [],
+            "proximos_passos": [],
+            "detalhes_validacoes": [],
+        }
 
         try:
             # Validação 1: Relatório existe
             relatorio = RelatorioProducao.query.get(relatorio_id)
             if not relatorio:
                 resultado["valido"] = False
-                resultado["motivos_rejeicao"].append("Relatório não encontrado. Verifique o ID e tente novamente.")
+                resultado["motivos_rejeicao"].append(
+                    "Relatório não encontrado. Verifique o ID e tente novamente."
+                )
                 resultado["proximos_passos"].append("Verificar relatório")
                 return resultado
 
             resultado["detalhes_validacoes"].append(
-                {"validacao": "relatório_existe", "resultado": "OK", "mensagem": f"Relatório {relatorio.titulo or relatorio_id} encontrado"}
+                {
+                    "validacao": "relatório_existe",
+                    "resultado": "OK",
+                    "mensagem": f"Relatório {relatorio.titulo or relatorio_id} encontrado",
+                }
             )
 
             # Validação 2: Capítulos sincronizados
-            capitulos_nao_sync = CapituloDocumento.query.filter_by(id_relatorio=relatorio_id, classificacao=None).all()
+            capitulos_nao_sync = CapituloDocumento.query.filter_by(
+                id_relatorio=relatorio_id, classificacao=None
+            ).all()
 
             if capitulos_nao_sync:
                 resultado["valido"] = False
-                titulos_nao_sync = ", ".join([f"'{cap.titulo}' (ID {cap.id})" for cap in capitulos_nao_sync[:3]])  # Mostrar até 3
+                titulos_nao_sync = ", ".join(
+                    [f"'{cap.titulo}' (ID {cap.id})" for cap in capitulos_nao_sync[:3]]
+                )  # Mostrar até 3
                 if len(capitulos_nao_sync) > 3:
                     titulos_nao_sync += f", ... e {len(capitulos_nao_sync) - 3} mais"
 
                 resultado["motivos_rejeicao"].append(
-                    f"Capítulos não sincronizados: {titulos_nao_sync}. " "Execute a sincronização antes de prosseguir."
+                    f"Capítulos não sincronizados: {titulos_nao_sync}. "
+                    "Execute a sincronização antes de prosseguir."
                 )
                 resultado["proximos_passos"].append("sincronizar")
                 resultado["detalhes_validacoes"].append(
@@ -248,11 +311,14 @@ class ServicoPipelineRelatorio:
                     }
                 )
             else:
+                total_capitulos = CapituloDocumento.query.filter_by(
+                    id_relatorio=relatorio_id
+                ).count()
                 resultado["detalhes_validacoes"].append(
                     {
                         "validacao": "capítulos_sincronizados",
                         "resultado": "OK",
-                        "mensagem": f"Todos os {CapituloDocumento.query.filter_by(id_relatorio=relatorio_id).count()} capítulos sincronizados",
+                        "mensagem": f"Todos os {total_capitulos} capítulos sincronizados",
                     }
                 )
 
@@ -263,14 +329,18 @@ class ServicoPipelineRelatorio:
                 if not cap:
                     uploads_invalidos.append(f"Capítulo ID {cap_id} não existe")
                 elif cap.id_relatorio != relatorio_id:
-                    uploads_invalidos.append(f"Capítulo '{cap.titulo}' não pertence a este relatório")
+                    uploads_invalidos.append(
+                        f"Capítulo '{cap.titulo}' não pertence a este relatório"
+                    )
 
             if uploads_invalidos:
                 resultado["valido"] = False
                 for msg in uploads_invalidos[:3]:  # Mostrar até 3
                     resultado["motivos_rejeicao"].append(msg)
                 if len(uploads_invalidos) > 3:
-                    resultado["motivos_rejeicao"].append(f"... e {len(uploads_invalidos) - 3} upload(s) inválido(s) mais")
+                    resultado["motivos_rejeicao"].append(
+                        f"... e {len(uploads_invalidos) - 3} upload(s) inválido(s) mais"
+                    )
                 resultado["proximos_passos"].append("revisar_uploads")
                 resultado["detalhes_validacoes"].append(
                     {
@@ -282,13 +352,19 @@ class ServicoPipelineRelatorio:
                 )
             else:
                 resultado["detalhes_validacoes"].append(
-                    {"validacao": "uploads_mapeados", "resultado": "OK", "mensagem": f"{len(uploads_dict)} upload(s) válido(s)"}
+                    {
+                        "validacao": "uploads_mapeados",
+                        "resultado": "OK",
+                        "mensagem": f"{len(uploads_dict)} upload(s) válido(s)",
+                    }
                 )
 
             # Validação 4: Espaço em disco
             if relatorio.caminho_template:
                 try:
-                    free_space = _obter_espaco_disponivel(os.path.dirname(relatorio.caminho_template))
+                    free_space = _obter_espaco_disponivel(
+                        os.path.dirname(relatorio.caminho_template)
+                    )
                     free_mb = free_space / 1024 / 1024
                     threshold_mb = 100
 
@@ -310,12 +386,22 @@ class ServicoPipelineRelatorio:
                         )
                     else:
                         resultado["detalhes_validacoes"].append(
-                            {"validacao": "espaço_disco", "resultado": "OK", "espaço_disponível_mb": round(free_mb, 2)}
+                            {
+                                "validacao": "espaço_disco",
+                                "resultado": "OK",
+                                "espaço_disponível_mb": round(free_mb, 2),
+                            }
                         )
                 except Exception as e:
                     # Não falhar pipeline se não conseguir verificar espaço
                     resultado["detalhes_validacoes"].append(
-                        {"validacao": "espaço_disco", "resultado": "AVISO", "mensagem": f"Não foi possível verificar espaço em disco: {str(e)[:50]}"}
+                        {
+                            "validacao": "espaço_disco",
+                            "resultado": "AVISO",
+                            "mensagem": (
+                                "Não foi possível verificar espaço em disco: " f"{str(e)[:50]}"
+                            ),
+                        }
                     )
 
             # Validação 5: DOCX template válido
@@ -324,14 +410,25 @@ class ServicoPipelineRelatorio:
                 resultado["motivos_rejeicao"].append("Relatório não tem template DOCX configurado.")
                 resultado["proximos_passos"].append("configurar_template")
                 resultado["detalhes_validacoes"].append(
-                    {"validacao": "template_docx_existe", "resultado": "FALHA", "mensagem": "Caminho do template não configurado"}
+                    {
+                        "validacao": "template_docx_existe",
+                        "resultado": "FALHA",
+                        "mensagem": "Caminho do template não configurado",
+                    }
                 )
             elif not os.path.exists(relatorio.caminho_template):
                 resultado["valido"] = False
-                resultado["motivos_rejeicao"].append("Arquivo DOCX do template não encontrado. " "Verifique se o arquivo foi movido ou deletado.")
+                resultado["motivos_rejeicao"].append(
+                    "Arquivo DOCX do template não encontrado. "
+                    "Verifique se o arquivo foi movido ou deletado."
+                )
                 resultado["proximos_passos"].append("restaurar_template")
                 resultado["detalhes_validacoes"].append(
-                    {"validacao": "template_docx_existe", "resultado": "FALHA", "mensagem": "Arquivo não existe no caminho especificado"}
+                    {
+                        "validacao": "template_docx_existe",
+                        "resultado": "FALHA",
+                        "mensagem": "Arquivo não existe no caminho especificado",
+                    }
                 )
             else:
                 # Validar integridade do DOCX
@@ -342,10 +439,17 @@ class ServicoPipelineRelatorio:
 
                     if len(doc.element.body) == 0:
                         resultado["valido"] = False
-                        resultado["motivos_rejeicao"].append("Arquivo DOCX do template parece vazio. " "Verifique a integridade do arquivo.")
+                        resultado["motivos_rejeicao"].append(
+                            "Arquivo DOCX do template parece vazio. "
+                            "Verifique a integridade do arquivo."
+                        )
                         resultado["proximos_passos"].append("verificar_template")
                         resultado["detalhes_validacoes"].append(
-                            {"validacao": "template_docx_integridade", "resultado": "FALHA", "mensagem": "Documento vazio ou corrompido"}
+                            {
+                                "validacao": "template_docx_integridade",
+                                "resultado": "FALHA",
+                                "mensagem": "Documento vazio ou corrompido",
+                            }
                         )
                     else:
                         resultado["detalhes_validacoes"].append(
@@ -358,33 +462,52 @@ class ServicoPipelineRelatorio:
                         )
                 except Exception as e:
                     resultado["valido"] = False
-                    resultado["motivos_rejeicao"].append("Arquivo DOCX corrompido ou inválido. " "Tente fazer upload novamente ou contate suporte.")
+                    resultado["motivos_rejeicao"].append(
+                        "Arquivo DOCX corrompido ou inválido. "
+                        "Tente fazer upload novamente ou contate suporte."
+                    )
                     resultado["proximos_passos"].append("verificar_template")
                     resultado["detalhes_validacoes"].append(
-                        {"validacao": "template_docx_integridade", "resultado": "FALHA", "erro_técnico": type(e).__name__}
+                        {
+                            "validacao": "template_docx_integridade",
+                            "resultado": "FALHA",
+                            "erro_técnico": type(e).__name__,
+                        }
                     )
 
         except Exception as e:
             resultado["valido"] = False
-            resultado["motivos_rejeicao"].append("Erro ao validar pré-condições. Tente novamente ou contate suporte.")
-            resultado["detalhes_validacoes"].append({"validacao": "validação_geral", "resultado": "ERRO", "erro_técnico": type(e).__name__})
+            resultado["motivos_rejeicao"].append(
+                "Erro ao validar pré-condições. Tente novamente ou contate suporte."
+            )
+            resultado["detalhes_validacoes"].append(
+                {
+                    "validacao": "validação_geral",
+                    "resultado": "ERRO",
+                    "erro_técnico": type(e).__name__,
+                }
+            )
 
         return resultado
 
     @staticmethod
-    def _fazer_merge(relatorio: RelatorioProducao, uploads_dict: Dict[int, bytes]) -> Dict[str, Any]:
+    def _fazer_merge(
+        relatorio: RelatorioProducao, uploads_dict: Dict[int, bytes]
+    ) -> Dict[str, Any]:
         """Faz merge de capítulos no documento template.
 
         Tolerância a erros: se merge falha para cap 3, continua cap 4.
         Cada capítulo é processado independentemente.
         """
-        resultado = {"sucesso": True, "capítulos_processados": 0, "capítulos_com_erro": 0, "erros": [], "avisos": []}
+        resultado = {
+            "sucesso": True,
+            "capítulos_processados": 0,
+            "capítulos_com_erro": 0,
+            "erros": [],
+            "avisos": [],
+        }
 
         try:
-            from docx import Document
-
-            doc = Document(relatorio.caminho_template)
-
             for cap_id, docx_bytes in uploads_dict.items():
                 try:
                     # Obter capítulo do banco
@@ -394,23 +517,39 @@ class ServicoPipelineRelatorio:
                         resultado["erros"].append(f"Capítulo {cap_id} não encontrado")
                         continue
 
-                    # Fazer merge usando ServicioMergeDocx
-                    merge_res = servico_merge_docx.substituir_capitulo(doc, cap, docx_bytes)
+                    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_autor:
+                        tmp_autor.write(docx_bytes)
+                        caminho_autor = tmp_autor.name
 
-                    if merge_res.get("sucesso", False):
+                    try:
+                        # Fazer merge usando ServicoMergeDocx
+                        merge_res = servico_merge_docx.substituir_capitulo(
+                            relatorio.caminho_template,
+                            cap,
+                            caminho_autor,
+                        )
+                    finally:
+                        try:
+                            os.unlink(caminho_autor)
+                        except OSError:
+                            pass
+
+                    if merge_res is True:
                         resultado["capítulos_processados"] += 1
                     else:
                         resultado["capítulos_com_erro"] += 1
-                        resultado["erros"].extend(merge_res.get("erros", []))
+                        erros = merge_res.get("erros", []) if isinstance(merge_res, dict) else []
+                        resultado["erros"].extend(erros)
 
                 except Exception as e:
                     resultado["capítulos_com_erro"] += 1
                     resultado["erros"].append(f"Erro ao processar capítulo {cap_id}: {str(e)}")
 
-            # Salvar documento se algum merge foi bem-sucedido
             if resultado["capítulos_processados"] > 0:
-                doc.save(relatorio.caminho_template)
-                resultado["avisos"].append(f'Documento salvo com {resultado["capítulos_processados"]} capítulos atualizados')
+                resultado["avisos"].append(
+                    "Documento salvo com "
+                    f'{resultado["capítulos_processados"]} capítulos atualizados'
+                )
             else:
                 resultado["sucesso"] = False
                 resultado["erros"].append("Nenhum capítulo foi processado com sucesso")
@@ -452,7 +591,9 @@ class ServicoPipelineRelatorio:
         return resultado
 
     @staticmethod
-    def _atualizar_refs_cruzadas(caminho_template: str, mapa_labels: Dict[str, Any]) -> Dict[str, Any]:
+    def _atualizar_refs_cruzadas(
+        caminho_template: str, mapa_labels: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Atualiza referências cruzadas no documento."""
         resultado = {"sucesso": True, "tags_substituidas": 0, "tags_orfas": 0, "erros": []}
 
@@ -467,7 +608,9 @@ class ServicoPipelineRelatorio:
             resultado["tags_orfas"] = refs_result.get("orfas", 0)
 
             if refs_result.get("tags_orfas", 0) > 0:
-                resultado["erros"].append(f'{refs_result["tags_orfas"]} referências órfãs detectadas')
+                resultado["erros"].append(
+                    f'{refs_result["tags_orfas"]} referências órfãs detectadas'
+                )
 
         except Exception as e:
             resultado["erros"].append(f"Erro em cross-refs: {str(e)}")
@@ -477,7 +620,13 @@ class ServicoPipelineRelatorio:
     @staticmethod
     def _regenerar_indices(caminho_template: str) -> Dict[str, Any]:
         """Regenera índices (TOC, LOF, LOT)."""
-        resultado = {"sucesso": True, "toc_status": False, "lof_status": False, "lot_status": False, "erros": []}
+        resultado = {
+            "sucesso": True,
+            "toc_status": False,
+            "lof_status": False,
+            "lot_status": False,
+            "erros": [],
+        }
 
         try:
             if not caminho_template:
@@ -525,7 +674,13 @@ class ServicoPipelineRelatorio:
 
         Valida Property 8: Inconsistências pós-pipeline são detectadas e reportadas.
         """
-        resultado = {"inconsistencias": [], "validacoes_executadas": 0, "validacoes_passadas": 0, "diagnosticos": [], "sucesso": True}
+        resultado = {
+            "inconsistencias": [],
+            "validacoes_executadas": 0,
+            "validacoes_passadas": 0,
+            "diagnosticos": [],
+            "sucesso": True,
+        }
 
         try:
             if not caminho_template or not os.path.exists(caminho_template):
@@ -533,7 +688,10 @@ class ServicoPipelineRelatorio:
                     {
                         "tipo": "arquivo_não_encontrado",
                         "elemento": caminho_template or "(não especificado)",
-                        "remediacao": "Verifique se o arquivo DOCX foi salvo corretamente. Tente processar novamente.",
+                        "remediacao": (
+                            "Verifique se o arquivo DOCX foi salvo corretamente. "
+                            "Tente processar novamente."
+                        ),
                     }
                 )
                 resultado["sucesso"] = False
@@ -550,11 +708,16 @@ class ServicoPipelineRelatorio:
                     {
                         "tipo": "documento_vazio",
                         "elemento": "body",
-                        "remediacao": "O documento está vazio. Verifique se o merge foi executado corretamente.",
+                        "remediacao": (
+                            "O documento está vazio. Verifique se o merge foi "
+                            "executado corretamente."
+                        ),
                     }
                 )
                 resultado["sucesso"] = False
-                resultado["diagnosticos"].append({"validacao": "documento_vazio", "resultado": "FALHA"})
+                resultado["diagnosticos"].append(
+                    {"validacao": "documento_vazio", "resultado": "FALHA"}
+                )
             else:
                 resultado["validacoes_passadas"] += 1
                 resultado["diagnosticos"].append(
@@ -578,14 +741,21 @@ class ServicoPipelineRelatorio:
                     # Procurar por bookmarkStart e bookmarkEnd (figuras/tabelas)
                     if "bookmarkStart" in elem.tag:
                         legenda_name = elem.get("name", "")
-                        if legenda_name and ("fig" in legenda_name.lower() or "tab" in legenda_name.lower() or "equacao" in legenda_name.lower()):
+                        if legenda_name and (
+                            "fig" in legenda_name.lower()
+                            or "tab" in legenda_name.lower()
+                            or "equacao" in legenda_name.lower()
+                        ):
                             if legenda_name in legendas_encontradas:
                                 legendas_duplicadas.append(
                                     {
                                         "tipo": "legenda_duplicada",
                                         "elemento": legenda_name,
-                                        "remediacao": f"Legenda '{legenda_name}' aparece múltiplas vezes. "
-                                        "Execute 'Limpar legendas' no menu Ferramentas e reprocesse o documento.",
+                                        "remediacao": (
+                                            f"Legenda '{legenda_name}' aparece múltiplas vezes. "
+                                            "Execute 'Limpar legendas' no menu Ferramentas "
+                                            "e reprocesse o documento."
+                                        ),
                                     }
                                 )
                             else:
@@ -604,14 +774,20 @@ class ServicoPipelineRelatorio:
                 else:
                     resultado["validacoes_passadas"] += 1
                     resultado["diagnosticos"].append(
-                        {"validacao": "legendas_duplicadas", "resultado": "OK", "total_legendas_únicas": len(legendas_encontradas)}
+                        {
+                            "validacao": "legendas_duplicadas",
+                            "resultado": "OK",
+                            "total_legendas_únicas": len(legendas_encontradas),
+                        }
                     )
             except Exception as e:
                 resultado["diagnosticos"].append(
                     {
                         "validacao": "legendas_duplicadas",
                         "resultado": "AVISO",
-                        "mensagem": f"Não foi possível verificar legendas duplicadas: {type(e).__name__}",
+                        "mensagem": (
+                            "Não foi possível verificar legendas duplicadas: " f"{type(e).__name__}"
+                        ),
                     }
                 )
 
@@ -621,8 +797,6 @@ class ServicoPipelineRelatorio:
 
             try:
                 # Extrair números de figuras (Figura 1, 2, 3...; pode ter gaps)
-                import re
-
                 figuras_encontradas = set()
                 tabelas_encontradas = set()
 
@@ -655,11 +829,14 @@ class ServicoPipelineRelatorio:
                     # Converter para float para ordenação
                     figuras_nums = sorted([float(f) for f in figuras_encontradas])
                     for i in range(len(figuras_nums) - 1):
-                        if figuras_nums[i + 1] - figuras_nums[i] > 0.1:  # Gap maior que 0.1
+                        if figuras_nums[i + 1] - figuras_nums[i] > 0.1:
                             gaps_numeracao.append(
                                 {
                                     "tipo": "gap_numeração_figuras",
-                                    "elemento": f"Gap entre Figura {figuras_nums[i]} e {figuras_nums[i+1]}",
+                                    "elemento": (
+                                        f"Gap entre Figura {figuras_nums[i]} "
+                                        f"e {figuras_nums[i + 1]}"
+                                    ),
                                     "remediacao": "Possível gap na numeração de figuras. "
                                     "Revisar conteúdo para adicionar figura faltante ou renumerar.",
                                 }
@@ -672,7 +849,10 @@ class ServicoPipelineRelatorio:
                             gaps_numeracao.append(
                                 {
                                     "tipo": "gap_numeração_tabelas",
-                                    "elemento": f"Gap entre Tabela {tabelas_nums[i]} e {tabelas_nums[i+1]}",
+                                    "elemento": (
+                                        f"Gap entre Tabela {tabelas_nums[i]} "
+                                        f"e {tabelas_nums[i + 1]}"
+                                    ),
                                     "remediacao": "Possível gap na numeração de tabelas. "
                                     "Revisar conteúdo para adicionar tabela faltante ou renumerar.",
                                 }
@@ -715,11 +895,10 @@ class ServicoPipelineRelatorio:
             try:
                 heading_levels = []
                 for para in doc.paragraphs:
-                    style_name = para.style.name if para.style else ""
+                    estilo = para.style
+                    style_name = estilo.name if estilo and estilo.name else ""
                     if "Heading" in style_name:
                         # Extrair nível (Heading 1 → 1, Heading 2 → 2, etc.)
-                        import re
-
                         match = re.search(r"Heading\s+(\d+)", style_name)
                         if match:
                             level = int(match.group(1))
@@ -731,16 +910,26 @@ class ServicoPipelineRelatorio:
                         gaps_heading.append(
                             {
                                 "tipo": "gap_heading_levels",
-                                "elemento": f"Salto de Heading {heading_levels[i]} para {heading_levels[i+1]}",
-                                "remediacao": "Revisar estrutura de headings. Não pule níveis (ex: Heading 1 → Heading 3). "
-                                "Use Heading 2 intermediário se necessário.",
+                                "elemento": (
+                                    f"Salto de Heading {heading_levels[i]} "
+                                    f"para {heading_levels[i + 1]}"
+                                ),
+                                "remediacao": (
+                                    "Revisar estrutura de headings. Não pule níveis "
+                                    "(ex: Heading 1 → Heading 3). Use Heading 2 "
+                                    "intermediário se necessário."
+                                ),
                             }
                         )
 
                 if gaps_heading:
                     resultado["inconsistencias"].extend(gaps_heading)
                     resultado["diagnosticos"].append(
-                        {"validacao": "headings_estruturados", "resultado": "AVISO", "gaps_detectados": len(gaps_heading)}
+                        {
+                            "validacao": "headings_estruturados",
+                            "resultado": "AVISO",
+                            "gaps_detectados": len(gaps_heading),
+                        }
                     )
                 else:
                     resultado["validacoes_passadas"] += 1
@@ -779,9 +968,15 @@ class ServicoPipelineRelatorio:
                 # Coletar bookmarks referenciados (em campos REF)
                 for para in doc.paragraphs:
                     for run in para.runs:
-                        if run.element.findall(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}fldChar"):
+                        if run.element.findall(
+                            ".//{http://schemas.openxmlformats.org/"
+                            "wordprocessingml/2006/main}fldChar"
+                        ):
                             # Tem campo, buscar referência
-                            fldData = run.element.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}fldData")
+                            fldData = run.element.find(
+                                ".//{http://schemas.openxmlformats.org/"
+                                "wordprocessingml/2006/main}fldData"
+                            )
                             if fldData is not None:
                                 instr = fldData.get("instr", "")
                                 # Extrair nome do bookmark de "REF bookmark_name"
@@ -800,7 +995,8 @@ class ServicoPipelineRelatorio:
                                 "tipo": "bookmark_órfão",
                                 "elemento": bookmark,
                                 "remediacao": f"Referência '{bookmark}' não tem destino definido. "
-                                "Verifique se o bookmark correspondente existe ou execute 'Limpar referências órfãs'.",
+                                "Verifique se o bookmark correspondente existe ou execute "
+                                "'Limpar referências órfãs'.",
                             }
                         )
 
@@ -809,7 +1005,10 @@ class ServicoPipelineRelatorio:
                             {
                                 "tipo": "bookmarks_órfãos_múltiplos",
                                 "elemento": f"{len(bookmarks_orfaos_lista)} bookmarks órfãos",
-                                "remediacao": ("Execute 'Limpar referências' para remover " "todas as referências órfãs de uma vez."),
+                                "remediacao": (
+                                    "Execute 'Limpar referências' para remover "
+                                    "todas as referências órfãs de uma vez."
+                                ),
                             }
                         )
 
@@ -835,7 +1034,11 @@ class ServicoPipelineRelatorio:
                     )
             except Exception as e:
                 resultado["diagnosticos"].append(
-                    {"validacao": "bookmarks_órfãos", "resultado": "AVISO", "mensagem": f"Não foi possível verificar bookmarks: {type(e).__name__}"}
+                    {
+                        "validacao": "bookmarks_órfãos",
+                        "resultado": "AVISO",
+                        "mensagem": f"Não foi possível verificar bookmarks: {type(e).__name__}",
+                    }
                 )
 
         except Exception as e:
@@ -844,10 +1047,19 @@ class ServicoPipelineRelatorio:
                 {
                     "tipo": "erro_validação",
                     "elemento": "documento",
-                    "remediacao": "Erro ao validar documento. Tente processar novamente ou contate suporte.",
+                    "remediacao": (
+                        "Erro ao validar documento. Tente processar novamente "
+                        "ou contate suporte."
+                    ),
                 }
             )
-            resultado["diagnosticos"].append({"validacao": "validação_geral", "resultado": "ERRO", "erro_técnico": type(e).__name__})
+            resultado["diagnosticos"].append(
+                {
+                    "validacao": "validação_geral",
+                    "resultado": "ERRO",
+                    "erro_técnico": type(e).__name__,
+                }
+            )
 
         return resultado
 

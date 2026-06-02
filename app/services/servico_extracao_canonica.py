@@ -734,6 +734,11 @@ class ServicoExtracaoCanonica:
         """Extrai capitulos do DOCX por meio da API publica do servico."""
         return cls._extrair_capitulos(doc)
 
+    @staticmethod
+    def extrair_legendas(doc):
+        """Extrai legendas do DOCX por meio da API publica do servico."""
+        return ServicoExtracaoCanonica._extrair_legendas(doc)
+
     @classmethod
     def _extrair_capitulos(cls, doc):
         """

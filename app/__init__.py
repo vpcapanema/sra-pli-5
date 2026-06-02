@@ -13,7 +13,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 migrate = Migrate()
 csrf = CSRFProtect()
-login_manager.login_view = 'auth.login'
+setattr(login_manager, "login_view", "auth.login")
 
 
 def create_app(config_class=Config):
@@ -57,13 +57,13 @@ def create_app(config_class=Config):
     def _configure_security_headers(response):
         """Adiciona headers de segurança e CORS para recursos externos."""
         # Permite que scripts de terceiros (CDN) funcionem sem Tracking Prevention
-        response.headers['Cross-Origin-Resource-Policy'] = 'cross-origin'
-        response.headers['Cross-Origin-Embedder-Policy'] = 'credentialless'
-        
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+
         # Headers adicionais para desabilitar Tracking Prevention no Firefox/Safari
-        response.headers['Permissions-Policy'] = 'storage-access=*'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        
+        response.headers["Permissions-Policy"] = "storage-access=*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
         return response
 
     @app.context_processor
@@ -72,62 +72,50 @@ def create_app(config_class=Config):
         mtime do arquivo estático. Uso no template:
         `?v={{ static_v('js/docx-editor-bundle.js') }}`"""
         from flask_wtf.csrf import generate_csrf
-        
-        static_dir = os.path.join(app.root_path, 'static')
+
+        static_dir = os.path.join(app.root_path, "static")
 
         def static_v(rel_path):
             try:
-                return str(int(os.path.getmtime(
-                    os.path.join(static_dir, rel_path)
-                )))
+                return str(int(os.path.getmtime(os.path.join(static_dir, rel_path))))
             except OSError:
-                return '0'
+                return "0"
 
-        return {
-            'static_v': static_v,
-            'csrf_token': generate_csrf
-        }
+        return {"static_v": static_v, "csrf_token": generate_csrf}
 
     # ============================================================
     # Handlers de erro com logging
     # ============================================================
-    
+
     @app.errorhandler(400)
     def bad_request(error):
         """Handler para erros 400 Bad Request."""
         from flask import render_template
-        app.logger.error(f'400 Bad Request: {error}')
-        return render_template('error_400.html', message=str(error)), 400
-    
+
+        app.logger.error("400 Bad Request: %s", error)
+        return render_template("error_400.html", message=str(error)), 400
+
     @app.errorhandler(403)
     def forbidden(error):
         """Handler para erros 403 Forbidden."""
-        app.logger.error(f'403 Forbidden: {error}')
-        return {
-            'error': 'Forbidden',
-            'message': str(error),
-            'status': 403
-        }, 403
-    
+        app.logger.error("403 Forbidden: %s", error)
+        return {"error": "Forbidden", "message": str(error), "status": 403}, 403
+
     @app.errorhandler(404)
     def not_found(error):
         """Handler para erros 404 Not Found."""
-        app.logger.error(f'404 Not Found: {error}')
-        return {
-            'error': 'Not Found',
-            'message': str(error),
-            'status': 404
-        }, 404
-    
+        app.logger.error("404 Not Found: %s", error)
+        return {"error": "Not Found", "message": str(error), "status": 404}, 404
+
     @app.errorhandler(500)
     def internal_error(error):
         """Handler para erros 500 Internal Server Error."""
-        app.logger.error(f'500 Internal Server Error: {error}')
+        app.logger.error("500 Internal Server Error: %s", error)
         db.session.rollback()
         return {
-            'error': 'Internal Server Error',
-            'message': 'Ocorreu um erro no servidor. Por favor, tente novamente.',
-            'status': 500
+            "error": "Internal Server Error",
+            "message": "Ocorreu um erro no servidor. Por favor, tente novamente.",
+            "status": 500,
         }, 500
 
     return app

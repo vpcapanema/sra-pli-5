@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 """Script para reprocessar estrutura de um envio existente."""
 
+import json
 import os
-import sys
+import traceback
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from docx import Document
 
 from app import create_app
+from app import db
 from app.models.envio_conteudo import EnvioConteudo
 from app.services.servico_envio_autor import ServicoEnvioAutor
-from docx import Document
+
 
 def reprocessar_envio(id_envio):
     """Reprocessa a estrutura de um envio existente."""
@@ -34,28 +36,29 @@ def reprocessar_envio(id_envio):
             print(f'✓ DOCX carregado: {len(doc.paragraphs)} parágrafos')
 
             # Extrair estrutura completa
-            estrutura = ServicoEnvioAutor._extrair_estrutura_completa(doc)
+            estrutura = ServicoEnvioAutor.extrair_estrutura_completa(doc)
 
             # Salvar no banco
-            import json
             envio.sugestoes_json = json.dumps(estrutura)
-
-            from app import db
             db.session.commit()
 
-            print(f'✓ Estrutura salva no banco')
+            print('✓ Estrutura salva no banco')
             print(f'  Capítulos: {len(estrutura.get("capitulos", []))}')
             print(f'  Legendas: {list(estrutura.get("legendas", {}).keys())}')
 
             if estrutura.get("capitulos"):
-                print(f'\n  Capítulos encontrados:')
+                print('\n  Capítulos encontrados:')
                 for i, cap in enumerate(estrutura["capitulos"][:5]):
-                    print(f'    {i+1}. {cap.get("indice", "")} {cap.get("titulo", "")} (nível {cap.get("nivel", "")})')
+                    print(
+                        f'    {i + 1}. {cap.get("indice", "")} '
+                        f'{cap.get("titulo", "")} '
+                        f'(nível {cap.get("nivel", "")})'
+                    )
 
         except Exception as e:
             print(f'✗ Erro: {e}')
-            import traceback
             traceback.print_exc()
+
 
 if __name__ == '__main__':
     reprocessar_envio(7)

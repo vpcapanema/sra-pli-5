@@ -3,12 +3,8 @@
 
 import json
 import os
-import sys
 
 from docx import Document
-
-# Adicionar o diretório do app ao path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app
 from app.models.envio_conteudo import EnvioConteudo
@@ -53,7 +49,8 @@ def test_estrutura_envio(id_envio):
                         # Mostrar primeiros parágrafos
                         print('\n  Primeiros 10 parágrafos:')
                         for i, p in enumerate(doc.paragraphs[:10]):
-                            estilo = p.style.name or ''
+                            estilo_obj = p.style
+                            estilo = estilo_obj.name if estilo_obj else ''
                             texto = p.text.strip()[:50]
                             print('    {}. [{}] {}'.format(
                                 i + 1, estilo, texto

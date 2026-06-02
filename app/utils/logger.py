@@ -6,18 +6,13 @@ from datetime import datetime
 from flask import request, session
 from flask_login import current_user
 
-
 # Logger dedicado a falhas internas do próprio handler.
 # Não propaga e usa apenas StreamHandler (stderr) para evitar reentrar em SRALogHandler.
-_logger_handler_emit = logging.getLogger('sra.handler_emit')
+_logger_handler_emit = logging.getLogger("sra.handler_emit")
 _logger_handler_emit.propagate = False
 if not _logger_handler_emit.handlers:
     _h = logging.StreamHandler()
-    _h.setFormatter(
-        logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-    )
+    _h.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     _logger_handler_emit.addHandler(_h)
 _logger_handler_emit.setLevel(logging.WARNING)
 
@@ -25,9 +20,7 @@ _logger_handler_emit.setLevel(logging.WARNING)
 def _logar_warning_sem_recursao(contexto: str, exc: BaseException) -> None:
     """Registra warning interno do SRALogHandler sem reentrar no próprio handler."""
     try:
-        _logger_handler_emit.warning(
-            "Falha em %s: %s: %s", contexto, type(exc).__name__, str(exc)
-        )
+        _logger_handler_emit.warning("Falha em %s: %s: %s", contexto, type(exc).__name__, str(exc))
     except Exception:
         # Suprime falha secundária para não quebrar o emit original.
         pass
@@ -41,59 +34,55 @@ class SRALogHandler(logging.Handler):
         super().__init__()
         self.logs = []
         self.max_logs = max_logs
-        self.lock = threading.Lock()
+        self._logs_lock = threading.Lock()
 
     def emit(self, record):
         """Adiciona log à lista em memória."""
         try:
-            with self.lock:
-                user_name = 'anonymous'
+            with self._logs_lock:
+                user_name = "anonymous"
                 try:
                     if current_user.is_authenticated:
-                        user_name = getattr(
-                            current_user, 'nome', 'anonymous'
-                        )
+                        user_name = getattr(current_user, "nome", "anonymous")
                 except Exception as exc:
                     _logar_warning_sem_recursao(
-                        'obtenção de current_user.nome em SRALogHandler.emit',
+                        "obtenção de current_user.nome em SRALogHandler.emit",
                         exc,
                     )
-                    user_name = 'anonymous'
+                    user_name = "anonymous"
 
-                perfil = ''
+                perfil = ""
                 try:
-                    perfil = session.get('perfil_ativo', '')
+                    perfil = session.get("perfil_ativo", "")
                 except Exception as exc:
                     _logar_warning_sem_recursao(
-                        'obtenção de session.perfil_ativo em SRALogHandler.emit',
+                        "obtenção de session.perfil_ativo em SRALogHandler.emit",
                         exc,
                     )
-                    perfil = ''
+                    perfil = ""
 
-                path = ''
-                method = ''
+                path = ""
+                method = ""
                 try:
                     path = request.path
                     method = request.method
                 except Exception as exc:
                     _logar_warning_sem_recursao(
-                        'obtenção de request.path/request.method em SRALogHandler.emit',
+                        "obtenção de request.path/request.method em SRALogHandler.emit",
                         exc,
                     )
-                    path = ''
-                    method = ''
+                    path = ""
+                    method = ""
 
                 log_entry = {
-                    'timestamp': datetime.fromtimestamp(
-                        record.created
-                    ).isoformat(),
-                    'level': record.levelname,
-                    'message': self.format(record),
-                    'logger': record.name,
-                    'user': user_name,
-                    'perfil': perfil,
-                    'path': path,
-                    'method': method,
+                    "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+                    "level": record.levelname,
+                    "message": self.format(record),
+                    "logger": record.name,
+                    "user": user_name,
+                    "perfil": perfil,
+                    "path": path,
+                    "method": method,
                 }
                 self.logs.append(log_entry)
                 # Manter apenas os últimos max_logs
@@ -101,16 +90,16 @@ class SRALogHandler(logging.Handler):
                     self.logs = self.logs[-self.max_logs:]
         except Exception as exc:
             _logar_warning_sem_recursao(
-                'SRALogHandler.emit (externo)',
+                "SRALogHandler.emit (externo)",
                 exc,
             )
             self.handleError(record)
 
     def get_logs(self, level=None, limit=100):
         """Retorna logs filtrados."""
-        with self.lock:
+        with self._logs_lock:
             if level:
-                filtered = [log for log in self.logs if log['level'] == level]
+                filtered = [log for log in self.logs if log["level"] == level]
             else:
                 filtered = self.logs
             return filtered[-limit:]
@@ -121,15 +110,13 @@ sra_log_handler = SRALogHandler()
 sra_log_handler.setLevel(logging.INFO)
 
 # Formatação dos logs
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 sra_log_handler.setFormatter(formatter)
 
 
-def log_action(action, details=None, level='INFO'):
+def log_action(action, details=None, level="INFO"):
     """Registra uma ação do usuário no sistema de logs."""
-    logger = logging.getLogger('sra.action')
+    logger = logging.getLogger("sra.action")
     if not logger.handlers:
         logger.addHandler(sra_log_handler)
         logger.setLevel(logging.INFO)
@@ -138,13 +125,13 @@ def log_action(action, details=None, level='INFO'):
     if details:
         message += f" | Detalhes: {details}"
 
-    if level == 'INFO':
+    if level == "INFO":
         logger.info(message)
-    elif level == 'WARNING':
+    elif level == "WARNING":
         logger.warning(message)
-    elif level == 'ERROR':
+    elif level == "ERROR":
         logger.error(message)
-    elif level == 'DEBUG':
+    elif level == "DEBUG":
         logger.debug(message)
 
 
