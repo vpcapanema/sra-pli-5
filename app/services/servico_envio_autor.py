@@ -37,6 +37,32 @@ TIPO_PREVIA_DOCX_SUGERIDO = "docx_sugerido"
 VERSAO_DOCX_SUGERIDO = "analise_upload_v2"
 
 
+def _resumo_biblioteca_sugerida(perfil, metricas, biblioteca):
+    """Monta o resumo amigavel da biblioteca usada na versao sugerida.
+
+    Retorna nome/id/origem e se a formatacao veio de uma biblioteca
+    canonica real ou dos defaults do sistema.
+    """
+    origem = getattr(perfil, "origem", "default")
+    usou_biblioteca = bool((metricas or {}).get("formatacao"))
+    if biblioteca is not None:
+        nome = getattr(biblioteca, "nome_biblioteca", None)
+        id_biblioteca = getattr(
+            biblioteca, "id_biblioteca_formatacao_canonica", None
+        )
+    else:
+        nome = None
+        id_biblioteca = None
+    if not nome:
+        nome = "Padrao do sistema" if not usou_biblioteca else origem
+    return {
+        "id": id_biblioteca,
+        "nome": nome,
+        "origem": origem,
+        "usou_biblioteca_canonica": usou_biblioteca,
+    }
+
+
 def _normalizar(texto):
     """Lowercase + sem acentos + colapsa espaços."""
     if not texto:
@@ -231,7 +257,8 @@ class ServicoEnvioAutor:
 
         if not caminho:
             caminho = cls._caminho_novo_docx_sugerido(envio)
-        cls._gerar_docx_sugerido_processado(envio, caminho)
+        biblioteca = cls._resolver_biblioteca_escolhida(envio)
+        cls._gerar_docx_sugerido_processado(envio, caminho, biblioteca=biblioteca)
         if cls.caminho_docx_sugerido(envio) is None:
             db.session.add(
                 PrevisualizacaoConteudo(
@@ -258,6 +285,74 @@ class ServicoEnvioAutor:
         return os.path.join(dir_sugerido, nome_sugerido)
 
     @staticmethod
+    def _biblioteca_escolhida_id(envio):
+        """Lê o id da biblioteca escolhida (persistido só neste envio)."""
+        try:
+            estrutura = json.loads(envio.sugestoes_json or "{}")
+        except (TypeError, ValueError):
+            return None
+        return estrutura.get("biblioteca_escolhida_id")
+
+    @classmethod
+    def _resolver_biblioteca_escolhida(cls, envio):
+        """Resolve a BibliotecaFormatacaoCanonica escolhida, ou None."""
+        biblioteca_id = cls._biblioteca_escolhida_id(envio)
+        if not biblioteca_id:
+            return None
+        from app.models.biblioteca_formatacao import (  # noqa: C0415
+            BibliotecaFormatacaoCanonica,
+        )
+        return BibliotecaFormatacaoCanonica.query.get(int(biblioteca_id))
+
+    @classmethod
+    def _set_biblioteca_escolhida(cls, envio, biblioteca_id):
+        """Persiste a escolha de biblioteca apenas neste envio."""
+        try:
+            estrutura = json.loads(envio.sugestoes_json or "{}")
+        except (TypeError, ValueError):
+            estrutura = {}
+        estrutura["biblioteca_escolhida_id"] = (
+            int(biblioteca_id) if biblioteca_id else None
+        )
+        envio.sugestoes_json = json.dumps(estrutura, ensure_ascii=False)
+
+    @classmethod
+    def regenerar_docx_sugerido(cls, envio, biblioteca_id=None):
+        """Regenera a versão sugerida com a biblioteca escolhida.
+
+        A escolha vale só para este envio. Retorna o caminho do DOCX
+        sugerido regenerado (com diagnóstico atualizado em sugestoes_json).
+        """
+        if not envio.caminho_arquivo or not os.path.exists(envio.caminho_arquivo):
+            return None
+        biblioteca = None
+        if biblioteca_id:
+            from app.models.biblioteca_formatacao import (  # noqa: C0415
+                BibliotecaFormatacaoCanonica,
+            )
+            biblioteca = BibliotecaFormatacaoCanonica.query.get(int(biblioteca_id))
+        caminho = cls.caminho_docx_sugerido(envio)
+        if not caminho:
+            caminho = cls._caminho_novo_docx_sugerido(envio)
+        elif os.path.exists(caminho):
+            try:
+                os.remove(caminho)
+            except OSError:
+                pass
+        cls._gerar_docx_sugerido_processado(envio, caminho, biblioteca=biblioteca)
+        cls._set_biblioteca_escolhida(envio, biblioteca_id)
+        if cls.caminho_docx_sugerido(envio) is None:
+            db.session.add(
+                PrevisualizacaoConteudo(
+                    id_envio_conteudo=envio.id_envio_conteudo,
+                    tipo_previsualizacao=TIPO_PREVIA_DOCX_SUGERIDO,
+                    caminho_saida=caminho,
+                )
+            )
+        db.session.commit()
+        return caminho
+
+    @staticmethod
     def _docx_sugerido_esta_processado(envio):
         try:
             estrutura = json.loads(envio.sugestoes_json or "{}")
@@ -266,7 +361,7 @@ class ServicoEnvioAutor:
         return estrutura.get("docx_sugerido", {}).get("gerado_por") == (VERSAO_DOCX_SUGERIDO)
 
     @classmethod
-    def _gerar_docx_sugerido_processado(cls, envio, caminho_saida):
+    def _gerar_docx_sugerido_processado(cls, envio, caminho_saida, biblioteca=None):
         """Gera DOCX sugerido por serviço canônico especializado."""
         from app.models.relatorio_producao import RelatorioProducao  # noqa: C0415
         from app.services.servico_perfil_formatacao import PerfilFormatacao  # noqa: C0415
@@ -275,17 +370,30 @@ class ServicoEnvioAutor:
         )
 
         rel = RelatorioProducao.query.get(envio.id_relatorio)
-        perfil = PerfilFormatacao.de_relatorio(rel) if rel else PerfilFormatacao()
-        metricas_aplicadas, metricas = ServicoVersaoSugeridaCanonica.gerar(
+        if biblioteca is not None:
+            perfil = PerfilFormatacao.de_biblioteca(biblioteca)
+            metricas_lib = ServicoVersaoSugeridaCanonica.carregar_de_biblioteca(
+                biblioteca
+            )
+        else:
+            perfil = PerfilFormatacao.de_relatorio(rel) if rel else PerfilFormatacao()
+            metricas_lib = None
+        metricas_aplicadas, metricas, diagnostico = ServicoVersaoSugeridaCanonica.gerar(
             envio=envio,
             relatorio=rel,
             perfil=perfil,
             caminho_saida=caminho_saida,
+            metricas=metricas_lib,
         )
-        cls._registrar_diagnostico_sugestao(envio, perfil, metricas_aplicadas, metricas)
+        cls._registrar_diagnostico_sugestao(
+            envio, perfil, metricas_aplicadas, metricas, diagnostico, biblioteca,
+        )
 
     @staticmethod
-    def _registrar_diagnostico_sugestao(envio, perfil, metricas_aplicadas, metricas):
+    def _registrar_diagnostico_sugestao(
+        envio, perfil, metricas_aplicadas, metricas,
+        diagnostico=None, biblioteca=None,
+    ):
         try:
             estrutura = json.loads(envio.sugestoes_json or "{}")
         except (TypeError, ValueError):
@@ -297,6 +405,7 @@ class ServicoEnvioAutor:
             "metricas_obrigatorias_aplicadas": True,
             "perfil_formatacao": getattr(perfil, "origem", "default"),
             "avisos_perfil": getattr(perfil, "avisos", []),
+            "biblioteca": _resumo_biblioteca_sugerida(perfil, metricas, biblioteca),
             "biblioteca_canonica": {
                 "diretorio": (metricas or {}).get("diretorio"),
                 "docx_base": (metricas or {}).get("docx_base"),
@@ -305,6 +414,7 @@ class ServicoEnvioAutor:
                 "tem_macro": bool((metricas or {}).get("macro")),
             },
         }
+        estrutura["docx_sugerido"]["diagnostico_visual"] = diagnostico or {}
         envio.sugestoes_json = json.dumps(estrutura, ensure_ascii=False)
 
     @classmethod
@@ -1582,8 +1692,8 @@ class ServicoEnvioAutor:
             }
 
             if not legenda:
-                tabela_info["sugestao"] = (  # noqa: E501
-                    "Adicione uma legenda descritiva " "para esta tabela."
+                tabela_info["sugestao"] = (
+                    "Adicione uma legenda descritiva para esta tabela."
                 )
 
             sugestoes["tabelas"].append(tabela_info)

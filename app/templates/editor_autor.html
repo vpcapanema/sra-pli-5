@@ -404,7 +404,9 @@
              data-original-url="{{ url_for('relatorio.baixar_envio_docx_original', id_envio=envio_pendente.id_envio_conteudo) }}"
              data-sugerido-url="{{ url_for('relatorio.envio_docx_sugerido', id_envio=envio_pendente.id_envio_conteudo) }}"
              data-save-url="{{ url_for('relatorio.envio_docx_sugerido', id_envio=envio_pendente.id_envio_conteudo) }}"
-             data-diagnostico-url="{{ url_for('relatorio.diagnostico_envio', id_envio=envio_pendente.id_envio_conteudo) }}">
+             data-diagnostico-url="{{ url_for('relatorio.diagnostico_envio', id_envio=envio_pendente.id_envio_conteudo) }}"
+             data-bibliotecas-url="{{ url_for('api.listar_bibliotecas') }}"
+             data-set-biblioteca-url="{{ url_for('relatorio.definir_biblioteca_sugerida', id_envio=envio_pendente.id_envio_conteudo) }}">
         <div class="ea__preview-head">
             <div>
                 <p class="ea__upload-kicker">Prévia de trabalho</p>
@@ -439,6 +441,16 @@
                         <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
                         <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
                     </div>
+                </div>
+                <div class="ea__biblioteca-bar">
+                    <label class="ea__biblioteca-label" for="ea-sel-biblioteca">
+                        <i class="ph ph-paint-brush-broad"></i>
+                        Biblioteca de formatação
+                    </label>
+                    <select id="ea-sel-biblioteca" class="ea__biblioteca-select">
+                        <option value="">Padrão do sistema</option>
+                    </select>
+                    <span class="ea__biblioteca-status" id="ea-biblioteca-status"></span>
                 </div>
                 <div class="ea__docx-mini-mount" id="ea-upload-sugerido-mount"></div>
             </article>

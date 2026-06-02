@@ -29,8 +29,14 @@ class ServicoVersaoSugeridaCanonica:
     }
 
     @classmethod
-    def gerar(cls, *, envio, relatorio, perfil, caminho_saida):
-        """Gera e salva o DOCX sugerido apenas se todas as métricas passarem."""
+    def gerar(cls, *, envio, relatorio, perfil, caminho_saida, metricas=None):
+        """Gera e salva o DOCX sugerido apenas se todas as métricas passarem.
+
+        Quando `metricas` é informado (ex.: biblioteca escolhida no
+        seletor da prévia), usa-o em vez de resolver pela biblioteca do
+        relatório. Retorna `(metricas_aplicadas, metricas, diagnostico)`,
+        onde `diagnostico` descreve o que foi (e o que não foi) alterado.
+        """
         os.makedirs(os.path.dirname(caminho_saida), exist_ok=True)
         caminho_temp = f'{caminho_saida}.tmp'
         metricas_aplicadas = []
@@ -43,9 +49,12 @@ class ServicoVersaoSugeridaCanonica:
                 arquivo.write(bytes_sanitizados)
         metricas_aplicadas.append('sanitizacao_compatibilidade_editor')
 
-        metricas = cls.carregar_biblioteca_canonica(relatorio)
+        if metricas is None:
+            metricas = cls.carregar_biblioteca_canonica(relatorio)
         try:
-            cls.aplicar_biblioteca_canonica(caminho_temp, perfil, metricas)
+            diagnostico = cls.aplicar_biblioteca_canonica(
+                caminho_temp, perfil, metricas
+            )
             metricas_aplicadas.extend([
                 'aplicacao_estilos_heading_do_perfil',
                 'normalizacao_visual_de_paragrafos',
@@ -61,12 +70,28 @@ class ServicoVersaoSugeridaCanonica:
             raise
 
         os.replace(caminho_temp, caminho_saida)
-        return metricas_aplicadas, metricas
+        return metricas_aplicadas, metricas, diagnostico
 
     @classmethod
     def carregar_biblioteca_canonica(cls, relatorio):
         """Carrega formatação, capítulos e macroestrutura da base canônica."""
-        caminho_dir = cls._resolver_diretorio_canonico(relatorio)
+        return cls._carregar_de_dir(cls._resolver_diretorio_canonico(relatorio))
+
+    @classmethod
+    def carregar_de_biblioteca(cls, biblioteca):
+        """Carrega métricas a partir de uma biblioteca escolhida pelo usuário.
+
+        Retorna {} (sem dados canônicos → defaults do sistema) quando a
+        biblioteca não tem `caminho_arquivo` válido em disco.
+        """
+        caminho = getattr(biblioteca, 'caminho_arquivo', None) if biblioteca else None
+        if not caminho or not os.path.isdir(caminho):
+            return {}
+        return cls._carregar_de_dir(caminho)
+
+    @classmethod
+    def _carregar_de_dir(cls, caminho_dir):
+        """Lê os 3 JSONs canônicos de um diretório de biblioteca."""
         if not caminho_dir:
             return {}
         return {
@@ -117,13 +142,26 @@ class ServicoVersaoSugeridaCanonica:
 
     @classmethod
     def aplicar_biblioteca_canonica(cls, caminho_docx, perfil, metricas):
-        """Classifica elementos e aplica métricas visuais canônicas."""
+        """Classifica elementos e aplica métricas visuais canônicas.
+
+        Retorna um diagnóstico estruturado com o que foi alterado
+        (margens, estilos-base, headings, corpo, legendas) e o que
+        não foi (parágrafos vazios e parágrafos dentro de tabelas).
+        """
         doc = Document(caminho_docx)
         estilos = cls._mapear_estilos_canonicos(metricas)
-        cls._aplicar_secoes_canonicas(doc, metricas)
-        cls._aplicar_estilos_base(doc, estilos)
-        cls._classificar_e_formatar_blocos(doc, perfil, estilos)
+        margens = cls._aplicar_secoes_canonicas(doc, metricas)
+        estilos_base = cls._aplicar_estilos_base(doc, estilos)
+        blocos = cls._classificar_e_formatar_blocos(doc, perfil, estilos)
         doc.save(caminho_docx)
+        return {
+            'margens': margens,
+            'estilos_base': estilos_base,
+            'headings': blocos['headings'],
+            'corpo': blocos['corpo'],
+            'legendas': blocos['legendas'],
+            'nao_alterados': blocos['nao_alterados'],
+        }
 
     @staticmethod
     def _mapear_estilos_canonicos(metricas):
@@ -148,35 +186,80 @@ class ServicoVersaoSugeridaCanonica:
                 'margem_left_mm': 20,
             }
         )
+        valores = {
+            'top_mm': secao_canonica.get('margem_top_mm') or 25,
+            'right_mm': secao_canonica.get('margem_right_mm') or 20,
+            'bottom_mm': secao_canonica.get('margem_bottom_mm') or 25,
+            'left_mm': secao_canonica.get('margem_left_mm') or 20,
+        }
         for secao in doc.sections:
-            secao.top_margin = Mm(secao_canonica.get('margem_top_mm') or 25)
-            secao.right_margin = Mm(secao_canonica.get('margem_right_mm') or 20)
-            secao.bottom_margin = Mm(secao_canonica.get('margem_bottom_mm') or 25)
-            secao.left_margin = Mm(secao_canonica.get('margem_left_mm') or 20)
+            secao.top_margin = Mm(valores['top_mm'])
+            secao.right_margin = Mm(valores['right_mm'])
+            secao.bottom_margin = Mm(valores['bottom_mm'])
+            secao.left_margin = Mm(valores['left_mm'])
+        return {'aplicado': True, **valores}
 
     @classmethod
     def _aplicar_estilos_base(cls, doc, estilos):
+        aplicados = []
         if 'Normal' in doc.styles:
             spec = cls._spec_texto(estilos)
             cls._aplicar_spec_fonte(doc.styles['Normal'].font, spec)
+            aplicados.append('Normal')
         for nivel in range(1, 10):
             nome = f'Heading {nivel}'
             if nome not in doc.styles:
                 continue
             spec = cls._spec_heading(estilos, nivel)
             cls._aplicar_spec_fonte(doc.styles[nome].font, spec)
+            aplicados.append(nome)
+        return aplicados
 
     @classmethod
     def _classificar_e_formatar_blocos(cls, doc, perfil, estilos):
         contadores = []
+        headings = []
+        corpo = 0
+        legendas = 0
+        vazios = 0
         for paragrafo in doc.paragraphs:
             nivel = cls._heading_nivel(paragrafo.style.name or '')
             if nivel:
                 cls._formatar_heading(paragrafo, nivel, perfil, estilos, contadores)
+                spec = cls._spec_heading(estilos, nivel)
+                headings.append({
+                    'nivel': nivel,
+                    'texto': (paragrafo.text or '').strip()[:80],
+                    'fonte': spec.get('fonte_nome'),
+                    'tamanho_pt': spec.get('fonte_tamanho_pt'),
+                    'negrito': bool(spec.get('negrito')),
+                    'cor_rgb': spec.get('cor_rgb'),
+                })
             elif cls._parece_legenda(paragrafo.text):
                 cls._aplicar_spec_paragrafo(paragrafo, cls._spec_legenda(estilos))
+                legendas += 1
             elif paragrafo.text.strip():
                 cls._aplicar_spec_paragrafo(paragrafo, cls._spec_texto(estilos))
+                corpo += 1
+            else:
+                vazios += 1
+        # Parágrafos dentro de tabelas não são reformatados neste passe.
+        em_tabelas = sum(
+            len(celula.paragraphs)
+            for tabela in doc.tables
+            for linha in tabela.rows
+            for celula in linha.cells
+        )
+        return {
+            'headings': {'alterados': len(headings), 'itens': headings},
+            'corpo': {'alterados': corpo},
+            'legendas': {'alterados': legendas},
+            'nao_alterados': {
+                'paragrafos_vazios': vazios,
+                'paragrafos_em_tabelas': em_tabelas,
+                'total': vazios + em_tabelas,
+            },
+        }
 
     @staticmethod
     def _heading_nivel(estilo):

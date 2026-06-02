@@ -467,6 +467,72 @@
         configurarControlesPreview();
         carregarDiagnosticoPreview(workbench.dataset.diagnosticoUrl);
         configurarModalImportar(workbench.dataset.sugeridoUrl);
+        configurarSeletorBiblioteca(workbench);
+    }
+
+    function configurarSeletorBiblioteca(workbench) {
+        var sel = document.getElementById('ea-sel-biblioteca');
+        if (!sel) return;
+        var listaUrl = workbench.dataset.bibliotecasUrl;
+        var setUrl = workbench.dataset.setBibliotecaUrl;
+        var status = document.getElementById('ea-biblioteca-status');
+
+        function setStatus(texto, estado) {
+            if (!status) return;
+            status.textContent = texto || '';
+            status.className = 'ea__biblioteca-status'
+                + (estado ? ' ea__biblioteca-status--' + estado : '');
+        }
+
+        if (listaUrl) {
+            fetch(listaUrl)
+                .then(function (resp) { return resp.json(); })
+                .then(function (bibs) {
+                    (bibs || []).forEach(function (b) {
+                        var opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = b.nome;
+                        sel.appendChild(opt);
+                    });
+                    marcarBibliotecaAtual(sel);
+                })
+                .catch(function () { /* mantem so o padrao */ });
+        }
+
+        sel.addEventListener('change', function () {
+            var idBib = sel.value || '';
+            sel.disabled = true;
+            setStatus('Regenerando previa...', 'loading');
+            fetch(setUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken(),
+                },
+                body: JSON.stringify({ biblioteca_id: idBib }),
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (dados) {
+                    sel.disabled = false;
+                    if (!dados.ok) {
+                        setStatus(dados.erro || 'Falha ao regenerar.', 'erro');
+                        return;
+                    }
+                    setStatus('Previa atualizada.', 'ok');
+                    montarPreviewDocx('sugerido', true);
+                    renderDiagnostico(dados.estrutura || {});
+                })
+                .catch(function () {
+                    sel.disabled = false;
+                    setStatus('Falha de conexao ao regenerar.', 'erro');
+                });
+        });
+    }
+
+    function marcarBibliotecaAtual(sel) {
+        var box = document.getElementById('ea-preview-diagnostico');
+        var atual = box && box.getAttribute('data-biblioteca-id');
+        if (atual) sel.value = atual;
     }
 
     function aplicarZoomPreview(tipo, percent) {

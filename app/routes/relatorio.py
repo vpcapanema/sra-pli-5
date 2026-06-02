@@ -1346,6 +1346,34 @@ def diagnostico_envio(id_envio):
     })
 
 
+@relatorio_bp.route(
+    "/envios-conteudo/<int:id_envio>/biblioteca-sugerida", methods=["POST"]
+)
+@login_required
+def definir_biblioteca_sugerida(id_envio):
+    """Regenera a versão sugerida do envio com a biblioteca escolhida.
+
+    A escolha vale apenas para este envio (não altera o relatório).
+    Retorna o diagnóstico atualizado para a UI renderizar.
+    """
+    envio = EnvioConteudo.query.get_or_404(id_envio)
+    if not _envio_autorizado(envio):
+        return jsonify({"ok": False, "erro": "Sem permissão"}), 403
+    dados = request.get_json(silent=True) or request.form
+    biblioteca_id = (dados.get("biblioteca_id") or "").strip() or None
+    try:
+        caminho = ServicoEnvioAutor.regenerar_docx_sugerido(envio, biblioteca_id)
+    except (OSError, ValueError, RuntimeError) as e:
+        return jsonify({"ok": False, "erro": f"Falha ao regenerar: {e}"}), 400
+    if not caminho:
+        return jsonify({"ok": False, "erro": "Não foi possível regenerar."}), 400
+    try:
+        estrutura = json.loads(envio.sugestoes_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        estrutura = {}
+    return jsonify({"ok": True, "estrutura": estrutura})
+
+
 @relatorio_bp.route("/envios-conteudo/<int:id_envio>/rejeitar-novo", methods=["POST"])
 @login_required
 def rejeitar_envio_novo(id_envio):
