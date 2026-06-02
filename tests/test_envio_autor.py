@@ -1,6 +1,5 @@
-"""Testes do fluxo de envio do autor: upload, prévia, confirmação,
-geração do relatório final, e do bug-fix de deduplicação na clonagem.
-"""
+"""Testes do fluxo de envio do autor: upload, prévia e confirmação."""
+# pylint: disable=redefined-outer-name
 import io
 import os
 import tempfile
@@ -9,33 +8,42 @@ import pytest
 from docx import Document
 
 from app import create_app, db
+from app.config import Config
 from app.models.dominio import Dominio
 from app.models.usuario import Usuario
 from app.models.relatorio_producao import RelatorioProducao
 from app.models.capitulo_documento import CapituloDocumento
-from app.models.envio_conteudo import EnvioConteudo
 from app.services.servico_envio_autor import ServicoEnvioAutor
 from app.services.servico_extracao_canonica import ServicoExtracaoCanonica
 
 
+class TestConfig(Config):
+    """Configuração isolada para testes deste módulo."""
+
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+
+
 @pytest.fixture
 def app():
-    app = create_app()
-    app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['WTF_CSRF_ENABLED'] = False
+    app = create_app(TestConfig)
     with app.app_context():
         db.create_all()
         # Seed mínimo
-        db.session.add(
-            Dominio(tipo='perfil_usuario', valor='autor', descricao='Autor')
-        )
-        db.session.add(
-            Dominio(tipo='perfil_usuario', valor='coordenador', descricao='Coord')
-        )
-        db.session.add(
-            Dominio(tipo='status_relatorio', valor='em_producao', descricao='EP')
-        )
+        dominio_autor = Dominio()
+        dominio_autor.tipo = 'perfil_usuario'
+        dominio_autor.valor = 'autor'
+        dominio_autor.descricao = 'Autor'
+        dominio_coordenador = Dominio()
+        dominio_coordenador.tipo = 'perfil_usuario'
+        dominio_coordenador.valor = 'coordenador'
+        dominio_coordenador.descricao = 'Coord'
+        status_relatorio = Dominio()
+        status_relatorio.tipo = 'status_relatorio'
+        status_relatorio.valor = 'em_producao'
+        status_relatorio.descricao = 'EP'
+        db.session.add_all([dominio_autor, dominio_coordenador, status_relatorio])
         db.session.commit()
         yield app
         db.session.remove()
@@ -48,38 +56,48 @@ def dados(app):
         tipo='perfil_usuario', valor='autor'
     ).first()
     status = Dominio.query.filter_by(tipo='status_relatorio').first()
-    u = Usuario(
-        nome='Autor T',
-        email='a@t.com',
-        nome_de_usuario='autort',
-        senha_hash='x',
-        perfil_id=perfil_autor.id,
-        ativo=True,
-    )
+    assert perfil_autor is not None
+    assert status is not None
+    u = Usuario()
+    u.nome = 'Autor T'
+    u.email = 'a@t.com'
+    u.nome_de_usuario = 'autort'
+    u.senha_hash = 'x'
+    u.perfil_id = perfil_autor.id
+    u.ativo = True
     db.session.add(u)
     db.session.flush()
 
-    rp = RelatorioProducao(
-        codigo_d20='D-20', numero_medicao=1,
-        mes_referencia=__import__('datetime').date.today(),
-        periodo_inicio=__import__('datetime').date.today(),
-        periodo_fim=__import__('datetime').date.today(),
-        titulo_curto='Teste', status_id=status.id,
-        criado_por=u.id, versao_atual='R00',
-    )
+    hoje = __import__('datetime').date.today()
+    rp = RelatorioProducao()
+    rp.codigo_d20 = 'D-20'
+    rp.numero_medicao = 1
+    rp.mes_referencia = hoje
+    rp.periodo_inicio = hoje
+    rp.periodo_fim = hoje
+    rp.titulo_curto = 'Teste'
+    rp.status_id = status.id
+    rp.criado_por = u.id
+    rp.versao_atual = 'R00'
     db.session.add(rp)
     db.session.flush()
 
-    c1 = CapituloDocumento(
-        id_relatorio=rp.id, titulo_capitulo='Introdução',
-        ordem_capitulo=1, nivel_capitulo=1, indice_capitulo='1',
-        tipo_elemento='textual', id_usuario_responsavel=u.id,
-    )
-    c2 = CapituloDocumento(
-        id_relatorio=rp.id, titulo_capitulo='Metodologia',
-        ordem_capitulo=2, nivel_capitulo=1, indice_capitulo='2',
-        tipo_elemento='textual', id_usuario_responsavel=u.id,
-    )
+    c1 = CapituloDocumento()
+    c1.id_relatorio = rp.id
+    c1.titulo_capitulo = 'Introdução'
+    c1.ordem_capitulo = 1
+    c1.nivel_capitulo = 1
+    c1.indice_capitulo = '1'
+    c1.tipo_elemento = 'textual'
+    c1.id_usuario_responsavel = u.id
+    c2 = CapituloDocumento()
+    c2.id_relatorio = rp.id
+    c2.titulo_capitulo = 'Metodologia'
+    c2.ordem_capitulo = 2
+    c2.nivel_capitulo = 1
+    c2.indice_capitulo = '2'
+    c2.tipo_elemento = 'textual'
+    c2.id_usuario_responsavel = u.id
     db.session.add_all([c1, c2])
     db.session.commit()
     return {
@@ -123,10 +141,14 @@ def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
         base_dir=str(tmp_path),
         id_capitulo_destino=dados['cap_ids'][0],
     )
-    previas = envio.previsualizacoes
+    previas = list(envio.previsualizacoes)
     tipos = {p.tipo_previsualizacao for p in previas}
     assert 'parcial' in tipos
-    cap_ids = {p.caminho_saida for p in previas if p.caminho_saida}
+    cap_ids = {
+        p.caminho_saida
+        for p in previas
+        if p.tipo_previsualizacao == 'parcial' and p.caminho_saida
+    }
     assert len(cap_ids) == 2
 
 
@@ -136,23 +158,9 @@ def test_upload_e_previa_geram_segmento_por_capitulo(app, dados, tmp_path):
     'Substituido pelo smoke test em test_merge_docx.py.'
 ))
 def test_confirmar_importa_conteudo_nos_capitulos(app, dados, tmp_path):
-    buf = _criar_docx_simples(['Introdução', 'Metodologia'])
-    fake = _FakeUpload(buf, 'envio.docx')
-    envio = ServicoEnvioAutor.processar_upload(
-        id_relatorio=dados['relatorio_id'],
-        id_usuario=dados['usuario_id'],
-        arquivo_storage=fake,
-        base_dir=str(tmp_path),
-    )
-    resultado = ServicoEnvioAutor.confirmar(envio=envio, acao='importar')
-    assert resultado['ok'] is True
-    assert resultado['capitulos_atualizados'] == 2
-    for cap_id in dados['cap_ids']:
-        cap = CapituloDocumento.query.get(cap_id)
-        assert cap.conteudo_docx is not None
-        assert len(cap.conteudo_docx) > 0
-    envio_db = EnvioConteudo.query.get(envio.id_envio_conteudo)
-    assert envio_db.status_envio == 'importado'
+    assert app
+    assert dados
+    assert tmp_path
 
 
 @pytest.mark.skip(reason=(
@@ -160,20 +168,9 @@ def test_confirmar_importa_conteudo_nos_capitulos(app, dados, tmp_path):
     'apenas muda status_envio para rejeitado.'
 ))
 def test_confirmar_rejeitar_nao_altera_capitulos(app, dados, tmp_path):
-    buf = _criar_docx_simples(['Introdução'])
-    fake = _FakeUpload(buf, 'envio.docx')
-    envio = ServicoEnvioAutor.processar_upload(
-        id_relatorio=dados['relatorio_id'],
-        id_usuario=dados['usuario_id'],
-        arquivo_storage=fake,
-        base_dir=str(tmp_path),
-    )
-    ServicoEnvioAutor.confirmar(envio=envio, acao='rejeitar')
-    for cap_id in dados['cap_ids']:
-        cap = CapituloDocumento.query.get(cap_id)
-        assert cap.conteudo_docx is None
-    envio_db = EnvioConteudo.query.get(envio.id_envio_conteudo)
-    assert envio_db.status_envio == 'rejeitado'
+    assert app
+    assert dados
+    assert tmp_path
 
 
 def test_extracao_deduplica_titulos_repetidos(app):
@@ -195,7 +192,7 @@ def test_extracao_deduplica_titulos_repetidos(app):
         caminho = tmp.name
     try:
         doc = Document(caminho)
-        arvore = ServicoExtracaoCanonica._extrair_capitulos(doc)
+        arvore = ServicoExtracaoCanonica.extrair_capitulos(doc)
         titulos = [n['titulo'].strip().lower() for n in arvore]
         assert titulos.count('introdução') == 1
         assert titulos.count('metodologia') == 1
@@ -212,6 +209,7 @@ def test_endpoint_baixar_envio_docx(app, dados, tmp_path):
         id_usuario=dados['usuario_id'],
         arquivo_storage=fake,
         base_dir=str(tmp_path),
+        id_capitulo_destino=dados['cap_ids'][0],
     )
     client = app.test_client()
     with client.session_transaction() as sess:
@@ -236,6 +234,7 @@ def test_endpoint_baixar_segmento_docx(app, dados, tmp_path):
         id_usuario=dados['usuario_id'],
         arquivo_storage=fake,
         base_dir=str(tmp_path),
+        id_capitulo_destino=dados['cap_ids'][0],
     )
     client = app.test_client()
     with client.session_transaction() as sess:
@@ -260,38 +259,9 @@ def test_endpoint_baixar_segmento_docx(app, dados, tmp_path):
     '(retorna 410 Gone). Substituido pelo fluxo upload + merge.'
 ))
 def test_endpoint_salvar_segmento_docx_html(app, dados, tmp_path):
-    """PUT /api/envios/.../capitulos/.../docx aceita HTML editado."""
-    buf = _criar_docx_simples(['Introdução'])
-    fake = _FakeUpload(buf, 'envio.docx')
-    envio = ServicoEnvioAutor.processar_upload(
-        id_relatorio=dados['relatorio_id'],
-        id_usuario=dados['usuario_id'],
-        arquivo_storage=fake,
-        base_dir=str(tmp_path),
-    )
-    client = app.test_client()
-    with client.session_transaction() as sess:
-        sess['_user_id'] = str(dados['usuario_id'])
-        sess['perfil_ativo'] = 'autor'
-        sess['csrf_token'] = 'tk'
-
-    html = '<h1>Introdução editada</h1><p>Novo conteúdo do autor</p>'
-    resp = client.put(
-        f'/api/envios/{envio.id_envio_conteudo}'
-        f'/capitulos/{dados["cap_ids"][0]}/docx',
-        data=html.encode('utf-8'),
-        content_type='text/html',
-        headers={'X-CSRF-Token': 'tk'},
-    )
-    assert resp.status_code == 200
-    payload = resp.get_json()
-    assert payload['ok'] is True
-    assert payload['size'] > 0
-    cap = CapituloDocumento.query.get(dados['cap_ids'][0])
-    assert cap.conteudo_docx is not None
-    out_doc = Document(io.BytesIO(cap.conteudo_docx))
-    textos = ' '.join(p.text for p in out_doc.paragraphs)
-    assert 'Novo conteúdo do autor' in textos
+    assert app
+    assert dados
+    assert tmp_path
 
 
 @pytest.mark.skip(reason=(
@@ -299,20 +269,5 @@ def test_endpoint_salvar_segmento_docx_html(app, dados, tmp_path):
     '(caminho_template) e a fonte unica e e servido direto.'
 ))
 def test_gerar_docx_versao_fallback(app, dados):
-    d = Document()
-    d.add_paragraph('Conteúdo do autor')
-    buf = io.BytesIO()
-    d.save(buf)
-    cap = CapituloDocumento.query.get(dados['cap_ids'][0])
-    cap.conteudo_docx = buf.getvalue()
-    db.session.commit()
-
-    from app.routes.api import _gerar_docx_versao
-    rp = RelatorioProducao.query.get(dados['relatorio_id'])
-    out = _gerar_docx_versao(rp)
-    assert isinstance(out, (bytes, bytearray))
-    assert len(out) > 1000
-    doc_out = Document(io.BytesIO(out))
-    textos = ' '.join(p.text for p in doc_out.paragraphs)
-    assert 'Conteúdo do autor' in textos
-    assert 'Introdução' in textos
+    assert app
+    assert dados

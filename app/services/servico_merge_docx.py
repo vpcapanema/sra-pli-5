@@ -669,7 +669,7 @@ def _substituir_capitulo_interno(
     # `<w:sectPr>` (que continua sendo o último elemento da seção
     # original) — docxcompose insere `body.insert(len(body)-1, …)`.
     # Por segurança, filtramos elementos sectPr da janela apendada.
-    inicio_apendados = n_pre_append
+    inicio_apendados = max(n_pre_append - 1, 0)
     fim_apendados = n_pos_append  # exclusivo
     novos = []
     for k in range(inicio_apendados, fim_apendados):
@@ -690,12 +690,16 @@ def _substituir_capitulo_interno(
     # Coletar referências (lxml.Element) aos elementos a remover
     # ANTES de remover qualquer um — assim a iteração não shifta
     # índices durante o loop.
+    elem_referencia = body[inicio] if preservar_heading else None
     a_remover = [body[k] for k in range(primeiro_remover, fim_remover)]
     for elem in a_remover:
         body.remove(elem)
 
     # Posição final de inserção (após remoção):
-    pos_insercao = (inicio + 1) if preservar_heading else inicio
+    if preservar_heading and elem_referencia is not None:
+        pos_insercao = list(body).index(elem_referencia) + 1
+    else:
+        pos_insercao = min(inicio, len(body))
 
     # Mover os apendados (que estão no fim do body) para a posição
     # correta. Removemos do fim e re-inserimos preservando ordem.
