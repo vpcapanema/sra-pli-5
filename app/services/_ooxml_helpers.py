@@ -32,6 +32,11 @@ XML_SPACE_PRESERVE = (
 # no template e permitir limpeza segura).
 PREFIXO_BOOKMARK = '_Ref_sra_'
 
+# `lxml.etree` expõe estes construtores em runtime, mas alguns analisadores
+# estáticos não conseguem introspectar a extensão nativa.
+_element = getattr(etree, 'Element')
+_sub_element = getattr(etree, 'SubElement')
+
 
 class GeradorIdsBookmark:
     """Contador monotonico para w:id de bookmarks. IDs comecam em
@@ -41,6 +46,7 @@ class GeradorIdsBookmark:
         self._proximo = inicio
 
     def proximo(self) -> int:
+        """Retorna o próximo ID de bookmark disponível."""
         valor = self._proximo
         self._proximo += 1
         return valor
@@ -69,8 +75,8 @@ def criar_run_texto(texto: str, preservar_espaco: bool = True):
     tem espacos significativos.
     """
     w = f'{{{W_NS}}}'
-    r = etree.Element(f'{w}r')
-    t = etree.SubElement(r, f'{w}t')
+    r = _element(f'{w}r')
+    t = _sub_element(r, f'{w}t')
     if preservar_espaco:
         t.set(*XML_SPACE_PRESERVE)
     t.text = texto
@@ -102,34 +108,34 @@ def criar_runs_campo(
     runs = []
 
     # begin
-    r1 = etree.Element(f'{w}r')
-    fld1 = etree.SubElement(r1, f'{w}fldChar')
+    r1 = _element(f'{w}r')
+    fld1 = _sub_element(r1, f'{w}fldChar')
     fld1.set(f'{w}fldCharType', 'begin')
     runs.append(r1)
 
     # instrText
-    r2 = etree.Element(f'{w}r')
-    instr = etree.SubElement(r2, f'{w}instrText')
+    r2 = _element(f'{w}r')
+    instr = _sub_element(r2, f'{w}instrText')
     instr.set(*XML_SPACE_PRESERVE)
     instr.text = instrucao
     runs.append(r2)
 
     # separate
-    r3 = etree.Element(f'{w}r')
-    fld3 = etree.SubElement(r3, f'{w}fldChar')
+    r3 = _element(f'{w}r')
+    fld3 = _sub_element(r3, f'{w}fldChar')
     fld3.set(f'{w}fldCharType', 'separate')
     runs.append(r3)
 
     # cache
-    r4 = etree.Element(f'{w}r')
-    t4 = etree.SubElement(r4, f'{w}t')
+    r4 = _element(f'{w}r')
+    t4 = _sub_element(r4, f'{w}t')
     t4.set(*XML_SPACE_PRESERVE)
     t4.text = cache_resultado
     runs.append(r4)
 
     # end
-    r5 = etree.Element(f'{w}r')
-    fld5 = etree.SubElement(r5, f'{w}fldChar')
+    r5 = _element(f'{w}r')
+    fld5 = _sub_element(r5, f'{w}fldChar')
     fld5.set(f'{w}fldCharType', 'end')
     runs.append(r5)
 
@@ -147,7 +153,7 @@ def criar_runs_campo_seq(
 
 
 def criar_runs_campo_ref(
-    nome_bookmark: str,
+    nome_bm: str,
     cache_resultado: str,
     *,
     hyperlink: bool = True,
@@ -159,7 +165,7 @@ def criar_runs_campo_ref(
     """
     flags = ' \\h' if hyperlink else ''
     return criar_runs_campo(
-        f' REF {nome_bookmark}{flags} ',
+        f' REF {nome_bm}{flags} ',
         cache_resultado,
     )
 
@@ -174,11 +180,11 @@ def criar_bookmark_par(
     w = f'{{{W_NS}}}'
     bm_id = id_gen.proximo()
 
-    bms = etree.Element(f'{w}bookmarkStart')
+    bms = _element(f'{w}bookmarkStart')
     bms.set(f'{w}id', str(bm_id))
     bms.set(f'{w}name', nome_bm)
 
-    bme = etree.Element(f'{w}bookmarkEnd')
+    bme = _element(f'{w}bookmarkEnd')
     bme.set(f'{w}id', str(bm_id))
 
     return bms, bme
@@ -229,12 +235,12 @@ def aplicar_estilo_paragrafo(p_element, estilo: Optional[str]) -> None:
     if not estilo:
         return
     w = f'{{{W_NS}}}'
-    pPr = p_element.find(f'{w}pPr')
-    if pPr is None:
+    p_pr = p_element.find(f'{w}pPr')
+    if p_pr is None:
         # pPr deve ser o PRIMEIRO filho do <w:p>
-        pPr = etree.Element(f'{w}pPr')
-        p_element.insert(0, pPr)
-    pStyle = pPr.find(f'{w}pStyle')
-    if pStyle is None:
-        pStyle = etree.SubElement(pPr, f'{w}pStyle')
-    pStyle.set(f'{w}val', estilo)
+        p_pr = _element(f'{w}pPr')
+        p_element.insert(0, p_pr)
+    p_style = p_pr.find(f'{w}pStyle')
+    if p_style is None:
+        p_style = _sub_element(p_pr, f'{w}pStyle')
+    p_style.set(f'{w}val', estilo)
