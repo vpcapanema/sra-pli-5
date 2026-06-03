@@ -317,7 +317,7 @@ class ServicoEnvioAutor:
         codigo_d20 = rel.codigo_d20 if rel else 'D-?'
 
         dir_sugerido = cls.diretorio_versoes_sugeridas(
-            base_dir, codigo_d20, nome_responsavel
+            base_dir, codigo_d20, nome_responsavel, nome_autor=nome_responsavel
         )
         os.makedirs(dir_sugerido, exist_ok=True)
         nome_sugerido = "conteudo_sugerido.docx"
@@ -543,10 +543,14 @@ class ServicoEnvioAutor:
             id_capitulo_destino=id_capitulo_destino,
         )
 
-        # Obter nome do autor para criar subdiretório
+        # Obter nome do autor responsável pelo capítulo para criar subdiretório
         from app.models.usuario import Usuario
-        autor = Usuario.query.get(id_usuario)
-        nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
+        cap_destino = CapituloDocumento.query.get(id_capitulo_destino) if id_capitulo_destino else None
+        if cap_destino and cap_destino.id_usuario_responsavel:
+            autor = Usuario.query.get(cap_destino.id_usuario_responsavel)
+            nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
+        else:
+            nome_autor = 'autor_desconhecido'
 
         # Obter codigo_d20 do relatorio
         from app.models.relatorio_producao import RelatorioProducao

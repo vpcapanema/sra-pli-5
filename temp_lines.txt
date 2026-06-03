@@ -1,0 +1,11 @@
+545: ''
+546: '        # Obter nome do autor para criar subdiretório'
+547: '        from app.models.usuario import Usuario'
+548: '        autor = Usuario.query.get(id_usuario)'
+549: "        nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'"
+550: ''
+551: '        # Obter codigo_d20 do relatorio'
+552: '        from app.models.relatorio_producao import RelatorioProducao'
+553: '        rel = RelatorioProducao.query.get(id_relatorio)'
+554: '        codigo_relatorio = rel.codigo_d20 if rel else str(id_relatorio)'
+555: ''

@@ -344,7 +344,7 @@
 
                     <div class="ea__upload-meta">
                         <span><strong>Status:</strong> {{ capitulo_selecionado.descricao_status }}</span>
-                        <span><strong>Responsável:</strong> {{ current_user.nome or current_user.email }}</span>
+                        <span><strong>Responsável:</strong> {{ capitulo_selecionado.responsavel.nome or '—' }}</span>
                     </div>
                 </section>
 

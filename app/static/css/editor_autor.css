@@ -958,7 +958,15 @@
     border: 1px solid rgba(15, 23, 42, 0.1);
     border-radius: 14px;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+}
+.ea__preview-pane .ea__docx-mount,
+.ea__preview-pane .ea__editor-mount {
+    flex: 1 1 auto;
+    min-height: 500px;
+    overflow: visible;
 }
 .ea__preview-pane-head {
     align-items: center;

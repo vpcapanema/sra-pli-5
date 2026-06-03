@@ -21,30 +21,30 @@
 
     /* -------- Toolbar do bundle (.z-50) -------- */
     --ea-toolbar-position: sticky;
-    --ea-toolbar-top: 4px;
-    --ea-toolbar-z-index: 9999;
-    --ea-toolbar-bg: #f1f5f9;
-    --ea-toolbar-radius: 12px;
-    --ea-toolbar-min-height: 72px;
-    --ea-toolbar-max-height: 90px;
-    --ea-toolbar-padding: 4px 8px;
-    --ea-toolbar-margin: 0 6px 6px 6px;
-    --ea-toolbar-row-gap: 4px;
-    --ea-toolbar-column-gap: 6px;
-    --ea-toolbar-overflow: hidden;
+    --ea-toolbar-top: 0;
+    --ea-toolbar-z-index: 100;
+    --ea-toolbar-bg: #f8fafc;
+    --ea-toolbar-radius: 10px;
+    --ea-toolbar-min-height: auto;
+    --ea-toolbar-max-height: none;
+    --ea-toolbar-padding: 8px 12px;
+    --ea-toolbar-margin: 0 0 10px 0;
+    --ea-toolbar-row-gap: 6px;
+    --ea-toolbar-column-gap: 8px;
+    --ea-toolbar-overflow: visible;
     --ea-toolbar-display: flex;
     --ea-toolbar-align-items: center;
-    --ea-toolbar-justify-content: flex-start;
+    --ea-toolbar-justify-content: space-between;
     --ea-toolbar-align-content: center;
-    --ea-toolbar-transform-scale: 0.82;
+    --ea-toolbar-transform-scale: 1;
     --ea-toolbar-transform-origin: top left;
-    --ea-toolbar-width: calc(100% - 12px);
-    --ea-toolbar-max-width: calc(100% - 12px);
+    --ea-toolbar-width: 100%;
+    --ea-toolbar-max-width: 100%;
 
     /* -------- Grupos dentro da toolbar -------- */
-    --ea-toolbar-group-flex: 0 1 auto;
+    --ea-toolbar-group-flex: 1 1 auto;
     --ea-toolbar-group-min-width: auto;
-    --ea-toolbar-group-max-width: 48%;
+    --ea-toolbar-group-max-width: none;
     --ea-toolbar-group-margin: 0;
 }
 
@@ -135,4 +135,22 @@ div[id="ea-docxEditorMount"] .docx-editor-container {
     min-width: var(--ea-toolbar-group-min-width) !important;
     max-width: var(--ea-toolbar-group-max-width) !important;
     margin: var(--ea-toolbar-group-margin) !important;
+    justify-content: center !important;
+}
+
+/* Botão Salvar Alterações flutuando no canto direito da toolbar */
+.ea__docx-mount .sra-docx-viewer,
+.ea__editor-mount .sra-docx-viewer {
+    position: relative !important;
+}
+.ea__docx-mount .sra-docx-editor__toolbar,
+.ea__editor-mount .sra-docx-editor__toolbar {
+    position: absolute !important;
+    top: 6px !important;
+    right: 12px !important;
+    z-index: 101 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
 }

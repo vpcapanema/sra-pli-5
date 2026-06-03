@@ -1534,6 +1534,350 @@ details[open] .sra-collapse__header i {
 }
 
 /* ==========================================================================
+   DOCX Editor — toolbar + botoes (usado em previa_envio e viewer)
+   ========================================================================== */
+.btn--primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: var(--sra-color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--sra-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--sra-color-primary-dark);
+}
+.btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--success {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: var(--sra-color-secondary);
+  color: #fff;
+  border: none;
+  border-radius: var(--sra-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn--success:hover:not(:disabled) {
+  background: var(--sra-color-secondary-dark);
+}
+
+.sra-docx-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--sra-color-bg-alt);
+  border: 1px solid var(--sra-color-border);
+  border-radius: var(--sra-radius-md);
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sra-docx-editor__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  background: var(--sra-color-warning-soft);
+  color: var(--sra-color-warning);
+  border-radius: var(--sra-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Toolbar do bundle eigenpal (.z-50) dentro do viewer SRA */
+.sra-docx-viewer .z-50 {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  background: #f1f5f9 !important;
+  border-radius: 10px !important;
+  min-height: auto !important;
+  max-height: none !important;
+  padding: 6px 10px !important;
+  margin: 0 0 10px 0 !important;
+  row-gap: 6px !important;
+  column-gap: 8px !important;
+  overflow: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  align-content: center !important;
+  flex-wrap: wrap !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.sra-docx-viewer .z-50 > * {
+  flex: 0 1 auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+/* Garantir que o container do editor nao quebre layout */
+.sra-docx-editor-mount {
+  min-height: 400px;
+}
+
+/* ==========================================================================
+   Toolbar do bundle — duas linhas equidistribuidas + Salvar na mesma linha
+   ========================================================================== */
+
+/* A toolbar interna (role=toolbar) quebra em 2 linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"],
+.ea__docx-mount .z-50 > [role="toolbar"],
+.ea__editor-mount .z-50 > [role="toolbar"] {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Cada grupo (role=group) ocupa ~50% para formar 2 colunas/linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="group"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="group"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="group"] {
+  flex: 1 1 48% !important;
+  min-width: auto !important;
+  max-width: none !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Separadores verticais (role=separator) - esconder quando quebra */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="separator"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="separator"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="separator"] {
+  display: none !important;
+}
+
+/* Botao Salvar Alteracoes flutuando no canto direito da toolbar */
+.sra-docx-viewer .sra-docx-editor__toolbar,
+.ea__docx-mount .sra-docx-editor__toolbar,
+.ea__editor-mount .sra-docx-editor__toolbar {
+  position: absolute !important;
+  top: 8px !important;
+  right: 16px !important;
+  z-index: 101 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ==========================================================================
+   Toolbar do bundle — duas linhas equidistribuidas + Salvar na mesma linha
+   ========================================================================== */
+
+/* A toolbar interna (role=toolbar) quebra em 2 linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"],
+.ea__docx-mount .z-50 > [role="toolbar"],
+.ea__editor-mount .z-50 > [role="toolbar"] {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Cada grupo (role=group) ocupa ~50% para formar 2 colunas/linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="group"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="group"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="group"] {
+  flex: 1 1 48% !important;
+  min-width: auto !important;
+  max-width: none !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Separadores verticais (role=separator) - esconder quando quebra */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="separator"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="separator"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="separator"] {
+  display: none !important;
+}
+
+/* Botao Salvar Alteracoes flutuando no canto direito da toolbar */
+.sra-docx-viewer .sra-docx-editor__toolbar,
+.ea__docx-mount .sra-docx-editor__toolbar,
+.ea__editor-mount .sra-docx-editor__toolbar {
+  position: absolute !important;
+  top: 8px !important;
+  right: 16px !important;
+  z-index: 101 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ==========================================================================
+   Toolbar do bundle — duas linhas equidistribuidas + Salvar na mesma linha
+   ========================================================================== */
+
+/* A toolbar interna (role=toolbar) quebra em 2 linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"],
+.ea__docx-mount .z-50 > [role="toolbar"],
+.ea__editor-mount .z-50 > [role="toolbar"] {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Cada grupo (role=group) ocupa ~50% para formar 2 colunas/linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="group"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="group"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="group"] {
+  flex: 1 1 48% !important;
+  min-width: auto !important;
+  max-width: none !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Separadores verticais (role=separator) - esconder quando quebra */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="separator"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="separator"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="separator"] {
+  display: none !important;
+}
+
+/* Botao Salvar Alteracoes flutuando no canto direito da toolbar */
+.sra-docx-viewer .sra-docx-editor__toolbar,
+.ea__docx-mount .sra-docx-editor__toolbar,
+.ea__editor-mount .sra-docx-editor__toolbar {
+  position: absolute !important;
+  top: 8px !important;
+  right: 16px !important;
+  z-index: 101 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ==========================================================================
+   Toolbar do bundle — duas linhas equidistribuidas + Salvar na mesma linha
+   ========================================================================== */
+
+/* A toolbar interna (role=toolbar) quebra em 2 linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"],
+.ea__docx-mount .z-50 > [role="toolbar"],
+.ea__editor-mount .z-50 > [role="toolbar"] {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Cada grupo (role=group) ocupa ~50% para formar 2 colunas/linhas */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="group"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="group"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="group"] {
+  flex: 1 1 48% !important;
+  min-width: auto !important;
+  max-width: none !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Separadores verticais (role=separator) - esconder quando quebra */
+.sra-docx-viewer .z-50 > [role="toolbar"] > [role="separator"],
+.ea__docx-mount .z-50 > [role="toolbar"] > [role="separator"],
+.ea__editor-mount .z-50 > [role="toolbar"] > [role="separator"] {
+  display: none !important;
+}
+
+/* Botao Salvar Alteracoes flutuando no canto direito da toolbar */
+.sra-docx-viewer .sra-docx-editor__toolbar,
+.ea__docx-mount .sra-docx-editor__toolbar,
+.ea__editor-mount .sra-docx-editor__toolbar {
+  position: absolute !important;
+  top: 8px !important;
+  right: 16px !important;
+  z-index: 101 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Toolbar do bundle em previa/viewer — grupos equidistribuídos em 2 linhas */
+.sra-docx-viewer {
+  position: relative !important;
+}
+.sra-docx-viewer .z-50 {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+  margin: 0 0 8px 0 !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.sra-docx-viewer .z-50 > div {
+  flex: 1 1 auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  justify-content: center !important;
+}
+
+/* Botão Salvar Alterações posicionado no canto da toolbar */
+.sra-docx-viewer .sra-docx-editor__toolbar {
+  position: absolute !important;
+  top: 6px !important;
+  right: 12px !important;
+  z-index: 101 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ==========================================================================
    Utilitarios de tabela: celula com duas linhas empilhadas
    (ex.: nome do usuario + timestamp)
    ========================================================================== */
