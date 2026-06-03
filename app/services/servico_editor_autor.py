@@ -91,7 +91,7 @@ def obter_contexto_editor_autor(
         try:
             # pylint: disable=protected-access
             caminho_sugerido = (
-                ServicoEnvioAutor._caminho_docx_sugerido(  # type: ignore[attr-defined]
+                ServicoEnvioAutor._caminho_novo_docx_sugerido(  # type: ignore[attr-defined]
                     envio_pendente
                 )
             )

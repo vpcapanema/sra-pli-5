@@ -1,0 +1,138 @@
+/* ============================================================
+   Editor do Autor — Overrides do Bundle DOCX
+   ============================================================
+   Centraliza TODOS os overrides CSS específicos do bundle
+   docx-editor-bundle. Variáveis semânticas + classes do HTML.
+   Carregado DEPOIS do bundle CSS para garantir precedência.
+   ============================================================ */
+
+:root {
+    /* -------- Container de preview/editor -------- */
+    --ea-docx-mount-min-height: 600px;
+    --ea-docx-mount-max-height: 75vh;
+    --ea-docx-mount-padding: 0;
+
+    /* -------- Viewer/editor interno -------- */
+    --ea-docx-viewer-height: auto;
+    --ea-docx-viewer-min-height: auto;
+    --ea-docx-viewer-max-height: none;
+    --ea-docx-viewer-overflow: visible;
+    --ea-docx-viewer-transform-origin: center center;
+
+    /* -------- Toolbar do bundle (.z-50) -------- */
+    --ea-toolbar-position: sticky;
+    --ea-toolbar-top: 4px;
+    --ea-toolbar-z-index: 9999;
+    --ea-toolbar-bg: #f1f5f9;
+    --ea-toolbar-radius: 12px;
+    --ea-toolbar-min-height: 72px;
+    --ea-toolbar-max-height: 90px;
+    --ea-toolbar-padding: 4px 8px;
+    --ea-toolbar-margin: 0 6px 6px 6px;
+    --ea-toolbar-row-gap: 4px;
+    --ea-toolbar-column-gap: 6px;
+    --ea-toolbar-overflow: hidden;
+    --ea-toolbar-display: flex;
+    --ea-toolbar-align-items: center;
+    --ea-toolbar-justify-content: flex-start;
+    --ea-toolbar-align-content: center;
+    --ea-toolbar-transform-scale: 0.82;
+    --ea-toolbar-transform-origin: top left;
+    --ea-toolbar-width: calc(100% - 12px);
+    --ea-toolbar-max-width: calc(100% - 12px);
+
+    /* -------- Grupos dentro da toolbar -------- */
+    --ea-toolbar-group-flex: 0 1 auto;
+    --ea-toolbar-group-min-width: auto;
+    --ea-toolbar-group-max-width: 48%;
+    --ea-toolbar-group-margin: 0;
+}
+
+/* ============================================================
+   Mount points — containers que recebem o bundle
+   ============================================================ */
+
+/* Container principal do editor (modo full) */
+.ea__editor-mount .docx-editor,
+.ea__editor-mount .docx-editor-container,
+div[id="ea-docxEditorMount"] .docx-editor,
+div[id="ea-docxEditorMount"] .docx-editor-container {
+    height: var(--ea-docx-viewer-height) !important;
+    max-height: var(--ea-docx-viewer-max-height) !important;
+    min-height: 560px !important;
+    overflow: var(--ea-docx-viewer-overflow) !important;
+}
+
+/* Containers de preview (mini mounts) */
+.ea__docx-mount,
+.ea__docx-mount--preview,
+.ea__docx-mount--editor {
+    min-height: var(--ea-docx-mount-min-height);
+    max-height: var(--ea-docx-mount-max-height);
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    padding-top: var(--ea-docx-mount-padding);
+    position: relative;
+}
+
+/* ============================================================
+   Viewer / editor interno — sem corte de conteúdo
+   ============================================================ */
+
+.ea__docx-mount .sra-docx-viewer,
+.ea__docx-mount .docx-editor,
+.ea__editor-mount .sra-docx-viewer,
+.ea__editor-mount .docx-editor {
+    margin: 0 auto;
+    width: auto;
+    max-width: 100%;
+    height: var(--ea-docx-viewer-height) !important;
+    min-height: var(--ea-docx-viewer-min-height) !important;
+    max-height: var(--ea-docx-viewer-max-height) !important;
+    overflow: var(--ea-docx-viewer-overflow) !important;
+    transform-origin: var(--ea-docx-viewer-transform-origin) !important;
+}
+
+/* ============================================================
+   Toolbar do bundle (.z-50) — substitui classes utilitárias
+   ============================================================ */
+
+/* Sobrescreve: z-50 flex flex-col gap-0 flex-shrink-0 */
+.ea__docx-mount .z-50,
+.ea__editor-mount .z-50 {
+    position: var(--ea-toolbar-position) !important;
+    top: var(--ea-toolbar-top) !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: var(--ea-toolbar-z-index) !important;
+    background: var(--ea-toolbar-bg) !important;
+    border-radius: var(--ea-toolbar-radius) !important;
+    min-height: var(--ea-toolbar-min-height) !important;
+    max-height: var(--ea-toolbar-max-height) !important;
+    padding: var(--ea-toolbar-padding) !important;
+    margin: var(--ea-toolbar-margin) !important;
+    flex-wrap: wrap !important;
+    row-gap: var(--ea-toolbar-row-gap) !important;
+    column-gap: var(--ea-toolbar-column-gap) !important;
+    overflow: var(--ea-toolbar-overflow) !important;
+    display: var(--ea-toolbar-display) !important;
+    align-items: var(--ea-toolbar-align-items) !important;
+    justify-content: var(--ea-toolbar-justify-content) !important;
+    align-content: var(--ea-toolbar-align-content) !important;
+    transform: scale(var(--ea-toolbar-transform-scale)) !important;
+    transform-origin: var(--ea-toolbar-transform-origin) !important;
+    width: var(--ea-toolbar-width) !important;
+    max-width: var(--ea-toolbar-max-width) !important;
+    box-sizing: border-box !important;
+}
+
+/* Grupos de botões dentro da toolbar — sobrescreve flex-shrink-0 */
+.ea__docx-mount .z-50 > *,
+.ea__editor-mount .z-50 > * {
+    flex: var(--ea-toolbar-group-flex) !important;
+    min-width: var(--ea-toolbar-group-min-width) !important;
+    max-width: var(--ea-toolbar-group-max-width) !important;
+    margin: var(--ea-toolbar-group-margin) !important;
+}

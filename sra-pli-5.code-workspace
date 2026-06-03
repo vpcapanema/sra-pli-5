@@ -13,8 +13,6 @@
 	"settings": {
 	},
 	"extensions": {
-		"recommendations": [
-			"ms-python.vscode-python-envs"
-		]
+		"recommendations": []
 	}
 }

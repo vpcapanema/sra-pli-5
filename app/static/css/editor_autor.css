@@ -1,7 +1,6 @@
 /* ============================================================
    Editor do Autor — layout único e sequencial
    ============================================================ */
-
 :root {
     --ea-color-primary: #1c3d59;
     --ea-color-primary-dark: #152a3f;
@@ -15,7 +14,6 @@
     --ea-shadow: 0 20px 40px rgba(0, 75, 54, 0.08);
     --ea-action-button-width: 220px;
 }
-
 .ea {
     min-height: 100vh;
     background:
@@ -24,7 +22,6 @@
     color: #1f2d2a;
     overflow: visible;
 }
-
 .ea__content {
     width: min(100%, 1720px);
     margin: 0 auto;
@@ -37,7 +34,6 @@
     border-radius: 20px;
     box-shadow: var(--ea-shadow);
 }
-
 /* ============================================================
    Header
    ============================================================ */
@@ -51,7 +47,6 @@
     box-shadow: 0 10px 30px rgba(0, 75, 54, 0.18);
     flex-wrap: wrap;
 }
-
 .ea__back {
     display: inline-flex;
     align-items: center;
@@ -64,40 +59,33 @@
     transition: background 0.15s;
     flex-shrink: 0;
 }
-
 .ea__back:hover {
     background: rgba(255, 255, 255, 0.16);
     color: #fff;
 }
-
 .ea__back i {
     font-size: 1.25rem;
 }
-
 .ea__header-info {
     flex: 1;
     min-width: 220px;
 }
-
 .ea__title {
     margin: 0;
     font-size: 1rem;
     color: #fff;
 }
-
 .ea__subtitle {
     display: block;
     margin-top: 0.15rem;
     font-size: 0.78rem;
     color: rgba(255, 255, 255, 0.86);
 }
-
 .ea__selector {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
-
 .ea__selector-label {
     font-size: 0.78rem;
     color: #fff;
@@ -107,7 +95,6 @@
     gap: 0.25rem;
     white-space: nowrap;
 }
-
 .ea__select {
     padding: 0.45rem 0.65rem;
     border: 1px solid rgba(255, 255, 255, 0.45);
@@ -118,12 +105,10 @@
     min-width: 220px;
     cursor: pointer;
 }
-
 .ea__select:focus {
     outline: 2px solid #d6a419;
     outline-offset: 1px;
 }
-
 /* ============================================================
    Painéis superiores
    ============================================================ */
@@ -134,7 +119,6 @@
     padding: 0 0 0.9rem;
     border-bottom: 1px solid rgba(0, 75, 54, 0.08);
 }
-
 .ea__panel {
     background: rgba(255, 255, 255, 0.97);
     border: 1px solid rgba(0, 75, 54, 0.12);
@@ -142,14 +126,12 @@
     box-shadow: 0 12px 32px rgba(0, 75, 54, 0.10);
     padding: 0.95rem 1rem;
 }
-
 .ea__panel-head {
     display: flex;
     align-items: center;
     gap: 0.8rem;
     margin-bottom: 0.6rem;
 }
-
 .ea__panel-icon {
     width: 42px;
     height: 42px;
@@ -162,25 +144,21 @@
     box-shadow: 0 8px 18px rgba(0, 75, 54, 0.18);
     flex-shrink: 0;
 }
-
 .ea__panel-icon i {
     font-size: 1.35rem;
 }
-
 .ea__panel-title {
     margin: 0;
     color: #004b36;
     font-size: 0.98rem;
     font-weight: 800;
 }
-
 .ea__panel-subtitle,
 .ea__panel-text {
     margin: 0.15rem 0 0;
     color: #52635e;
     font-size: 0.82rem;
 }
-
 /* ============================================================
    Fluxo único
    ============================================================ */
@@ -191,7 +169,6 @@
     padding: 0.9rem 0 0;
     align-items: start;
 }
-
 /* ============================================================
    Sidebar esquerda — comandos
    ============================================================ */
@@ -205,7 +182,6 @@
     border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
 .ea__commands-title {
     margin: 0;
     padding: 0.6rem 0.875rem;
@@ -217,11 +193,9 @@
     align-items: center;
     gap: 0.4rem;
 }
-
 .ea__commands-title i {
     color: var(--ea-color-icon-green);
 }
-
 .ea__acao-grupo {
     display: flex;
     flex-direction: column;
@@ -229,17 +203,14 @@
     padding: 0.75rem 0.875rem;
     border-bottom: 1px solid #eef1f5;
 }
-
 .ea__acao-grupo:last-child {
     border-bottom: none;
 }
-
 .ea__acao-grupo--finalizacao {
     margin-top: auto;
     background: #e7f5ec;
     border-top: 2px solid var(--ea-color-secondary);
 }
-
 .acao-grupo__title {
     margin: 0 0 0.25rem;
     font-size: 0.7rem;
@@ -248,17 +219,14 @@
     color: var(--ea-color-text-muted);
     font-weight: 700;
 }
-
 .acao-grupo__items {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
 }
-
 .acao-form {
     margin: 0;
 }
-
 .acao-btn {
     width: 100%;
     padding: 0.55rem 0.7rem;
@@ -277,50 +245,41 @@
     line-height: 1.3;
     font-family: inherit;
 }
-
 .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
     background: var(--ea-color-primary);
     border-color: var(--ea-color-primary);
     color: #fff;
 }
-
 .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) i {
     color: var(--ea-color-icon-green);
 }
-
 .acao-btn:disabled,
 .acao-btn--disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
-
 .acao-btn i {
     font-size: 1rem;
     flex-shrink: 0;
     color: var(--ea-color-primary);
 }
-
 .acao-btn__label {
     flex: 1;
     line-height: 1.3;
 }
-
 .ea__acao-grupo--finalizacao .acao-btn {
     background: var(--ea-color-secondary);
     color: #fff;
     border-color: var(--ea-color-secondary);
     font-weight: 600;
 }
-
 .ea__acao-grupo--finalizacao .acao-btn i {
     color: #fff;
 }
-
 .ea__acao-grupo--finalizacao .acao-btn:hover:not(:disabled):not(.acao-btn--disabled) {
     background: #1f7b3d;
     border-color: #1f7b3d;
 }
-
 /* ============================================================
    Sidebar direita — capítulos
    ============================================================ */
@@ -334,7 +293,6 @@
     border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
 .ea__capitulos-title {
     margin: 0;
     padding: 0.6rem 0.875rem;
@@ -346,11 +304,9 @@
     align-items: center;
     gap: 0.4rem;
 }
-
 .ea__capitulos-title i {
     color: var(--ea-color-icon-green);
 }
-
 .ea__capitulos-count {
     margin-left: auto;
     background: var(--ea-color-icon-green);
@@ -360,7 +316,6 @@
     font-size: 0.72rem;
     font-weight: 700;
 }
-
 .ea__sidebar-hint {
     margin: 0.25rem 0.75rem 0.75rem;
     padding: 0.5rem 0.75rem;
@@ -372,18 +327,15 @@
     align-items: flex-start;
     gap: 0.5rem;
 }
-
 .ea__sidebar-hint--warning {
     background: #fff4e6;
     color: #b35900;
 }
-
 .ea__sidebar-hint i {
     font-size: 1rem;
     flex-shrink: 0;
     margin-top: 1px;
 }
-
 .ea__capitulos-list {
     flex: 0 0 auto;
     overflow: visible;
@@ -392,7 +344,6 @@
     flex-direction: column;
     gap: 0.35rem;
 }
-
 .ea__cap {
     display: grid;
     grid-template-columns: 28px 1fr auto;
@@ -404,37 +355,30 @@
     background: #f8f9fa;
     transition: background 0.15s;
 }
-
 .ea__cap:hover {
     background: #e9ecef;
 }
-
 .ea__cap--nivel-2 {
     padding-left: 1.2rem;
     font-size: 0.84rem;
 }
-
 .ea__cap--nivel-3 {
     padding-left: 2rem;
     font-size: 0.78rem;
 }
-
 .ea__cap--meu {
     background: #fff9db;
     border-left-color: #f59f00;
 }
-
 .ea__cap--meu:hover {
     background: #fff3bf;
 }
-
 .ea__cap-idx {
     font-size: 0.72rem;
     color: #868e96;
     font-variant-numeric: tabular-nums;
     text-align: center;
 }
-
 .ea__cap-titulo {
     font-size: 0.82rem;
     color: #212529;
@@ -443,7 +387,6 @@
     white-space: normal;
     line-height: 1.2;
 }
-
 .ea__cap-meta {
     display: flex;
     align-items: center;
@@ -451,7 +394,6 @@
     flex-wrap: wrap;
     justify-content: flex-end;
 }
-
 .ea__cap-badge {
     display: inline-flex;
     align-items: center;
@@ -463,16 +405,13 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
-
 .ea__cap-badge--meu {
     background: #f59f00;
     color: #fff;
 }
-
 .ea__cap-badge i {
     font-size: 0.7rem;
 }
-
 .ea__cap-action {
     display: inline-flex;
     align-items: center;
@@ -485,28 +424,23 @@
     text-decoration: none;
     transition: filter 0.15s;
 }
-
 .ea__cap-action:hover {
     filter: brightness(0.9);
 }
-
 .ea__cap-action i {
     font-size: 0.85rem;
 }
-
 .ea__cap-status {
     font-size: 0.65rem;
     color: #868e96;
     text-transform: lowercase;
 }
-
 .ea__cap-empty {
     padding: 1.5rem;
     text-align: center;
     color: #adb5bd;
     font-size: 0.85rem;
 }
-
 /* ============================================================
    Coluna central — viewer
    ============================================================ */
@@ -520,7 +454,6 @@
     border-radius: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
 .ea__viewer-header {
     display: flex;
     align-items: center;
@@ -532,7 +465,6 @@
     border-radius: 14px 14px 0 0;
     gap: 0.75rem;
 }
-
 .ea__viewer-title {
     margin: 0;
     font-size: 0.85rem;
@@ -542,11 +474,9 @@
     align-items: center;
     gap: 0.4rem;
 }
-
 .ea__viewer-title i {
     color: var(--ea-color-icon-green);
 }
-
 .ea__viewer-actions {
     display: flex;
     gap: 0.4rem;
@@ -554,7 +484,6 @@
     justify-content: flex-end;
     margin-left: auto;
 }
-
 .ea__viewer-action {
     padding: 0.35rem 0.65rem;
     background: rgba(255, 255, 255, 0.1);
@@ -570,14 +499,12 @@
     font-weight: 600;
     font-family: inherit;
 }
-
 .ea__viewer-action:hover {
     background: var(--ea-color-icon-green);
     color: var(--ea-color-primary-dark);
     border-color: var(--ea-color-icon-green);
 }
-
-.ea__viewer-mount {
+.ea__editor-mount {
     display: block !important;
     height: auto !important;
     min-height: 0 !important;
@@ -587,22 +514,12 @@
     background: var(--ea-color-bg-alt);
     position: relative;
 }
-
-.ea__viewer-mount > * {
+.ea__editor-mount > * {
     width: 100%;
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
 }
-
-.ea__viewer-mount .docx-editor,
-.ea__viewer-mount .docx-editor-container,
-div[id="ea-docxEditorMount"] {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-}
-
 .ea__viewer-loading,
 .ea__viewer-error {
     display: flex;
@@ -613,11 +530,9 @@ div[id="ea-docxEditorMount"] {
     color: var(--ea-color-text-muted);
     font-size: 0.9rem;
 }
-
 .ea__viewer-error {
     color: #7a1212;
 }
-
 .ea__viewer-hint {
     margin: 0;
     padding: 0.55rem 0.875rem;
@@ -627,7 +542,6 @@ div[id="ea-docxEditorMount"] {
     background: var(--ea-color-bg);
     border-radius: 0 0 14px 14px;
 }
-
 /* ============================================================
    Formulários e botões
    ============================================================ */
@@ -637,11 +551,9 @@ div[id="ea-docxEditorMount"] {
     gap: 0.75rem;
     align-items: stretch;
 }
-
 .ea__assign-form form {
     display: contents;
 }
-
 .ea__buttons-row {
     display: flex;
     gap: 0.75rem;
@@ -649,7 +561,6 @@ div[id="ea-docxEditorMount"] {
     justify-content: flex-start;
     flex-wrap: nowrap;
 }
-
 .ea__buttons-row button {
     flex: 0 0 var(--ea-action-button-width);
     width: var(--ea-action-button-width);
@@ -658,7 +569,6 @@ div[id="ea-docxEditorMount"] {
     font-weight: 800;
     min-height: 42px;
 }
-
 .ea__buttons-row .ea__primary-btn,
 .ea__buttons-row .ea__secondary-btn {
     padding: 0.75rem 1.25rem;
@@ -666,25 +576,21 @@ div[id="ea-docxEditorMount"] {
     font-weight: 800;
     min-height: 42px;
 }
-
 .ea__assign-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, var(--ea-action-button-width)));
     gap: 0.75rem;
     justify-content: flex-start;
 }
-
 .ea__assign-actions form {
     display: block;
     margin: 0;
 }
-
 .ea__assign-actions .ea__primary-btn,
 .ea__assign-actions .ea__secondary-btn {
     width: 100%;
     min-height: 42px;
 }
-
 .ea__primary-btn,
 .ea__secondary-btn {
     display: inline-flex;
@@ -705,24 +611,20 @@ div[id="ea-docxEditorMount"] {
     min-height: 42px;
     transition: all 0.15s;
 }
-
 .ea__secondary-btn {
     background: linear-gradient(135deg, #004b36, #007a55);
     color: #fff;
     border: 0;
     box-shadow: 0 8px 16px rgba(0, 75, 54, 0.18);
 }
-
 .ea__primary-btn:hover:not(:disabled):not(.ea__primary-btn--disabled) {
     transform: translateY(-2px);
     box-shadow: 0 12px 20px rgba(0, 75, 54, 0.25);
 }
-
 .ea__secondary-btn:hover:not(:disabled):not(.ea__secondary-btn--disabled) {
     transform: translateY(-2px);
     box-shadow: 0 12px 20px rgba(0, 75, 54, 0.25);
 }
-
 .ea__primary-btn:disabled,
 .ea__secondary-btn:disabled,
 .ea__primary-btn--disabled,
@@ -734,7 +636,6 @@ div[id="ea-docxEditorMount"] {
     cursor: not-allowed;
     opacity: 1;
 }
-
 /* ============================================================
    Collapse / chips / seleção
    ============================================================ */
@@ -743,7 +644,6 @@ div[id="ea-docxEditorMount"] {
     flex-direction: column;
     gap: 0.5rem;
 }
-
 .ea__collapse-trigger {
     width: 100%;
     padding: 0.65rem 1rem;
@@ -761,33 +661,27 @@ div[id="ea-docxEditorMount"] {
     font-family: inherit;
     min-height: 38px;
 }
-
 .ea__collapse-trigger:hover {
     background: rgba(0, 75, 54, 0.10);
     border-color: rgba(0, 75, 54, 0.24);
 }
-
 .ea__collapse-trigger i {
     font-size: 1rem;
     transition: transform 0.2s;
 }
-
 .ea__collapse-trigger[aria-expanded="true"] i {
     transform: rotate(180deg);
 }
-
 .ea__collapse-panel {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
 }
-
 .ea__chips {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
 }
-
 .ea__chip {
     display: inline-flex;
     align-items: center;
@@ -800,19 +694,16 @@ div[id="ea-docxEditorMount"] {
     text-decoration: none;
     transition: all 0.15s;
 }
-
 .ea__chip--clickable:hover {
     background: #e7f5ff;
     color: #1971c2;
 }
-
 .ea__selected-box {
     padding: 0.75rem;
     background: #f8f9fa;
     border-radius: 8px;
     border: 1px solid #dee2e6;
 }
-
 .ea__selected-box strong {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -821,7 +712,6 @@ div[id="ea-docxEditorMount"] {
     display: block;
     margin-bottom: 0.5rem;
 }
-
 .ea__selected-list {
     list-style: none;
     padding: 0;
@@ -830,7 +720,6 @@ div[id="ea-docxEditorMount"] {
     flex-direction: column;
     gap: 0.3rem;
 }
-
 .ea__selected-list li {
     padding: 0.4rem 0.6rem;
     background: #fff;
@@ -839,17 +728,14 @@ div[id="ea-docxEditorMount"] {
     font-size: 0.8rem;
     color: #495057;
 }
-
 .ea__selected-empty {
     color: #adb5bd;
     font-style: italic;
 }
-
 .ea__single-picker {
     display: block;
     width: 100%;
 }
-
 .ea__single-picker--assigned {
     padding: 0.65rem;
     background: linear-gradient(135deg, rgba(42, 148, 80, 0.13), rgba(214, 164, 25, 0.12));
@@ -857,11 +743,9 @@ div[id="ea-docxEditorMount"] {
     border-radius: 12px;
     box-shadow: 0 8px 18px rgba(42, 148, 80, 0.10);
 }
-
 .ea__single-picker--assigned .ea__field-label {
     color: #004b36;
 }
-
 .ea__single-picker--assigned .ea__single-select:disabled {
     border-color: rgba(42, 148, 80, 0.42);
     background: #f6fbf7;
@@ -870,7 +754,6 @@ div[id="ea-docxEditorMount"] {
     opacity: 1;
     -webkit-text-fill-color: #14352c;
 }
-
 .ea__field-label {
     display: block;
     margin-bottom: 0.35rem;
@@ -878,7 +761,6 @@ div[id="ea-docxEditorMount"] {
     font-size: 0.82rem;
     font-weight: 800;
 }
-
 .ea__single-select {
     width: 100%;
     min-height: 38px;
@@ -889,7 +771,6 @@ div[id="ea-docxEditorMount"] {
     padding: 0.45rem 0.6rem;
     font-size: 0.82rem;
 }
-
 /* ============================================================
    Upload inline — seção "Envio de conteúdo"
    ============================================================ */
@@ -898,13 +779,11 @@ div[id="ea-docxEditorMount"] {
     flex-direction: column;
     gap: 0.9rem;
 }
-
 .ea__upload-stack {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
 }
-
 .ea__upload-card {
     padding: 0.95rem 1rem;
     background: #fff;
@@ -912,11 +791,9 @@ div[id="ea-docxEditorMount"] {
     border-radius: 14px;
     box-shadow: 0 10px 24px rgba(0, 75, 54, 0.08);
 }
-
 .ea__upload-card--status {
     background: linear-gradient(180deg, #f8fcf8 0%, #f3faf5 100%);
 }
-
 .ea__upload-card-head {
     display: flex;
     align-items: flex-start;
@@ -924,7 +801,6 @@ div[id="ea-docxEditorMount"] {
     gap: 0.75rem;
     margin-bottom: 0.65rem;
 }
-
 .ea__upload-kicker {
     margin: 0 0 0.15rem;
     font-size: 0.7rem;
@@ -933,7 +809,6 @@ div[id="ea-docxEditorMount"] {
     color: #6b7d76;
     font-weight: 800;
 }
-
 .ea__upload-title {
     margin: 0;
     font-size: 0.95rem;
@@ -941,19 +816,16 @@ div[id="ea-docxEditorMount"] {
     color: #12362d;
     font-weight: 800;
 }
-
 .ea__upload-badges {
     display: inline-flex;
     gap: 0.35rem;
     flex-wrap: wrap;
     justify-content: flex-end;
 }
-
 .ea__cap-badge--coord {
     background: #1c3d59;
     color: #fff;
 }
-
 .ea__upload-meta,
 .ea__upload-status {
     display: grid;
@@ -961,30 +833,25 @@ div[id="ea-docxEditorMount"] {
     font-size: 0.82rem;
     color: #4f5d6e;
 }
-
 .ea__upload-meta strong,
 .ea__upload-status strong {
     color: #12362d;
 }
-
 .ea__upload-form {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
 }
-
 .ea__upload-field {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
 }
-
 .ea__upload-label {
     font-size: 0.82rem;
     font-weight: 700;
     color: #12362d;
 }
-
 .ea__upload-input {
     width: 100%;
     padding: 0.62rem 0.7rem;
@@ -994,7 +861,6 @@ div[id="ea-docxEditorMount"] {
     color: #14352c;
     font-size: 0.84rem;
 }
-
 .ea__upload-input::file-selector-button {
     margin-right: 0.7rem;
     padding: 0.55rem 0.8rem;
@@ -1005,14 +871,12 @@ div[id="ea-docxEditorMount"] {
     font-weight: 800;
     cursor: pointer;
 }
-
 .ea__upload-help {
     margin: 0;
     font-size: 0.76rem;
     line-height: 1.35;
     color: #5c6d67;
 }
-
 .ea__upload-actions {
     display: flex;
     gap: 0.75rem;
@@ -1020,25 +884,21 @@ div[id="ea-docxEditorMount"] {
     align-items: center;
     justify-content: flex-start;
 }
-
 .ea__upload-actions form,
 .ea__upload-actions a,
 .ea__upload-actions button {
     margin: 0;
 }
-
 .ea__upload-actions form,
 .ea__upload-actions .ea__primary-btn,
 .ea__upload-actions .ea__secondary-btn {
     flex: 0 0 var(--ea-action-button-width);
     width: var(--ea-action-button-width);
 }
-
 .ea__upload-actions form .ea__primary-btn,
 .ea__upload-actions form .ea__secondary-btn {
     width: 100%;
 }
-
 .ea__upload-empty {
     display: flex;
     flex-direction: column;
@@ -1053,12 +913,10 @@ div[id="ea-docxEditorMount"] {
     border: 1px dashed rgba(0, 75, 54, 0.18);
     border-radius: 14px;
 }
-
 .ea__upload-empty i {
     font-size: 1.7rem;
     color: #d6a419;
 }
-
 /* ============================================================
    Misc
    ============================================================ */
@@ -1069,7 +927,6 @@ div[id="ea-docxEditorMount"] {
     min-width: 48px;
     text-align: center;
 }
-
 .ea__preview-workbench {
     background: #fff;
     border: 1px solid rgba(15, 23, 42, 0.12);
@@ -1078,7 +935,6 @@ div[id="ea-docxEditorMount"] {
     padding: 1rem;
     box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
 }
-
 .ea__preview-head,
 .ea__preview-actions,
 .ea__modal-actions {
@@ -1087,27 +943,23 @@ div[id="ea-docxEditorMount"] {
     gap: 0.75rem;
     justify-content: space-between;
 }
-
 .ea__preview-title {
     color: #172033;
     font-size: 1rem;
     margin: 0.2rem 0 0;
 }
-
 .ea__preview-grid {
     display: grid;
     gap: 1rem;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     margin-top: 1rem;
 }
-
 .ea__preview-pane {
     border: 1px solid rgba(15, 23, 42, 0.1);
     border-radius: 14px;
     min-width: 0;
     overflow: hidden;
 }
-
 .ea__preview-pane-head {
     align-items: center;
     background: #f7f9fc;
@@ -1117,13 +969,11 @@ div[id="ea-docxEditorMount"] {
     justify-content: space-between;
     padding: 0.65rem 0.75rem;
 }
-
 .ea__preview-pane h3 {
     color: #172033;
     font-size: 0.9rem;
     margin: 0;
 }
-
 .ea__mini-controls {
     align-items: center;
     background: #eaf0f8;
@@ -1133,7 +983,6 @@ div[id="ea-docxEditorMount"] {
     gap: 0.25rem;
     padding: 0.25rem;
 }
-
 .ea__mini-controls button {
     align-items: center;
     background: #fff;
@@ -1146,12 +995,10 @@ div[id="ea-docxEditorMount"] {
     justify-content: center;
     width: 28px;
 }
-
 .ea__mini-controls button:hover {
     background: #dbeafe;
     color: #0f4a8a;
 }
-
 .ea__mini-controls span {
     color: #172033;
     font-size: 0.78rem;
@@ -1159,28 +1006,6 @@ div[id="ea-docxEditorMount"] {
     min-width: 42px;
     text-align: center;
 }
-
-.ea__docx-mini-mount {
-    height: 560px;
-    overflow: auto;
-}
-
-#ea-upload-sugerido-mount .z-50.flex.flex-col.gap-0.flex-shrink-0 {
-    background: linear-gradient(135deg, #f8fafc 0%, #eef5ff 100%) !important;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.12) !important;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
-    flex-wrap: wrap !important;
-    gap: 0.35rem !important;
-    overflow-x: hidden !important;
-    padding: 0.45rem 0.6rem !important;
-}
-
-#ea-upload-sugerido-mount .z-50.flex.flex-col.gap-0.flex-shrink-0 > * {
-    flex-wrap: wrap !important;
-    max-width: 100% !important;
-    row-gap: 0.35rem !important;
-}
-
 .ea__diagnostico {
     background: #f8fafc;
     border: 1px solid rgba(15, 23, 42, 0.1);
@@ -1188,14 +1013,12 @@ div[id="ea-docxEditorMount"] {
     margin: 1rem 0;
     padding: 1rem;
 }
-
 .ea__diag-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
     margin: 0.75rem 0;
 }
-
 .ea__diag-json {
     background: #0f172a;
     border-radius: 10px;
@@ -1205,7 +1028,6 @@ div[id="ea-docxEditorMount"] {
     padding: 0.75rem;
     white-space: pre-wrap;
 }
-
 /* Seletor de biblioteca de formatacao */
 .ea__biblioteca-bar {
     align-items: center;
@@ -1215,10 +1037,8 @@ div[id="ea-docxEditorMount"] {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
     padding: 0.5rem 0.75rem;
 }
-
 .ea__biblioteca-label {
     align-items: center;
     color: #1f2d44;
@@ -1227,7 +1047,6 @@ div[id="ea-docxEditorMount"] {
     font-weight: 600;
     gap: 0.35rem;
 }
-
 .ea__biblioteca-select {
     background: #fff;
     border: 1px solid #c3d3e8;
@@ -1238,20 +1057,16 @@ div[id="ea-docxEditorMount"] {
     min-width: 180px;
     padding: 0.35rem 0.5rem;
 }
-
 .ea__biblioteca-select:disabled {
     opacity: 0.6;
 }
-
 .ea__biblioteca-status {
     color: #5b6b80;
     font-size: 0.78rem;
 }
-
 .ea__biblioteca-status--loading { color: #1d4ed8; }
 .ea__biblioteca-status--ok { color: #15803d; }
 .ea__biblioteca-status--erro { color: #b91c1c; }
-
 /* Diagnostico amigavel */
 .ea__diag-head {
     align-items: center;
@@ -1261,7 +1076,6 @@ div[id="ea-docxEditorMount"] {
     justify-content: space-between;
     margin-bottom: 0.5rem;
 }
-
 .ea__diag-title {
     align-items: center;
     color: #0f1e3d;
@@ -1270,7 +1084,6 @@ div[id="ea-docxEditorMount"] {
     font-weight: 700;
     gap: 0.4rem;
 }
-
 .ea__diag-badge {
     align-items: center;
     border-radius: 999px;
@@ -1280,10 +1093,8 @@ div[id="ea-docxEditorMount"] {
     gap: 0.35rem;
     padding: 0.25rem 0.7rem;
 }
-
 .ea__diag-badge--canon { background: #dcfce7; color: #166534; }
 .ea__diag-badge--default { background: #fef3c7; color: #92400e; }
-
 .ea__diag-note {
     align-items: center;
     background: #fff7ed;
@@ -1296,14 +1107,12 @@ div[id="ea-docxEditorMount"] {
     margin: 0.25rem 0 0.6rem;
     padding: 0.5rem 0.7rem;
 }
-
 .ea__diag-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
     margin-bottom: 0.75rem;
 }
-
 .ea__diag-chip {
     background: #eef2f7;
     border-radius: 999px;
@@ -1311,26 +1120,21 @@ div[id="ea-docxEditorMount"] {
     font-size: 0.78rem;
     padding: 0.2rem 0.65rem;
 }
-
 .ea__diag-chip--ok { background: #dcfce7; color: #166534; }
 .ea__diag-chip--warn { background: #fef3c7; color: #92400e; }
 .ea__diag-chip--muted { background: #eef2f7; color: #64748b; }
-
 .ea__diag-cols {
     display: grid;
     gap: 0.6rem;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
-
 .ea__diag-card {
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 0.6rem 0.75rem;
 }
-
 .ea__diag-card--ok { background: #f0fdf4; border-color: #bbf7d0; }
 .ea__diag-card--warn { background: #fffbeb; border-color: #fde68a; }
-
 .ea__diag-card h4 {
     align-items: center;
     display: flex;
@@ -1338,28 +1142,23 @@ div[id="ea-docxEditorMount"] {
     gap: 0.35rem;
     margin: 0 0 0.4rem;
 }
-
 .ea__diag-card ul {
     margin: 0;
     padding-left: 1.1rem;
 }
-
 .ea__diag-card li {
     font-size: 0.8rem;
     line-height: 1.5;
 }
-
 .ea__diag-details {
     margin-top: 0.6rem;
 }
-
 .ea__diag-details summary {
     color: #1d4ed8;
     cursor: pointer;
     font-size: 0.8rem;
     font-weight: 600;
 }
-
 .ea__diag-list {
     list-style: none;
     margin: 0.5rem 0 0;
@@ -1367,13 +1166,11 @@ div[id="ea-docxEditorMount"] {
     overflow: auto;
     padding: 0;
 }
-
 .ea__diag-list li {
     border-bottom: 1px dashed #e2e8f0;
     font-size: 0.78rem;
     padding: 0.3rem 0;
 }
-
 .ea__diag-nivel {
     background: #dbeafe;
     border-radius: 6px;
@@ -1382,12 +1179,10 @@ div[id="ea-docxEditorMount"] {
     margin-right: 0.35rem;
     padding: 0.05rem 0.35rem;
 }
-
 .ea__diag-meta {
     color: #64748b;
     font-size: 0.72rem;
 }
-
 .ea__modal {
     align-items: center;
     background: rgba(15, 23, 42, 0.72);
@@ -1397,11 +1192,9 @@ div[id="ea-docxEditorMount"] {
     position: fixed;
     z-index: 1000;
 }
-
 .ea__modal[hidden] {
     display: none;
 }
-
 .ea__modal-card {
     background: #fff;
     border-radius: 18px;
@@ -1411,7 +1204,6 @@ div[id="ea-docxEditorMount"] {
     padding: 1rem;
     width: min(94vw, 1180px);
 }
-
 .ea__modal-head {
     align-items: center;
     border-bottom: 1px solid rgba(15, 23, 42, 0.1);
@@ -1419,21 +1211,18 @@ div[id="ea-docxEditorMount"] {
     justify-content: space-between;
     margin-bottom: 1rem;
 }
-
 .ea__modal-close {
     background: transparent;
     border: 0;
     cursor: pointer;
     font-size: 1.8rem;
 }
-
 .ea__modal-preview {
     border: 1px solid rgba(15, 23, 42, 0.1);
     border-radius: 14px;
     height: 620px;
     overflow: auto;
 }
-
 /* ============================================================
    Responsividade
    ============================================================ */
@@ -1441,49 +1230,90 @@ div[id="ea-docxEditorMount"] {
     .ea__body {
         grid-template-columns: 1fr;
     }
-
     .ea__commands,
     .ea__viewer,
     .ea__capitulos {
         width: 100%;
     }
 }
-
 @media (max-width: 980px) {
     .ea__content {
         padding: 0.75rem;
         border-radius: 16px;
     }
-
     .ea__header {
         padding: 0.8rem;
     }
-
     .ea__selector {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
     }
-
     .ea__select {
         min-width: 0;
         width: 100%;
     }
-
     .ea__body {
         gap: 0.75rem;
     }
-
     .ea__assign-form,
     .ea__assign-form--buttons {
         flex-wrap: wrap;
     }
-
     .ea__upload-form {
         grid-template-columns: 1fr;
     }
-
     .ea__upload-actions {
         flex-wrap: wrap;
     }
+}
+/* ============================================================
+   Preview columns + DOCX viewer layout (bundle controls zoom/margins)
+   ============================================================ */
+.ea__preview-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.ea__preview-column .ea__preview-path {
+    font-size: 0.78rem;
+    color: #4f5d6e;
+    margin: 0 0 0.4rem;
+    padding: 0 0.25rem;
+}
+.ea__preview-column .ea__preview-path-label {
+    font-weight: 600;
+    color: #12362d;
+}
+/* Biblioteca compacta no pane-head */
+.ea__biblioteca-bar--compact {
+    padding: 0.3rem 0.5rem;
+    gap: 0.3rem;
+}
+.ea__biblioteca-bar--compact .ea__biblioteca-select {
+    flex: 0 1 auto;
+    min-width: 90px;
+    max-width: 140px;
+    font-size: 0.76rem;
+    padding: 0.2rem 0.35rem;
+}
+/* ============================================================
+   Pane-head com biblioteca integrada (removido - agora usa toolbar fixa)
+   ============================================================ */
+/* ============================================================
+   Botões internos — conteúdo não ultrapassa bordas
+   ============================================================ */
+.ea__mini-controls button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.ea__mini-controls button i {
+    font-size: 0.85rem;
+    flex-shrink: 0;
 }

@@ -22,6 +22,8 @@
 {% block head %}
 <link rel="stylesheet"
       href="{{ url_for('static', filename='js/docx-editor-bundle.css') }}">
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/editor_autor_bundle.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/editor_autor.css') }}">
 {% endblock %}
 
@@ -417,62 +419,55 @@
             </span>
         </div>
 
-        <div class="ea__preview-paths">
-            <div class="ea__preview-path">
-                <span class="ea__preview-path-label">Upload:</span>
-                <code>{{ caminhos_relativos.upload or '—' }}</code>
-            </div>
-            <div class="ea__preview-path">
-                <span class="ea__preview-path-label">Sugerido:</span>
-                <code>{{ caminhos_relativos.sugerido or '—' }}</code>
-            </div>
-        </div>
-
         <div class="ea__preview-grid">
-            <article class="ea__preview-pane">
-                <div class="ea__preview-pane-head">
-                    <h3>Conteúdo upado</h3>
-                    <div class="ea__mini-controls" data-preview-controls="original">
-                        <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
-                        <span data-zoom-value>100%</span>
-                        <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
-                        <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
-                        <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
-                    </div>
-                </div>
-                <p class="ea__preview-file-path">
-                    <span class="ea__preview-file-path-label">Arquivo:</span>
+            <div class="ea__preview-column">
+                <p class="ea__preview-path">
+                    <span class="ea__preview-path-label">Upload:</span>
                     <code>{{ caminhos_relativos.upload or '—' }}</code>
                 </p>
-                <div class="ea__docx-mini-mount" id="ea-upload-original-mount"></div>
-            </article>
-            <article class="ea__preview-pane">
-                <div class="ea__preview-pane-head">
-                    <h3>Conteúdo sugerido/editável</h3>
-                    <div class="ea__mini-controls" data-preview-controls="sugerido">
-                        <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
-                        <span data-zoom-value>100%</span>
-                        <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
-                        <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
-                        <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
+                <article class="ea__preview-pane">
+                    <div class="ea__preview-pane-head">
+                        <h3>Conteúdo upado</h3>
+                        <div class="ea__mini-controls" data-preview-controls="original">
+                            <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
+                            <span data-zoom-value>Auto</span>
+                            <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
+                            <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
+                            <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
+                        </div>
                     </div>
-                </div>
-                <p class="ea__preview-file-path">
-                    <span class="ea__preview-file-path-label">Arquivo:</span>
+                    <div class="ea__docx-mount ea__docx-mount--preview" id="ea-upload-original-mount"></div>
+                </article>
+            </div>
+            <div class="ea__preview-column">
+                <p class="ea__preview-path">
+                    <span class="ea__preview-path-label">Sugerido:</span>
                     <code>{{ caminhos_relativos.sugerido or '—' }}</code>
                 </p>
-                <div class="ea__biblioteca-bar">
-                    <label class="ea__biblioteca-label" for="ea-sel-biblioteca">
-                        <i class="ph ph-paint-brush-broad"></i>
-                        Biblioteca de formatação
-                    </label>
-                    <select id="ea-sel-biblioteca" class="ea__biblioteca-select">
-                        <option value="">Padrão do sistema</option>
-                    </select>
-                    <span class="ea__biblioteca-status" id="ea-biblioteca-status"></span>
-                </div>
-                <div class="ea__docx-mini-mount" id="ea-upload-sugerido-mount"></div>
-            </article>
+                <article class="ea__preview-pane">
+                    <div class="ea__preview-pane-head">
+                        <h3>Conteúdo sugerido/editável</h3>
+                        <div class="ea__mini-controls" data-preview-controls="sugerido">
+                            <button type="button" data-zoom="out" title="Diminuir zoom"><i class="ph ph-minus"></i></button>
+                            <span data-zoom-value>Auto</span>
+                            <button type="button" data-zoom="in" title="Aumentar zoom"><i class="ph ph-plus"></i></button>
+                            <button type="button" data-zoom="reset" title="Restaurar zoom"><i class="ph ph-arrows-counter-clockwise"></i></button>
+                            <button type="button" data-reload title="Recarregar arquivo"><i class="ph ph-arrow-clockwise"></i></button>
+                        </div>
+                        <div class="ea__biblioteca-bar ea__biblioteca-bar--compact">
+                            <label class="ea__biblioteca-label" for="ea-sel-biblioteca">
+                                <i class="ph ph-paint-brush-broad"></i>
+                                Biblioteca
+                            </label>
+                            <select id="ea-sel-biblioteca" class="ea__biblioteca-select">
+                                <option value="">Padrão</option>
+                            </select>
+                            <span class="ea__biblioteca-status" id="ea-biblioteca-status"></span>
+                        </div>
+                    </div>
+                    <div class="ea__docx-mount ea__docx-mount--editor" id="ea-upload-sugerido-mount"></div>
+                </article>
+            </div>
         </div>
 
         <div class="ea__diagnostico" id="ea-preview-diagnostico">
@@ -603,7 +598,7 @@
                 </div>
             </div>
 
-            <div class="ea__viewer-mount" id="ea-docxEditorMount">
+            <div class="ea__editor-mount" id="ea-docxEditorMount">
                 <div class="ea__viewer-loading">
                     <i class="ph ph-spinner ph-spin"></i>
                     Carregando editor...

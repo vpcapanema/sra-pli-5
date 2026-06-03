@@ -200,12 +200,16 @@ class ServicoEnvioAutor:
         return base
 
     @staticmethod
-    def diretorio_versoes_sugeridas(base_dir, nome_responsavel, nome_autor=None):
-        """Diretório das versões sugeridas: storage/versao_sugerida/{responsavel}/{autor}/.
+    def diretorio_versoes_sugeridas(base_dir, codigo_d20, nome_responsavel, nome_autor=None):
+        """Diretório das versões sugeridas:
+        storage/versao_sugerida/{codigo_d20}/{responsavel}/{autor}/.
 
-        Se nome_autor for None, retorna storage/versao_sugerida/{responsavel}/.
+        Se nome_autor for None, retorna
+        storage/versao_sugerida/{codigo_d20}/{responsavel}/.
         """
-        base = os.path.join(base_dir, "storage", "versao_sugerida", str(nome_responsavel))
+        base = os.path.join(
+            base_dir, "storage", "versao_sugerida", str(codigo_d20), str(nome_responsavel)
+        )
         if nome_autor:
             return os.path.join(base, nome_autor)
         return base
@@ -293,15 +297,13 @@ class ServicoEnvioAutor:
         """Monta caminho com vínculo explícito ao upload correspondente."""
         base_dir = os.path.dirname(
             os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(envio.caminho_arquivo)))
+                os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(envio.caminho_arquivo)))
+                )
             )
         )
-        # Obter nome do autor para criar subdiretório
-        from app.models.usuario import Usuario
-        autor = Usuario.query.get(envio.id_usuario)
-        nome_autor = autor.nome.replace(' ', '_').lower() if autor else 'autor_desconhecido'
-
         # Obter nome do responsavel pelo capitulo destino
+        from app.models.usuario import Usuario  # noqa: C0415
         cap = CapituloDocumento.query.get(envio.id_capitulo_destino)
         if cap and cap.id_usuario_responsavel:
             resp = Usuario.query.get(cap.id_usuario_responsavel)
@@ -309,7 +311,14 @@ class ServicoEnvioAutor:
         else:
             nome_responsavel = 'sem_responsavel'
 
-        dir_sugerido = cls.diretorio_versoes_sugeridas(base_dir, nome_responsavel, nome_autor)
+        # Obter codigo_d20 do relatorio
+        from app.models.relatorio_producao import RelatorioProducao
+        rel = RelatorioProducao.query.get(envio.id_relatorio)
+        codigo_d20 = rel.codigo_d20 if rel else 'D-?'
+
+        dir_sugerido = cls.diretorio_versoes_sugeridas(
+            base_dir, codigo_d20, nome_responsavel
+        )
         os.makedirs(dir_sugerido, exist_ok=True)
         nome_sugerido = "conteudo_sugerido.docx"
         return os.path.join(dir_sugerido, nome_sugerido)

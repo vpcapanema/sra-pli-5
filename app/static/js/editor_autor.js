@@ -422,10 +422,22 @@
     }
 
     var previewHandles = {};
-    var previewZoom = { original: 100, sugerido: 100 };
+    var previewZoom = { original: 'auto', sugerido: 'auto' };
 
     function previewUrl(url) {
         return url + (url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+    }
+
+    function calcularZoomAutomatico(mountId) {
+        var mount = document.getElementById(mountId);
+        if (!mount) return 1;
+        var viewer = mount.querySelector('.sra-docx-viewer') || mount.querySelector('.docx-editor');
+        if (!viewer) return 1;
+        var containerWidth = mount.clientWidth;
+        var viewerWidth = viewer.offsetWidth || 794; // A4 width em px (210mm approx)
+        if (viewerWidth === 0) return 1;
+        var zoom = Math.min(1, (containerWidth - 40) / viewerWidth);
+        return Math.max(0.5, zoom);
     }
 
     function montarPreviewDocx(tipo, forceReload) {
@@ -451,10 +463,16 @@
             saveUrl: tipo === 'sugerido' ? workbench.dataset.saveUrl : null,
             csrfToken: csrfToken(),
             mode: tipo === 'sugerido' ? 'editing' : 'viewing',
+            showMarginGuides: true,
+            showRuler: true,
+            rulerUnit: 'cm',
         });
+        // Aplicar zoom automático após o bundle montar
         setTimeout(function () {
-            aplicarZoomPreview(tipo, previewZoom[tipo]);
-        }, 500);
+            var zoom = calcularZoomAutomatico(mountId);
+            previewZoom[tipo] = zoom;
+            aplicarZoomPreview(tipo, zoom);
+        }, 800);
     }
 
     function montarPreviewUpload() {
@@ -468,6 +486,17 @@
         carregarDiagnosticoPreview(workbench.dataset.diagnosticoUrl);
         configurarModalImportar(workbench.dataset.sugeridoUrl);
         configurarSeletorBiblioteca(workbench);
+        // Listener de resize para zoom automático responsivo
+        window.addEventListener('resize', function () {
+            if (previewZoom.original === 'auto') {
+                var zoomOrig = calcularZoomAutomatico('ea-upload-original-mount');
+                aplicarZoomPreview('original', zoomOrig);
+            }
+            if (previewZoom.sugerido === 'auto') {
+                var zoomSug = calcularZoomAutomatico('ea-upload-sugerido-mount');
+                aplicarZoomPreview('sugerido', zoomSug);
+            }
+        });
     }
 
     function configurarSeletorBiblioteca(workbench) {
@@ -535,7 +564,7 @@
         if (atual) sel.value = atual;
     }
 
-    function aplicarZoomPreview(tipo, percent) {
+    function aplicarZoomPreview(tipo, zoom) {
         var mountId = tipo === 'original'
             ? 'ea-upload-original-mount'
             : 'ea-upload-sugerido-mount';
@@ -545,26 +574,43 @@
             || mount.querySelector('.docx-editor')
             || mount.firstElementChild;
         if (!alvo) return;
-        alvo.style.transform = 'scale(' + (percent / 100) + ')';
-        alvo.style.transformOrigin = 'top center';
-        alvo.style.width = percent === 100 ? '' : (10000 / percent) + '%';
+        // zoom pode ser decimal (0.5-1.0) ou porcentagem (50-100)
+        var scale = zoom > 1 ? zoom / 100 : zoom;
+        alvo.style.transform = 'scale(' + scale + ')';
+        alvo.style.transformOrigin = 'center center';
+        alvo.style.width = scale === 1 ? '' : (100 / scale) + '%';
     }
 
     function configurarControlesPreview() {
         document.querySelectorAll('[data-preview-controls]').forEach(function (box) {
             var tipo = box.getAttribute('data-preview-controls');
             var value = box.querySelector('[data-zoom-value]');
+            var mountId = tipo === 'original'
+                ? 'ea-upload-original-mount'
+                : 'ea-upload-sugerido-mount';
             function setZoom(percent) {
                 previewZoom[tipo] = Math.max(50, Math.min(200, percent));
                 if (value) value.textContent = previewZoom[tipo] + '%';
                 aplicarZoomPreview(tipo, previewZoom[tipo]);
             }
+            function setZoomAuto() {
+                var zoom = calcularZoomAutomatico(mountId);
+                previewZoom[tipo] = zoom;
+                if (value) value.textContent = 'Auto';
+                aplicarZoomPreview(tipo, zoom);
+            }
             box.querySelectorAll('[data-zoom]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     var acao = btn.getAttribute('data-zoom');
-                    if (acao === 'out') setZoom(previewZoom[tipo] - 10);
-                    if (acao === 'in') setZoom(previewZoom[tipo] + 10);
-                    if (acao === 'reset') setZoom(100);
+                    if (acao === 'out') {
+                        var current = previewZoom[tipo] === 'auto' ? calcularZoomAutomatico(mountId) * 100 : previewZoom[tipo];
+                        setZoom(current - 10);
+                    }
+                    if (acao === 'in') {
+                        var current = previewZoom[tipo] === 'auto' ? calcularZoomAutomatico(mountId) * 100 : previewZoom[tipo];
+                        setZoom(current + 10);
+                    }
+                    if (acao === 'reset') setZoomAuto();
                 });
             });
             var reload = box.querySelector('[data-reload]');
